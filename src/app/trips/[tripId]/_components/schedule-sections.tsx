@@ -1,6 +1,7 @@
 // 1화면의 A안·B안. 화면 구조(영역과 순서)만 02-FRONTEND.md 3절을 따르고 꾸밈은 최소로 둔다.
 // 항목은 groupItems로 영역별로 나눈 것을 받는다. 통화별 합계와 1인당 금액은 v0.8(R-09)에서 더한다.
 
+import { formatAmount, summarizeCosts } from "@/lib/cost/summary";
 import { formatCost, type Item } from "@/lib/items/types";
 import type { GroupedItems } from "@/lib/items/group";
 import type { TripDay } from "@/lib/trips/days";
@@ -33,17 +34,40 @@ function ItemList({ items, empty, days, compact }: { items: Item[]; empty: strin
   );
 }
 
-function CostList({ items }: { items: Item[] }) {
+// 쓴 돈: 항목별 금액, 통화별 합계와 1인당 금액 (R-09)
+function CostList({ items, companions }: { items: Item[]; companions: number }) {
   if (items.length === 0) return <p className={EMPTY}>비용이 있는 항목이 없습니다.</p>;
+  const totals = summarizeCosts(items, companions);
   return (
-    <ul className="flex flex-col gap-1 text-sm">
-      {items.map((item) => (
-        <li key={item.id} className="flex justify-between gap-2">
-          <span className="truncate">{item.name}</span>
-          <span className="shrink-0 tabular-nums">{formatCost(item.cost_amount, item.cost_currency)}</span>
-        </li>
-      ))}
-    </ul>
+    <div className="flex flex-col gap-3 text-sm">
+      <ul className="flex flex-col gap-1">
+        {items.map((item) => (
+          <li key={item.id} className="flex justify-between gap-2">
+            <span className="truncate">{item.name}</span>
+            <span className="shrink-0 tabular-nums">{formatCost(item.cost_amount, item.cost_currency)}</span>
+          </li>
+        ))}
+      </ul>
+      <table aria-label="통화별 합계" className="w-full border-t border-zinc-200 pt-2 dark:border-zinc-800">
+        <thead>
+          <tr className="text-xs text-zinc-500 dark:text-zinc-400">
+            <th className="pt-2 text-left font-normal">통화</th>
+            <th className="pt-2 text-right font-normal">합계</th>
+            <th className="pt-2 text-right font-normal">1인당 ({companions}명)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {totals.map((t) => (
+            <tr key={t.currency} className="font-medium">
+              <td className="py-0.5">{t.currency}</td>
+              <td className="py-0.5 text-right tabular-nums">{formatAmount(t.total, t.currency)}</td>
+              <td className="py-0.5 text-right tabular-nums">{formatAmount(t.perPerson, t.currency)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {totals.length > 1 && <p className="text-xs text-zinc-500 dark:text-zinc-400">통화가 달라 따로 합계를 냈습니다. 환율 계산은 하지 않습니다.</p>}
+    </div>
   );
 }
 
@@ -96,7 +120,7 @@ export function ScheduleA({ trip, grouped, count, dayOptions }: Props) {
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-2 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
             <p className="font-medium">쓴 돈</p>
-            <CostList items={grouped.costs} />
+            <CostList items={grouped.costs} companions={trip.companions} />
           </div>
           <div className="flex flex-col gap-2">
             <p className="font-medium">쪽지</p>
@@ -138,7 +162,7 @@ export function ScheduleB({ trip, grouped, count, dayOptions }: Props) {
 
       <footer className="flex flex-col gap-2 border-t border-dashed border-zinc-300 pt-4 dark:border-zinc-700">
         <p className="font-medium">쓴 돈</p>
-        <CostList items={grouped.costs} />
+        <CostList items={grouped.costs} companions={trip.companions} />
         <p className="font-medium">쪽지</p>
         <ItemList items={grouped.memos} empty="없음" days={dayOptions} compact />
       </footer>
