@@ -86,4 +86,25 @@
 
 ## 5. 컴포넌트
 
-사이클별 계획 단계에서 채운다.
+| 컴포넌트 | 파일 | 역할 | 단계 |
+|---|---|---|---|
+| `AppHeader` | `src/app/_components/app-header.tsx` | 공통 머리글(이메일, 로그아웃) | v0.3 |
+| `NewTripForm` | `src/app/_components/new-trip-form.tsx` | 새 여행 만들기 | v0.3 |
+| `TripRow` | `src/app/_components/trip-row.tsx` | 목록의 여행 하나(열기, 이름 수정, 삭제) | v0.3 |
+| `ViewSwitch` | `src/app/trips/[tripId]/_components/view-switch.tsx` | 매거진(1화면) / 지도(2화면) 전환. 주소의 `?view=map`으로 구분 | v0.4 |
+| `ScheduleView` | `.../_components/schedule-view.tsx` | 1화면. 형식 고르기(크게 / 종이)와 A안·B안 표시 | v0.4 |
+| `ScheduleA`, `ScheduleB` | `.../_components/schedule-sections.tsx` | A안·B안의 영역 구조(3-1, 3-2절) | v0.4 |
+| `useScheduleFormat` | `.../_components/use-schedule-format.ts` | 형식 결정. 고른 형식이 없으면 화면 폭 768px 이상은 A안, 미만은 B안 | v0.4 |
+| `InputPanel` | `.../_components/input-panel.tsx` | 버튼으로 여닫는 채팅 모양 입력창 | v0.4 |
+
+### 5-1. 형식 고르기 (v0.4)
+
+- 고른 형식은 그 브라우저의 `localStorage`(`stepmap:schedule-format`)에 저장한다. 다른 기기에는 따라가지 않는다.
+- 저장소를 쓸 수 없으면 그 페이지에서만 기억하고, 다시 열면 화면 폭 기준 기본값으로 돌아간다.
+
+### 5-2. 입력창 (v0.4)
+
+- 오른쪽 아래 "＋ 입력" 버튼으로 연다. PC는 오른쪽 옆 창, 모바일은 아래에서 올라오는 창이다.
+- 닫기: 같은 버튼(PC), 창의 ✕ 버튼, Esc 키. 닫으면 포커스가 입력 버튼으로 돌아간다.
+- 보내기는 v0.5(직접 입력), v0.6(붙여넣기 추출)에서 연결한다.
+- 대표 이미지와 장소 사진은 출처가 정해질 때까지 빈 자리로 둔다(`open-questions.md`).

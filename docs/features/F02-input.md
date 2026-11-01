@@ -46,4 +46,18 @@
 
 ## 8. 층별 설계
 
-C2 계획 단계에서 `02-FRONTEND.md`, `03-BACKEND.md`, `04-DB.md`의 해당 부분과 함께 채운다.
+### 8-1. R-03 버튼으로 여는 입력창 (v0.4)
+
+| 층 | 파일 | 내용 |
+|---|---|---|
+| 화면 | `src/app/trips/[tripId]/page.tsx` | 여행 상세. 매거진/지도 전환, 1화면, 입력창 |
+| 화면 | `.../_components/input-panel.tsx` | 입력창. 열고 닫기, Esc, 포커스 이동 (`02-FRONTEND.md` 5-2절) |
+| 화면 | `.../_components/schedule-view.tsx`, `schedule-sections.tsx` | 1화면 A안·B안 구조. 항목 자리는 빈 상태로 둔다. |
+| 공통 | `src/lib/trips/days.ts` | 여행 기간으로 DAY 1~N 목록을 만든다(최대 60일). 날짜가 없으면 DAY 1 하나 |
+| 공통 | `src/lib/trips/schedule-format.ts` | 형식 기본값 규칙(PC A안, 모바일 B안) |
+
+- 서버·DB 변경 없음.
+
+### 8-2. R-05 직접 입력·수정 (v0.5)
+
+v0.5 계획 단계에서 채운다.
