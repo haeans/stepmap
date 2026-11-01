@@ -30,7 +30,7 @@
 
 ## 기술 스택
 
-Next.js · Vercel Hobby · Supabase Free(PostgreSQL) · Supabase Auth(구글 로그인) · Supabase RLS · Drizzle · Google Maps · Claude API(쓸 수 없으면 Gemini)
+Next.js · Vercel Hobby · Supabase Free(PostgreSQL) · Supabase Auth(구글 로그인) · Supabase RLS · Drizzle · Google Maps · Gemini API(Claude API는 무료 플랜이 없어 대체)
 
 선택 이유는 [docs/STACK.md](docs/STACK.md)에 있다.
 

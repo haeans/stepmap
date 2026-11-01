@@ -17,6 +17,8 @@ API 경로, 로그인·권한 확인, 외부 API(Claude·Gemini·구글맵) 호�
 | `createItem(tripId)` | 서버 액션 | 항목 넣기. 좌표 찾기 후 저장 | v0.5 |
 | `updateItem(itemId, tripId)` | 서버 액션 | 항목 고치기. 이름·주소·종류가 바뀌었을 때만 좌표를 다시 찾는다. | v0.5 |
 | `deleteItem(itemId, tripId)` | 서버 액션 | 항목 지우기 | v0.5 |
+| `extractItems(tripId, text)` | 서버 액션 | 원문에서 항목 추출. 저장하지 않고 미리보기 항목만 돌려준다. | v0.6 |
+| `saveExtractedItems(tripId, form)` | 서버 액션 | 미리보기에서 고른 항목 저장. 좌표 찾기 후 `source = ai` | v0.6 |
 
 - 데이터를 쓰는 서버 액션은 입력값만 검사한다. 누가 무엇을 고칠 수 있는지는 RLS가 정한다. RLS에 막히면 바뀐 행이 0개이므로 실패로 처리한다.
 
@@ -40,6 +42,15 @@ API 경로, 로그인·권한 확인, 외부 API(Claude·Gemini·구글맵) 호�
 - **원문 처리**: 붙여넣은 원문은 저장하지 않고 추출 결과만 저장한다. "다시 추출하기"는 하지 않는다.
 - **초과 방지**: 원문 길이 제한, 사용량 확인, 키는 서버 쪽에만 둔다.
 - **주의**: Gemini 무료 등급은 입력 내용이 서비스 개선에 쓰일 수 있다 [가정]. 예시 원문은 개인정보를 가린 것으로만 쓴다.
+- 구현(v0.6, `src/lib/extract/`)
+  - Claude API는 무료 플랜이 없어 Gemini로 한다(B14). `@google/genai`의 `interactions.create`로 부르고, zod 스키마를 JSON 스키마로 바꿔 `response_format`에 넘긴다. 받은 JSON은 같은 zod 스키마로 다시 검사한다.
+  - 모델(B19): `gemini-3.5-flash-lite`를 먼저 부르고, 429·503으로 거절되면 `gemini-3.1-flash-lite`를 한 번 부른다. 한도는 모델마다 따로 센다.
+  - 스키마에는 숫자 범위·배열 길이 제한을 넣지 않는다. Gemini가 "too many states"로 거절한다. 일차 범위(1~60)와 항목 수(30개)는 `normalize.ts`에서 맞춘다.
+  - 호출 줄이기(B17): 같은 모델로 재시도하지 않는다(`maxRetries: 0`, 60초 제한). 출력 8,192토큰, `thinking_level: "low"`, `store: false`.
+  - 보내기 전에 개인정보 모양의 값을 가린다(`mask.ts`, B18).
+  - 지시문에 여행 목적지, 시작일·종료일, 일차 수를 넣는다. 원문은 사용자 메시지로 따로 넘기고, 원문 속 지시는 따르지 않도록 한다.
+  - 결과는 `normalize.ts`에서 다시 다듬고, 저장 때는 직접 입력과 같은 검사(`validation.ts`)를 거친다.
+  - 키: `GEMINI_API_KEY`(서버 전용). 키가 없거나 호출이 실패하면 "추출하지 못했다"는 안내만 보여 준다.
 
 ## 4. 구글맵 호출 (R-04, R-05, R-06)
 

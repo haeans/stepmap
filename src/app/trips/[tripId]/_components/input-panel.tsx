@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createItem } from "@/app/actions/items";
 import type { TripDay } from "@/lib/trips/days";
 import { ItemForm } from "./item-form";
+import { PasteExtract } from "./paste-extract";
 
 type Mode = "manual" | "paste";
 
@@ -13,7 +14,7 @@ const TABS: { mode: Mode; label: string }[] = [
 ];
 
 // R-03: 평소에는 닫혀 있고 버튼을 누르면 열리는 채팅 모양 입력창.
-// 직접 입력(R-05)은 v0.5, 붙여넣기 추출(R-04)은 v0.6에서 연결한다.
+// 붙여넣기 추출(R-04)과 직접 입력(R-05)을 탭으로 고른다.
 export function InputPanel({ tripId, days }: { tripId: string; days: TripDay[] }) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<Mode>("manual");
@@ -42,8 +43,11 @@ export function InputPanel({ tripId, days }: { tripId: string; days: TripDay[] }
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [open]);
 
-  const onSaved = useCallback((name: string) => {
+  const onItemSaved = useCallback((name: string) => {
     setMessages((m) => [...m, `"${name}" 항목을 저장했습니다.`]);
+  }, []);
+  const onSaved = useCallback((message: string) => {
+    setMessages((m) => [...m, message]);
   }, []);
 
   return (
@@ -83,7 +87,7 @@ export function InputPanel({ tripId, days }: { tripId: string; days: TripDay[] }
             <p className="max-w-[85%] self-start rounded-2xl rounded-tl-sm bg-zinc-100 px-4 py-2 text-sm dark:bg-zinc-900">
               {mode === "manual"
                 ? "항목 하나를 직접 입력하세요. 주소를 비워 두면 이름과 여행 목적지로 위치를 찾습니다."
-                : "티켓, 예약 메일, 메모를 붙여넣으세요."}
+                : "티켓, 예약 메일, 메모를 붙여넣으세요. 뽑은 항목은 미리보기에서 확인하고 저장합니다."}
             </p>
             {messages.map((m, i) => (
               <p key={i} role="status" className="max-w-[85%] self-end rounded-2xl rounded-tr-sm bg-zinc-900 px-4 py-2 text-sm text-white dark:bg-zinc-100 dark:text-zinc-900">
@@ -91,23 +95,9 @@ export function InputPanel({ tripId, days }: { tripId: string; days: TripDay[] }
               </p>
             ))}
             {mode === "manual" ? (
-              <ItemForm action={createItem.bind(null, tripId)} days={days} submitLabel="저장" onSaved={onSaved} />
+              <ItemForm action={createItem.bind(null, tripId)} days={days} submitLabel="저장" onSaved={onItemSaved} />
             ) : (
-              <form className="mt-auto flex flex-col gap-2" onSubmit={(e) => e.preventDefault()}>
-                <textarea
-                  name="text"
-                  rows={6}
-                  aria-label="붙여넣을 내용"
-                  placeholder="여기에 붙여넣기"
-                  className="resize-none rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-                />
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs text-zinc-500">자동 추출은 다음 단계에서 연결됩니다.</p>
-                  <button type="submit" disabled className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900">
-                    보내기
-                  </button>
-                </div>
-              </form>
+              <PasteExtract tripId={tripId} days={days} onSaved={onSaved} />
             )}
           </div>
         </section>
