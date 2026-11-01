@@ -1,5 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { MAX_DAYS, tripDays } from "./days";
+import { dayChoices, MAX_DAYS, tripDays } from "./days";
+
+describe("dayChoices", () => {
+  it("날짜가 있으면 여행 일차 그대로", () => {
+    const days = tripDays("2026-12-01", "2026-12-02");
+    expect(dayChoices(days, true)).toEqual(days);
+  });
+
+  it("날짜가 없으면 10일차까지", () => {
+    const choices = dayChoices([{ day: 1, date: null }], false);
+    expect(choices.map((d) => d.day)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  });
+});
 
 describe("tripDays", () => {
   it("시작일부터 종료일까지 일차를 만든다", () => {

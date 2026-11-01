@@ -1,5 +1,6 @@
 "use client";
 
+import type { GroupedItems } from "@/lib/items/group";
 import type { TripDay } from "@/lib/trips/days";
 import type { ScheduleFormat } from "@/lib/trips/schedule-format";
 import type { Trip } from "@/lib/trips/types";
@@ -11,7 +12,9 @@ const FORMATS: { value: ScheduleFormat; label: string }[] = [
   { value: "b", label: "종이" },
 ];
 
-export function ScheduleView({ trip, days }: { trip: Trip; days: TripDay[] }) {
+type Props = { trip: Trip; grouped: GroupedItems; count: number; dayOptions: TripDay[] };
+
+export function ScheduleView(props: Props) {
   const [format, setFormat] = useScheduleFormat();
 
   return (
@@ -30,8 +33,8 @@ export function ScheduleView({ trip, days }: { trip: Trip; days: TripDay[] }) {
           </button>
         ))}
       </div>
-      {format === "a" && <ScheduleA trip={trip} days={days} />}
-      {format === "b" && <ScheduleB trip={trip} days={days} />}
+      {format === "a" && <ScheduleA {...props} />}
+      {format === "b" && <ScheduleB {...props} />}
     </div>
   );
 }

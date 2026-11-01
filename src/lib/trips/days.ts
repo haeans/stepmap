@@ -10,6 +10,14 @@ function addDays(isoDate: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+// 항목을 넣을 때 고를 수 있는 일차. 날짜가 없는 여행은 최소 10일까지 고를 수 있게 한다.
+export function dayChoices(days: TripDay[], hasDates: boolean): TripDay[] {
+  if (hasDates) return days;
+  const choices = [...days];
+  for (let d = choices.length + 1; d <= 10; d++) choices.push({ day: d, date: null });
+  return choices;
+}
+
 export function tripDays(startDate: string | null, endDate: string | null): TripDay[] {
   if (!startDate) return [{ day: 1, date: null }];
   const end = endDate && endDate >= startDate ? endDate : startDate;
