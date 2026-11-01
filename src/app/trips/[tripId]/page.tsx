@@ -4,16 +4,20 @@ import { AppHeader } from "@/app/_components/app-header";
 import { requireUser } from "@/lib/auth/user";
 import { groupItems } from "@/lib/items/group";
 import { ITEM_COLUMNS, type Item } from "@/lib/items/types";
+import { mapPlaces } from "@/lib/map/places";
+import { dayRoute } from "@/lib/map/routes";
 import { createClient } from "@/lib/supabase/server";
 import { dayChoices, tripDays } from "@/lib/trips/days";
 import { TRIP_COLUMNS, type Trip } from "@/lib/trips/types";
 import { InputPanel } from "./_components/input-panel";
+import { MapView } from "./_components/map-view";
 import { ScheduleView } from "./_components/schedule-view";
 import { parseTripView, ViewSwitch } from "./_components/view-switch";
 
 export default async function TripPage({ params, searchParams }: PageProps<"/trips/[tripId]">) {
   const { tripId } = await params;
-  const view = parseTripView((await searchParams).view);
+  const query = await searchParams;
+  const view = parseTripView(query.view);
   const user = await requireUser();
   const supabase = await createClient();
   // 볼 권한이 없는 여행은 RLS 때문에 결과가 비어 있다.
@@ -39,12 +43,18 @@ export default async function TripPage({ params, searchParams }: PageProps<"/tri
       {view === "schedule" ? (
         <ScheduleView trip={trip} grouped={grouped} count={items?.length ?? 0} dayOptions={choices} />
       ) : (
-        // 2화면(지도)은 v0.7(R-06)에서 만든다.
-        <section aria-label="지도" className="flex aspect-video items-center justify-center rounded-lg bg-zinc-100 text-zinc-500 dark:bg-zinc-900">
-          지도가 들어갈 자리입니다.
-        </section>
+        <TripMap items={items ?? []} days={grouped.days.map((d) => d.day.day)} itemId={typeof query.item === "string" ? query.item : null} />
       )}
       <InputPanel tripId={trip.id} days={choices} />
     </main>
   );
+}
+
+// 2화면(지도). 일차별 경로는 서버에서 구한다(캐시, B21).
+async function TripMap({ items, days, itemId }: { items: Item[]; days: number[]; itemId: string | null }) {
+  const { places, missing } = mapPlaces(items);
+  const routes = Object.fromEntries(
+    await Promise.all(days.map(async (day) => [day, await dayRoute(places.filter((p) => p.day === day))] as const)),
+  );
+  return <MapView places={places} routes={routes} days={days} missing={missing} initialId={itemId} />;
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
 import { deleteItem, updateItem } from "@/app/actions/items";
 import { GEOCODED_KINDS, formatCost, formatTime, ITEM_KIND_LABELS, type Item } from "@/lib/items/types";
@@ -24,13 +25,21 @@ export function ItemCard({ item, days, compact = false }: Props) {
 
   const cost = formatCost(item.cost_amount, item.cost_currency);
   const missingPlace = GEOCODED_KINDS.includes(item.kind) && item.lat === null;
+  const onMap = GEOCODED_KINDS.includes(item.kind) && item.lat !== null;
   const meta = [formatTime(item.time), ITEM_KIND_LABELS[item.kind], cost].filter(Boolean).join(" · ");
 
   return (
     <div className={compact ? "flex flex-col gap-0.5 py-1" : "flex flex-col gap-1 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800"}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="font-medium break-words">{item.name}</p>
+          {onMap ? (
+            // R-07: 1화면에서 장소를 누르면 지도로 넘어가 그 핀을 고른다.
+            <Link href={`/trips/${item.trip_id}?view=map&item=${item.id}`} className="font-medium break-words hover:underline" title="지도에서 보기">
+              {item.name}
+            </Link>
+          ) : (
+            <p className="font-medium break-words">{item.name}</p>
+          )}
           <p className="text-xs text-zinc-500 dark:text-zinc-400">{meta}</p>
         </div>
         <div className="flex shrink-0 gap-1 text-xs">
