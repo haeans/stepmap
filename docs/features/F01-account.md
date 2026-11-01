@@ -61,7 +61,7 @@
 | 서버 | `src/lib/auth/user.ts` | `requireUser()`. 화면마다 로그인 여부를 다시 확인한다. |
 | 공통 | `src/lib/auth/redirect.ts` | 공개 경로(`/login`, `/auth/callback`), 돌아갈 경로 검사(사이트 안 경로만 허용) |
 
-- 개발용 로그인(B3): `src/lib/auth/dev-login.ts`, `src/app/login/dev-login/`. v1.0에서 이 두 곳을 지우고, 로그인 화면의 `DevLoginButtons` 한 줄을 뺀다.
+- 개발용 로그인(B3, B27): `src/lib/auth/dev-login.ts`, `src/app/login/dev-login/`. 로컬 개발(`npm run dev` + `DEV_LOGIN=true`)에서만 켜지고 배포본에서는 꺼진다. v1.0 이후 다듬기·확장 때도 계속 쓴다.
 - DB: 이 단계에서는 테이블이 없다. 사용자는 Supabase Auth가 관리한다.
 
 ### 7-2. R-02 여행 목록 (v0.3)

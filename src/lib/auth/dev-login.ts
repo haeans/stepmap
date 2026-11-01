@@ -1,4 +1,4 @@
-// 개발용 로그인 (decisions.md B3). v1.0에서 이 파일과 src/app/login/dev-login 폴더를 삭제한다.
+// 개발용 로그인 (decisions.md B3, B27). v1.0 이후에도 로컬 개발·다듬기·확장용으로 둔다.
 
 export type DevRole = "owner" | "viewer";
 

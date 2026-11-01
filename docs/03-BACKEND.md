@@ -10,7 +10,7 @@ API 경로, 로그인·권한 확인, 외부 API(Claude·Gemini·구글맵) 호�
 |---|---|---|---|
 | `GET /auth/callback` | 라우트 핸들러 | 구글 로그인 코드를 세션으로 바꾸고 `next`로 보낸다. | v0.2 |
 | `signOut` | 서버 액션 | 로그아웃 후 `/login` | v0.2 |
-| `devLogin(role, next)` | 서버 액션 | 개발용 로그인. 개발 모드이면서 `DEV_LOGIN=true`일 때만 동작. v1.0에서 삭제 | v0.2 |
+| `devLogin(role, next)` | 서버 액션 | 개발용 로그인. 개발 모드이면서 `DEV_LOGIN=true`일 때만 동작. 로컬 개발 전용으로 계속 둔다(B27). | v0.2 |
 | `createTrip` | 서버 액션 | 여행 만들기 후 `/trips/{id}`로 이동 | v0.3 |
 | `renameTrip(tripId)` | 서버 액션 | 여행 이름 수정 | v0.3 |
 | `deleteTrip(tripId)` | 서버 액션 | 여행 삭제 | v0.3 |
