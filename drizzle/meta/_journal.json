@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1793499347654,
+      "tag": "0000_trips",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793499352628,
+      "tag": "0001_trips_grants",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793499784205,
+      "tag": "0002_trips_revoke",
+      "breakpoints": true
+    }
+  ]
+}

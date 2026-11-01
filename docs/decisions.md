@@ -49,6 +49,8 @@
 | B5 | 2026-11-01 | 진행 | GitHub 저장소는 `haeans/stepmap`이다. (P2 완료) |
 | B6 | 2026-11-01 | DB | Supabase 설정: Data API 켬, 새 테이블 자동 공개 끔, 자동 RLS 켬. 테이블 권한은 마이그레이션에서 `authenticated`에만 준다. |
 | B7 | 2026-11-01 | 로그인 | 로그인 확인은 두 곳에서 한다. `proxy`는 로그인하지 않은 요청을 `/login`으로 보내고, 화면은 `requireUser()`로 다시 확인한다. 데이터 권한은 RLS가 막는다. |
+| B8 | 2026-11-01 | DB | 테이블마다 `anon`의 모든 권한과 `authenticated`의 TRUNCATE·REFERENCES·TRIGGER를 회수한다. TRUNCATE는 RLS를 거치지 않기 때문이다. |
+| B9 | 2026-11-01 | DB | 마이그레이션 접속 주소(`DATABASE_URL`)는 Supabase Session pooler 주소를 쓴다. Direct connection은 IPv6 전용이라 접속되지 않는 환경이 있다. |
 
 ## 결정이 아닌 항목
 

@@ -66,4 +66,16 @@
 
 ### 7-2. R-02 여행 목록 (v0.3)
 
-v0.3 계획 단계에서 채운다.
+| 층 | 파일 | 내용 |
+|---|---|---|
+| 화면 | `src/app/page.tsx` | "내 여행" 목록(최근 만든 순), 새 여행 만들기 |
+| 화면 | `src/app/_components/new-trip-form.tsx` | 이름(필수), 목적지, 시작일·종료일, 동행 인원(기본 1). 만들면 그 여행 상세로 간다. |
+| 화면 | `src/app/_components/trip-row.tsx` | 여행 하나. 이름 누르면 상세로, 이름 수정(그 자리에서), 삭제(확인 창) |
+| 화면 | `src/app/trips/[tripId]/page.tsx` | 여행 상세. 볼 수 없는 여행은 404. 1화면은 v0.4에서 채운다. |
+| 화면 | `src/app/_components/app-header.tsx` | 공통 머리글(이메일, 로그아웃) |
+| 서버 | `src/app/actions/trips.ts` | `createTrip`, `renameTrip`, `deleteTrip`. 입력값만 검사하고 소유자 확인은 RLS가 한다. 바뀐 행이 없으면 실패로 본다. |
+| 공통 | `src/lib/trips/validation.ts` | 입력값 검사. DB의 CHECK 제약과 같은 규칙 |
+| DB | `src/db/schema.ts`, `drizzle/0000~0002` | `trips` 테이블, RLS 정책 4개, 권한, `updated_at` 트리거 (`04-DB.md` 8절) |
+
+- 공유받은 여행을 목록에 섞는 것은 v0.9(R-08)에서 한다.
+- 여행을 지우면 그 여행의 항목과 공유 정보도 함께 지운다: 각 테이블을 만들 때(v0.5, v0.9) `trips`를 `on delete cascade`로 참조한다.

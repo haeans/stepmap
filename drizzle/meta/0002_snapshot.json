@@ -1,0 +1,178 @@
+{
+  "id": "92a254f6-ec36-43a2-a8ec-990c0cbc2cdf",
+  "prevId": "8c5da63c-8693-4886-ad5c-f185419d7d1d",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.trips": {
+      "name": "trips",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "auth.uid()"
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "destination": {
+          "name": "destination",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "start_date": {
+          "name": "start_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "end_date": {
+          "name": "end_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "companions": {
+          "name": "companions",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "trips_owner_id_idx": {
+          "name": "trips_owner_id_idx",
+          "columns": [
+            {
+              "expression": "owner_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "trips_owner_id_users_id_fk": {
+          "name": "trips_owner_id_users_id_fk",
+          "tableFrom": "trips",
+          "columnsFrom": [
+            "owner_id"
+          ],
+          "tableTo": "users",
+          "schemaTo": "auth",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "trips_select_owner": {
+          "name": "trips_select_owner",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"trips\".\"owner_id\" = (select auth.uid())"
+        },
+        "trips_insert_owner": {
+          "name": "trips_insert_owner",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated"
+          ],
+          "withCheck": "\"trips\".\"owner_id\" = (select auth.uid())"
+        },
+        "trips_update_owner": {
+          "name": "trips_update_owner",
+          "as": "PERMISSIVE",
+          "for": "UPDATE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"trips\".\"owner_id\" = (select auth.uid())",
+          "withCheck": "\"trips\".\"owner_id\" = (select auth.uid())"
+        },
+        "trips_delete_owner": {
+          "name": "trips_delete_owner",
+          "as": "PERMISSIVE",
+          "for": "DELETE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"trips\".\"owner_id\" = (select auth.uid())"
+        }
+      },
+      "checkConstraints": {
+        "trips_title_length": {
+          "name": "trips_title_length",
+          "value": "char_length(\"trips\".\"title\") between 1 and 100"
+        },
+        "trips_destination_length": {
+          "name": "trips_destination_length",
+          "value": "char_length(\"trips\".\"destination\") <= 100"
+        },
+        "trips_companions_range": {
+          "name": "trips_companions_range",
+          "value": "\"trips\".\"companions\" between 1 and 99"
+        },
+        "trips_date_order": {
+          "name": "trips_date_order",
+          "value": "\"trips\".\"end_date\" is null or \"trips\".\"start_date\" is null or \"trips\".\"end_date\" >= \"trips\".\"start_date\""
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "views": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

@@ -11,6 +11,11 @@ API 경로, 로그인·권한 확인, 외부 API(Claude·Gemini·구글맵) 호�
 | `GET /auth/callback` | 라우트 핸들러 | 구글 로그인 코드를 세션으로 바꾸고 `next`로 보낸다. | v0.2 |
 | `signOut` | 서버 액션 | 로그아웃 후 `/login` | v0.2 |
 | `devLogin(role, next)` | 서버 액션 | 개발용 로그인. 개발 모드이면서 `DEV_LOGIN=true`일 때만 동작. v1.0에서 삭제 | v0.2 |
+| `createTrip` | 서버 액션 | 여행 만들기 후 `/trips/{id}`로 이동 | v0.3 |
+| `renameTrip(tripId)` | 서버 액션 | 여행 이름 수정 | v0.3 |
+| `deleteTrip(tripId)` | 서버 액션 | 여행 삭제 | v0.3 |
+
+- 데이터를 쓰는 서버 액션은 입력값만 검사한다. 누가 무엇을 고칠 수 있는지는 RLS가 정한다. RLS에 막히면 바뀐 행이 0개이므로 실패로 처리한다.
 
 - 로그인 없이 열 수 있는 경로는 `/login`, `/auth/callback`뿐이다. 나머지는 `src/proxy.ts`가 `/login?next=원래 경로`로 보낸다.
 - `next`는 사이트 안의 경로만 허용한다. 외부 주소면 `/`로 바꾼다.
