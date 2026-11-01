@@ -48,4 +48,22 @@
 
 ## 7. 층별 설계
 
-C1 계획 단계에서 `02-FRONTEND.md`, `03-BACKEND.md`, `04-DB.md`의 해당 부분과 함께 채운다.
+### 7-1. R-01 구글 로그인 (v0.2)
+
+| 층 | 파일 | 내용 |
+|---|---|---|
+| 화면 | `src/app/login/page.tsx` | 로그인 화면. 이미 로그인했으면 `next`로 보낸다. |
+| 화면 | `src/app/login/google-login-button.tsx` | `signInWithOAuth({ provider: "google" })`. 돌아올 주소는 `/auth/callback?next=...` |
+| 화면 | `src/app/page.tsx` | 첫 화면. 로그인한 이메일과 로그아웃 버튼 |
+| 서버 | `src/app/auth/callback/route.ts` | 받은 코드를 세션으로 바꾸고 `next`로 보낸다. 실패하면 `/login?error=callback` |
+| 서버 | `src/app/actions/auth.ts` | 로그아웃 후 `/login` |
+| 서버 | `src/proxy.ts`, `src/lib/supabase/proxy.ts` | 요청마다 세션 갱신. 로그인하지 않았으면 `/login?next=원래 경로` |
+| 서버 | `src/lib/auth/user.ts` | `requireUser()`. 화면마다 로그인 여부를 다시 확인한다. |
+| 공통 | `src/lib/auth/redirect.ts` | 공개 경로(`/login`, `/auth/callback`), 돌아갈 경로 검사(사이트 안 경로만 허용) |
+
+- 개발용 로그인(B3): `src/lib/auth/dev-login.ts`, `src/app/login/dev-login/`. v1.0에서 이 두 곳을 지우고, 로그인 화면의 `DevLoginButtons` 한 줄을 뺀다.
+- DB: 이 단계에서는 테이블이 없다. 사용자는 Supabase Auth가 관리한다.
+
+### 7-2. R-02 여행 목록 (v0.3)
+
+v0.3 계획 단계에서 채운다.
