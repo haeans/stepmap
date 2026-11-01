@@ -36,7 +36,20 @@ Next.js · Vercel Hobby · Supabase Free(PostgreSQL) · Supabase Auth(구글 로
 
 ## 실행 방법
 
-아직 코드가 없다. 구현 단계에서 채운다.
+Node.js 24가 필요하다.
+
+1. 의존성 설치: `npm install`
+2. 환경 변수: `.env.example`을 `.env.local`로 복사하고 값을 채운다. (`.env.local`은 저장소에 올리지 않는다)
+3. 개발 서버: `npm run dev` → http://localhost:3000
+
+| 명령 | 내용 |
+|---|---|
+| `npm run lint` | 린트 |
+| `npm run typecheck` | 라우트 타입 생성 후 타입 검사 |
+| `npm test` | 단위 테스트 (Vitest) |
+| `npm run build` | 배포용 빌드 |
+| `npm run db:generate` | `src/db/schema.ts`에서 마이그레이션 파일 생성 |
+| `npm run db:migrate` | 마이그레이션을 Supabase DB에 적용 (`DATABASE_URL` 필요) |
 
 ## 배포
 

@@ -47,3 +47,20 @@
 
 - **예상 총비용**: 0원
 - **예산 한도**: 10,000원 안에서 운영한다.
+
+## 5. 버전과 기반 설정 (v0.1)
+
+| 영역 | 패키지 | 버전 |
+|---|---|---|
+| 런타임 | Node.js | 24 |
+| 화면 | next / react | 16.4.3 / 19.3.0 |
+| 스타일 | tailwindcss | 4 |
+| Supabase | @supabase/ssr / @supabase/supabase-js | 0.12.7 / 2.118.0 |
+| ORM | drizzle-orm / drizzle-kit (+ postgres, 마이그레이션 전용) | 0.45.4 / 0.31.11 |
+| 테스트 | vitest | 5.0.5 |
+
+- **Next.js 16 주의**: 미들웨어는 `proxy`(`src/proxy.ts`)라는 이름으로 바뀌었다. 구현 전에 `node_modules/next/dist/docs/`의 해당 문서를 확인한다. (`AGENTS.md`)
+- **cacheComponents는 끈다**: 대부분의 화면이 로그인 쿠키를 읽는 사용자별 화면이라 정적 셸 이점이 작고, Supabase 쿠키 처리만 복잡해진다.
+- **Supabase 클라이언트**: `src/lib/supabase/server.ts`(서버), `src/lib/supabase/client.ts`(브라우저). 둘 다 공개 키와 로그인 쿠키로 접속하므로 RLS가 적용된다. 관리자 키(service role)는 쓰지 않는다.
+- **Drizzle**: 정의는 `src/db/schema.ts`, 마이그레이션 파일은 `drizzle/`. `DATABASE_URL`은 `drizzle-kit`만 쓴다.
+- **환경 변수**: 이름과 쓰는 단계는 `.env.example`에 있다. 값은 `.env.local`과 Vercel 환경 변수에만 둔다.
