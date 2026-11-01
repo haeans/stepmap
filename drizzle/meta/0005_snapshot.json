@@ -1,0 +1,645 @@
+{
+  "id": "918ff0b7-8084-43ea-b13c-6c780f0dbe13",
+  "prevId": "bfcb7c4a-72af-4110-9b35-5f5f28b815c7",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.items": {
+      "name": "items",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "trip_id": {
+          "name": "trip_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "day": {
+          "name": "day",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "time": {
+          "name": "time",
+          "type": "time",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "kind": {
+          "name": "kind",
+          "type": "item_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "address": {
+          "name": "address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "lat": {
+          "name": "lat",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lng": {
+          "name": "lng",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "memo": {
+          "name": "memo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "link": {
+          "name": "link",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "cost_amount": {
+          "name": "cost_amount",
+          "type": "numeric(14, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cost_currency": {
+          "name": "cost_currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source": {
+          "name": "source",
+          "type": "item_source",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'manual'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "items_trip_order_idx": {
+          "name": "items_trip_order_idx",
+          "columns": [
+            {
+              "expression": "trip_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "day",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "time",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "position",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "items_trip_id_trips_id_fk": {
+          "name": "items_trip_id_trips_id_fk",
+          "tableFrom": "items",
+          "tableTo": "trips",
+          "columnsFrom": [
+            "trip_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "items_select_owner": {
+          "name": "items_select_owner",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "exists (select 1 from \"trips\" where \"trips\".\"id\" = \"items\".\"trip_id\" and \"trips\".\"owner_id\" = (select auth.uid())) or exists (select 1 from \"public\".\"trip_members\" m where m.trip_id = \"items\".\"trip_id\" and m.user_id = (select auth.uid()))"
+        },
+        "items_insert_owner": {
+          "name": "items_insert_owner",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated"
+          ],
+          "withCheck": "exists (select 1 from \"trips\" where \"trips\".\"id\" = \"items\".\"trip_id\" and \"trips\".\"owner_id\" = (select auth.uid()))"
+        },
+        "items_update_owner": {
+          "name": "items_update_owner",
+          "as": "PERMISSIVE",
+          "for": "UPDATE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "exists (select 1 from \"trips\" where \"trips\".\"id\" = \"items\".\"trip_id\" and \"trips\".\"owner_id\" = (select auth.uid()))",
+          "withCheck": "exists (select 1 from \"trips\" where \"trips\".\"id\" = \"items\".\"trip_id\" and \"trips\".\"owner_id\" = (select auth.uid()))"
+        },
+        "items_delete_owner": {
+          "name": "items_delete_owner",
+          "as": "PERMISSIVE",
+          "for": "DELETE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "exists (select 1 from \"trips\" where \"trips\".\"id\" = \"items\".\"trip_id\" and \"trips\".\"owner_id\" = (select auth.uid()))"
+        }
+      },
+      "checkConstraints": {
+        "items_day_range": {
+          "name": "items_day_range",
+          "value": "\"items\".\"day\" between 1 and 60"
+        },
+        "items_name_length": {
+          "name": "items_name_length",
+          "value": "char_length(\"items\".\"name\") between 1 and 200"
+        },
+        "items_address_length": {
+          "name": "items_address_length",
+          "value": "char_length(\"items\".\"address\") <= 300"
+        },
+        "items_memo_length": {
+          "name": "items_memo_length",
+          "value": "char_length(\"items\".\"memo\") <= 2000"
+        },
+        "items_link_length": {
+          "name": "items_link_length",
+          "value": "char_length(\"items\".\"link\") <= 2000"
+        },
+        "items_coords_pair": {
+          "name": "items_coords_pair",
+          "value": "(\"items\".\"lat\" is null) = (\"items\".\"lng\" is null)"
+        },
+        "items_cost_pair": {
+          "name": "items_cost_pair",
+          "value": "(\"items\".\"cost_amount\" is null and \"items\".\"cost_currency\" is null) or (\"items\".\"cost_amount\" >= 0 and \"items\".\"cost_currency\" ~ '^[A-Z]{3}$')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.share_links": {
+      "name": "share_links",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "trip_id": {
+          "name": "trip_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "token": {
+          "name": "token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "share_links_trip_id_trips_id_fk": {
+          "name": "share_links_trip_id_trips_id_fk",
+          "tableFrom": "share_links",
+          "tableTo": "trips",
+          "columnsFrom": [
+            "trip_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "share_links_trip_id_key": {
+          "name": "share_links_trip_id_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "trip_id"
+          ]
+        },
+        "share_links_token_key": {
+          "name": "share_links_token_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "token"
+          ]
+        }
+      },
+      "policies": {
+        "share_links_select_owner": {
+          "name": "share_links_select_owner",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "exists (select 1 from \"trips\" where \"trips\".\"id\" = \"share_links\".\"trip_id\" and \"trips\".\"owner_id\" = (select auth.uid()))"
+        },
+        "share_links_insert_owner": {
+          "name": "share_links_insert_owner",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated"
+          ],
+          "withCheck": "exists (select 1 from \"trips\" where \"trips\".\"id\" = \"share_links\".\"trip_id\" and \"trips\".\"owner_id\" = (select auth.uid()))"
+        },
+        "share_links_delete_owner": {
+          "name": "share_links_delete_owner",
+          "as": "PERMISSIVE",
+          "for": "DELETE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "exists (select 1 from \"trips\" where \"trips\".\"id\" = \"share_links\".\"trip_id\" and \"trips\".\"owner_id\" = (select auth.uid()))"
+        }
+      },
+      "checkConstraints": {
+        "share_links_token_format": {
+          "name": "share_links_token_format",
+          "value": "\"share_links\".\"token\" ~ '^[A-Za-z0-9_-]{43}$'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.trip_members": {
+      "name": "trip_members",
+      "schema": "",
+      "columns": {
+        "trip_id": {
+          "name": "trip_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'viewer'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "trip_members_user_id_idx": {
+          "name": "trip_members_user_id_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "trip_members_trip_id_trips_id_fk": {
+          "name": "trip_members_trip_id_trips_id_fk",
+          "tableFrom": "trip_members",
+          "tableTo": "trips",
+          "columnsFrom": [
+            "trip_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "trip_members_user_id_users_id_fk": {
+          "name": "trip_members_user_id_users_id_fk",
+          "tableFrom": "trip_members",
+          "tableTo": "users",
+          "schemaTo": "auth",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "trip_members_pkey": {
+          "name": "trip_members_pkey",
+          "columns": [
+            "trip_id",
+            "user_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {
+        "trip_members_select_self": {
+          "name": "trip_members_select_self",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"trip_members\".\"user_id\" = (select auth.uid())"
+        }
+      },
+      "checkConstraints": {
+        "trip_members_role": {
+          "name": "trip_members_role",
+          "value": "\"trip_members\".\"role\" = 'viewer'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.trips": {
+      "name": "trips",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "auth.uid()"
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "destination": {
+          "name": "destination",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "start_date": {
+          "name": "start_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "end_date": {
+          "name": "end_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "companions": {
+          "name": "companions",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "trips_owner_id_idx": {
+          "name": "trips_owner_id_idx",
+          "columns": [
+            {
+              "expression": "owner_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "trips_owner_id_users_id_fk": {
+          "name": "trips_owner_id_users_id_fk",
+          "tableFrom": "trips",
+          "tableTo": "users",
+          "schemaTo": "auth",
+          "columnsFrom": [
+            "owner_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "trips_select_owner": {
+          "name": "trips_select_owner",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"trips\".\"owner_id\" = (select auth.uid()) or exists (select 1 from \"public\".\"trip_members\" m where m.trip_id = \"trips\".\"id\" and m.user_id = (select auth.uid()))"
+        },
+        "trips_insert_owner": {
+          "name": "trips_insert_owner",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated"
+          ],
+          "withCheck": "\"trips\".\"owner_id\" = (select auth.uid())"
+        },
+        "trips_update_owner": {
+          "name": "trips_update_owner",
+          "as": "PERMISSIVE",
+          "for": "UPDATE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"trips\".\"owner_id\" = (select auth.uid())",
+          "withCheck": "\"trips\".\"owner_id\" = (select auth.uid())"
+        },
+        "trips_delete_owner": {
+          "name": "trips_delete_owner",
+          "as": "PERMISSIVE",
+          "for": "DELETE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"trips\".\"owner_id\" = (select auth.uid())"
+        }
+      },
+      "checkConstraints": {
+        "trips_title_length": {
+          "name": "trips_title_length",
+          "value": "char_length(\"trips\".\"title\") between 1 and 100"
+        },
+        "trips_destination_length": {
+          "name": "trips_destination_length",
+          "value": "char_length(\"trips\".\"destination\") <= 100"
+        },
+        "trips_companions_range": {
+          "name": "trips_companions_range",
+          "value": "\"trips\".\"companions\" between 1 and 99"
+        },
+        "trips_date_order": {
+          "name": "trips_date_order",
+          "value": "\"trips\".\"end_date\" is null or \"trips\".\"start_date\" is null or \"trips\".\"end_date\" >= \"trips\".\"start_date\""
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.item_kind": {
+      "name": "item_kind",
+      "schema": "public",
+      "values": [
+        "transport",
+        "lodging",
+        "sight",
+        "food",
+        "memo"
+      ]
+    },
+    "public.item_source": {
+      "name": "item_source",
+      "schema": "public",
+      "values": [
+        "manual",
+        "ai"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

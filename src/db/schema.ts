@@ -14,12 +14,18 @@ import {
   pgEnum,
   pgPolicy,
   pgTable,
+  primaryKey,
   text,
   time,
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
 import { authenticatedRole, authUid, authUsers } from "drizzle-orm/supabase";
+
+// 로그인한 사용자가 그 여행을 공유받은 사람인지 (v0.9, R-08)
+// trip_members의 보기 정책은 본인 행만 보여 주므로 trips 정책과 서로 물고 들어가지 않는다.
+const isMember = (tripId: unknown) =>
+  sql`exists (select 1 from "public"."trip_members" m where m.trip_id = ${tripId} and m.user_id = ${authUid})`;
 
 export const trips = pgTable(
   "trips",
@@ -43,11 +49,11 @@ export const trips = pgTable(
     check("trips_destination_length", sql`char_length(${t.destination}) <= 100`),
     check("trips_companions_range", sql`${t.companions} between 1 and 99`),
     check("trips_date_order", sql`${t.endDate} is null or ${t.startDate} is null or ${t.endDate} >= ${t.startDate}`),
-    // 보기: v0.3은 소유자만. v0.9에서 공유받은 사람을 더한다.
+    // 보기: 소유자와 공유받은 사람(v0.9). 고치기·넣기·지우기는 소유자만.
     pgPolicy("trips_select_owner", {
       for: "select",
       to: authenticatedRole,
-      using: sql`${t.ownerId} = ${authUid}`,
+      using: sql`${t.ownerId} = ${authUid} or ${isMember(t.id)}`,
     }),
     pgPolicy("trips_insert_owner", {
       for: "insert",
@@ -72,7 +78,7 @@ export const trips = pgTable(
 export const itemKind = pgEnum("item_kind", ["transport", "lodging", "sight", "food", "memo"]);
 export const itemSource = pgEnum("item_source", ["manual", "ai"]);
 
-// 항목이 속한 여행의 소유자인지. 보기는 v0.9에서 공유받은 사람을 더한다.
+// 항목이 속한 여행의 소유자인지. 보기는 공유받은 사람도 된다(v0.9).
 const ownsTrip = (tripId: unknown) =>
   sql`exists (select 1 from ${trips} where ${trips.id} = ${tripId} and ${trips.ownerId} = ${authUid})`;
 
@@ -111,7 +117,11 @@ export const items = pgTable(
       "items_cost_pair",
       sql`(${t.costAmount} is null and ${t.costCurrency} is null) or (${t.costAmount} >= 0 and ${t.costCurrency} ~ '^[A-Z]{3}$')`,
     ),
-    pgPolicy("items_select_owner", { for: "select", to: authenticatedRole, using: ownsTrip(t.tripId) }),
+    pgPolicy("items_select_owner", {
+      for: "select",
+      to: authenticatedRole,
+      using: sql`${ownsTrip(t.tripId)} or ${isMember(t.tripId)}`,
+    }),
     pgPolicy("items_insert_owner", { for: "insert", to: authenticatedRole, withCheck: ownsTrip(t.tripId) }),
     pgPolicy("items_update_owner", {
       for: "update",
@@ -120,5 +130,48 @@ export const items = pgTable(
       withCheck: ownsTrip(t.tripId),
     }),
     pgPolicy("items_delete_owner", { for: "delete", to: authenticatedRole, using: ownsTrip(t.tripId) }),
+  ],
+);
+
+// 공유 링크 (v0.9, R-08). 여행마다 하나. 식별값은 앱에서 만든 무작위 32바이트(base64url 43자). (B26)
+// 소유자만 보고, 만들고, 지운다. 링크로 들어온 사람의 등록은 accept_share 함수가 한다. (B25)
+export const shareLinks = pgTable(
+  "share_links",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tripId: uuid("trip_id")
+      .notNull()
+      .unique("share_links_trip_id_key")
+      .references(() => trips.id, { onDelete: "cascade" }),
+    token: text("token").notNull().unique("share_links_token_key"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check("share_links_token_format", sql`${t.token} ~ '^[A-Za-z0-9_-]{43}$'`),
+    pgPolicy("share_links_select_owner", { for: "select", to: authenticatedRole, using: ownsTrip(t.tripId) }),
+    pgPolicy("share_links_insert_owner", { for: "insert", to: authenticatedRole, withCheck: ownsTrip(t.tripId) }),
+    pgPolicy("share_links_delete_owner", { for: "delete", to: authenticatedRole, using: ownsTrip(t.tripId) }),
+  ],
+);
+
+// 공유받은 사람 (v0.9). v1.0의 권한은 보기 전용(viewer) 하나다.
+// 본인 행만 볼 수 있고, 넣기는 accept_share 함수로만 한다(직접 넣기·고치기·지우기 정책 없음).
+export const tripMembers = pgTable(
+  "trip_members",
+  {
+    tripId: uuid("trip_id")
+      .notNull()
+      .references(() => trips.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => authUsers.id, { onDelete: "cascade" }),
+    role: text("role").notNull().default("viewer"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ name: "trip_members_pkey", columns: [t.tripId, t.userId] }),
+    index("trip_members_user_id_idx").on(t.userId),
+    check("trip_members_role", sql`${t.role} = 'viewer'`),
+    pgPolicy("trip_members_select_self", { for: "select", to: authenticatedRole, using: sql`${t.userId} = ${authUid}` }),
   ],
 );

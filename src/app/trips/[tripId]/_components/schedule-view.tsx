@@ -12,7 +12,7 @@ const FORMATS: { value: ScheduleFormat; label: string }[] = [
   { value: "b", label: "종이" },
 ];
 
-type Props = { trip: Trip; grouped: GroupedItems; count: number; dayOptions: TripDay[] };
+type Props = { trip: Trip; grouped: GroupedItems; count: number; dayOptions: TripDay[]; readOnly: boolean };
 
 export function ScheduleView(props: Props) {
   const [format, setFormat] = useScheduleFormat();

@@ -5,7 +5,8 @@ import { useActionState, useState, useTransition } from "react";
 import { deleteTrip, renameTrip, type ActionState } from "@/app/actions/trips";
 import { formatTripPeriod, type Trip } from "@/lib/trips/types";
 
-export function TripRow({ trip }: { trip: Trip }) {
+// shared: 공유받은 여행. "공유받음"을 표시하고 이름 수정·삭제 버튼을 숨긴다. (R-08)
+export function TripRow({ trip, shared }: { trip: Trip; shared: boolean }) {
   const [editing, setEditing] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleting, startDelete] = useTransition();
@@ -48,22 +49,27 @@ export function TripRow({ trip }: { trip: Trip }) {
         </form>
       ) : (
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <Link href={`/trips/${trip.id}`} className="text-lg font-medium hover:underline">
-            {trip.title}
-          </Link>
-          <div className="flex gap-1 text-sm">
-            <button type="button" onClick={() => setEditing(true)} className="rounded-md px-3 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-900">
-              이름 수정
-            </button>
-            <button
-              type="button"
-              onClick={onDelete}
-              disabled={deleting}
-              className="rounded-md px-3 py-1.5 text-red-600 hover:bg-red-50 disabled:opacity-50 dark:hover:bg-zinc-900"
-            >
-              {deleting ? "지우는 중…" : "삭제"}
-            </button>
+          <div className="flex min-w-0 items-center gap-2">
+            <Link href={`/trips/${trip.id}`} className="text-lg font-medium break-words hover:underline">
+              {trip.title}
+            </Link>
+            {shared && <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">공유받음</span>}
           </div>
+          {!shared && (
+            <div className="flex gap-1 text-sm">
+              <button type="button" onClick={() => setEditing(true)} className="rounded-md px-3 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-900">
+                이름 수정
+              </button>
+              <button
+                type="button"
+                onClick={onDelete}
+                disabled={deleting}
+                className="rounded-md px-3 py-1.5 text-red-600 hover:bg-red-50 disabled:opacity-50 dark:hover:bg-zinc-900"
+              >
+                {deleting ? "지우는 중…" : "삭제"}
+              </button>
+            </div>
+          )}
         </div>
       )}
       <p className="text-sm text-zinc-600 dark:text-zinc-400">

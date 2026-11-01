@@ -19,6 +19,8 @@ API 경로, 로그인·권한 확인, 외부 API(Claude·Gemini·구글맵) 호�
 | `deleteItem(itemId, tripId)` | 서버 액션 | 항목 지우기 | v0.5 |
 | `extractItems(tripId, text)` | 서버 액션 | 원문에서 항목 추출. 저장하지 않고 미리보기 항목만 돌려준다. | v0.6 |
 | `saveExtractedItems(tripId, form)` | 서버 액션 | 미리보기에서 고른 항목 저장. 좌표 찾기 후 `source = ai` | v0.6 |
+| `getOrCreateShareLink(tripId)` | 서버 액션 | 공유 링크가 있으면 돌려주고 없으면 만든다(소유자만, RLS). | v0.9 |
+| `GET /share/{token}` | 화면 | 로그인 후 `accept_share`로 등록하고 `/trips/{id}`로 보낸다. | v0.9 |
 
 - 데이터를 쓰는 서버 액션은 입력값만 검사한다. 누가 무엇을 고칠 수 있는지는 RLS가 정한다. RLS에 막히면 바뀐 행이 0개이므로 실패로 처리한다.
 
@@ -96,6 +98,8 @@ API 경로, 로그인·권한 확인, 외부 API(Claude·Gemini·구글맵) 호�
 - 링크로 들어온 사람이 로그인하지 않았으면 로그인으로 보내고, 로그인 후 해당 여행으로 이동시킨다.
 - 공유 링크로 들어와 로그인하면 그 사람을 "공유받은 사람"(보기 전용)으로 등록한다.
 - 링크를 아는 구글 사용자는 누구나 볼 수 있고, v1.0에는 공유 취소가 없다. 이 점을 소유자에게 안내한다.
+- 구현(v0.9): 식별값은 `node:crypto`의 무작위 32바이트(base64url). 등록은 DB 함수 `accept_share` 하나로만 한다(B25). 관리자 키는 쓰지 않는다.
+- 로그인하지 않은 사람이 `/share/{token}`을 열면 `proxy`가 `/login?next=/share/{token}`으로 보내고, 로그인 후 돌아와 등록된다.
 
 ## 6. 키 관리
 

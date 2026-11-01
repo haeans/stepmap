@@ -11,6 +11,7 @@ import { dayChoices, tripDays } from "@/lib/trips/days";
 import { TRIP_COLUMNS, type Trip } from "@/lib/trips/types";
 import { InputPanel } from "./_components/input-panel";
 import { MapView } from "./_components/map-view";
+import { ShareButton } from "./_components/share-button";
 import { ScheduleView } from "./_components/schedule-view";
 import { parseTripView, ViewSwitch } from "./_components/view-switch";
 
@@ -23,6 +24,8 @@ export default async function TripPage({ params, searchParams }: PageProps<"/tri
   // 볼 권한이 없는 여행은 RLS 때문에 결과가 비어 있다.
   const { data: trip } = await supabase.from("trips").select(TRIP_COLUMNS).eq("id", tripId).maybeSingle<Trip>();
   if (!trip) notFound();
+  // 공유받은 사람은 보기 전용이다. 버튼만 숨기고, 실제로 막는 것은 RLS다. (R-08)
+  const readOnly = trip.owner_id !== user.id;
 
   const { data: items } = await supabase.from("items").select(ITEM_COLUMNS).eq("trip_id", trip.id).returns<Item[]>();
   const grouped = groupItems(items ?? [], tripDays(trip.start_date, trip.end_date));
@@ -38,14 +41,21 @@ export default async function TripPage({ params, searchParams }: PageProps<"/tri
         <Link href="/" className="text-sm text-zinc-600 hover:underline dark:text-zinc-400">
           ← 여행 목록
         </Link>
-        <ViewSwitch tripId={trip.id} current={view} />
+        <div className="flex items-center gap-2">
+          {readOnly ? (
+            <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">공유받음 · 보기 전용</span>
+          ) : (
+            <ShareButton tripId={trip.id} />
+          )}
+          <ViewSwitch tripId={trip.id} current={view} />
+        </div>
       </div>
       {view === "schedule" ? (
-        <ScheduleView trip={trip} grouped={grouped} count={items?.length ?? 0} dayOptions={choices} />
+        <ScheduleView trip={trip} grouped={grouped} count={items?.length ?? 0} dayOptions={choices} readOnly={readOnly} />
       ) : (
         <TripMap items={items ?? []} days={grouped.days.map((d) => d.day.day)} itemId={typeof query.item === "string" ? query.item : null} />
       )}
-      <InputPanel tripId={trip.id} days={choices} />
+      {!readOnly && <InputPanel tripId={trip.id} days={choices} />}
     </main>
   );
 }

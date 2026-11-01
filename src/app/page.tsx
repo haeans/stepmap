@@ -8,6 +8,7 @@ import { TripRow } from "./_components/trip-row";
 export default async function Home() {
   const user = await requireUser();
   const supabase = await createClient();
+  // 내 여행과 공유받은 여행이 함께 온다(RLS). 공유받은 여행은 표시로만 구분한다. (R-08)
   const { data, error } = await supabase
     .from("trips")
     .select(TRIP_COLUMNS)
@@ -26,11 +27,10 @@ export default async function Home() {
       ) : (
         <ul className="flex flex-col gap-3">
           {data.map((trip) => (
-            <TripRow key={trip.id} trip={trip} />
+            <TripRow key={trip.id} trip={trip} shared={trip.owner_id !== user.id} />
           ))}
         </ul>
       )}
-      {/* 공유받은 여행은 v0.9(R-08)에서 같은 목록에 섞는다. */}
     </main>
   );
 }
