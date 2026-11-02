@@ -48,4 +48,34 @@
 
 ## 7. 층별 설계
 
-C1 계획 단계에서 `02-FRONTEND.md`, `03-BACKEND.md`, `04-DB.md`의 해당 부분과 함께 채운다.
+### 7-1. R-01 구글 로그인 (v0.2)
+
+| 층 | 파일 | 내용 |
+|---|---|---|
+| 화면 | `src/app/login/page.tsx` | 로그인 화면. 이미 로그인했으면 `next`로 보낸다. |
+| 화면 | `src/app/login/google-login-button.tsx` | `signInWithOAuth({ provider: "google" })`. 돌아올 주소는 `/auth/callback?next=...` |
+| 화면 | `src/app/page.tsx` | 첫 화면. 로그인한 이메일과 로그아웃 버튼 |
+| 서버 | `src/app/auth/callback/route.ts` | 받은 코드를 세션으로 바꾸고 `next`로 보낸다. 실패하면 `/login?error=callback` |
+| 서버 | `src/app/actions/auth.ts` | 로그아웃 후 `/login` |
+| 서버 | `src/proxy.ts`, `src/lib/supabase/proxy.ts` | 요청마다 세션 갱신. 로그인하지 않았으면 `/login?next=원래 경로` |
+| 서버 | `src/lib/auth/user.ts` | `requireUser()`. 화면마다 로그인 여부를 다시 확인한다. |
+| 공통 | `src/lib/auth/redirect.ts` | 공개 경로(`/login`, `/auth/callback`), 돌아갈 경로 검사(사이트 안 경로만 허용) |
+
+- 개발용 로그인(B3, B27): `src/lib/auth/dev-login.ts`, `src/app/login/dev-login/`. 로컬 개발(`npm run dev` + `DEV_LOGIN=true`)에서만 켜지고 배포본에서는 꺼진다. v1.0 이후 다듬기·확장 때도 계속 쓴다.
+- DB: 이 단계에서는 테이블이 없다. 사용자는 Supabase Auth가 관리한다.
+
+### 7-2. R-02 여행 목록 (v0.3)
+
+| 층 | 파일 | 내용 |
+|---|---|---|
+| 화면 | `src/app/page.tsx` | "내 여행" 목록(최근 만든 순), 새 여행 만들기 |
+| 화면 | `src/app/_components/new-trip-form.tsx` | 이름(필수), 목적지, 시작일·종료일, 동행 인원(기본 1). 만들면 그 여행 상세로 간다. |
+| 화면 | `src/app/_components/trip-row.tsx` | 여행 하나. 이름 누르면 상세로, 이름 수정(그 자리에서), 삭제(확인 창) |
+| 화면 | `src/app/trips/[tripId]/page.tsx` | 여행 상세. 볼 수 없는 여행은 404. 1화면은 v0.4에서 채운다. |
+| 화면 | `src/app/_components/app-header.tsx` | 공통 머리글(이메일, 로그아웃) |
+| 서버 | `src/app/actions/trips.ts` | `createTrip`, `renameTrip`, `deleteTrip`. 입력값만 검사하고 소유자 확인은 RLS가 한다. 바뀐 행이 없으면 실패로 본다. |
+| 공통 | `src/lib/trips/validation.ts` | 입력값 검사. DB의 CHECK 제약과 같은 규칙 |
+| DB | `src/db/schema.ts`, `drizzle/0000~0002` | `trips` 테이블, RLS 정책 4개, 권한, `updated_at` 트리거 (`04-DB.md` 8절) |
+
+- 공유받은 여행을 목록에 섞는 것은 v0.9(R-08)에서 한다.
+- 여행을 지우면 그 여행의 항목과 공유 정보도 함께 지운다: 각 테이블을 만들 때(v0.5, v0.9) `trips`를 `on delete cascade`로 참조한다.

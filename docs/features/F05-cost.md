@@ -49,4 +49,14 @@
 
 ## 8. 층별 설계
 
-C5 계획 단계에서 `02-FRONTEND.md`, `03-BACKEND.md`, `04-DB.md`의 해당 부분과 함께 채운다.
+### 8-1. R-09 비용 합계·정산 (v0.8)
+
+| 층 | 파일 | 내용 |
+|---|---|---|
+| 화면 | `.../_components/schedule-sections.tsx` | A안 BACK·B안 아래쪽의 "쓴 돈"에 항목별 금액, 통화별 합계, 1인당 금액 표를 둔다. |
+| 공통 | `src/lib/cost/summary.ts` | 통화별 합계와 1인당 금액 계산, 금액 표시 |
+
+- DB·서버 변경 없음. 항목의 비용 칸(`cost_amount`, `cost_currency`)과 여행의 동행 인원(`companions`)을 그대로 쓴다.
+- 항목을 고치거나 지우면 서버 액션이 화면을 다시 그리므로(`revalidatePath`) 합계도 바로 바뀐다.
+- 합계는 0.01 단위 정수로 더해 소수 오차를 없앤다.
+- 결정: B24 (`decisions.md`)

@@ -52,4 +52,21 @@
 
 ## 7. 층별 설계
 
-C3 계획 단계에서 `02-FRONTEND.md`, `03-BACKEND.md`, `04-DB.md`의 해당 부분과 함께 채운다.
+### 7-1. R-04 붙여넣기 → 자동 추출 (v0.6)
+
+| 층 | 파일 | 내용 |
+|---|---|---|
+| 화면 | `.../_components/input-panel.tsx` | "붙여넣기" 탭. 원문을 보내면 추출 중 표시 후 미리보기를 연다. |
+| 화면 | `.../_components/extract-preview.tsx` | 미리보기. 항목마다 "넣기" 체크와 수정 칸. 저장하면 고른 항목만 넣는다. |
+| 화면 | `.../_components/item-fields.tsx` | 항목 입력 칸 묶음. 직접 입력 폼과 미리보기가 같이 쓴다. |
+| 서버 | `src/app/actions/extract.ts` | `extractItems`(원문 → 미리보기 항목), `saveExtractedItems`(고른 항목 저장) |
+| 공통 | `src/lib/extract/gemini.ts` | Gemini 호출. 공급자를 바꿀 때는 이 파일만 바꾼다. |
+| 공통 | `src/lib/extract/mask.ts` | 보내기 전에 이메일·전화번호·카드 번호 같은 값을 가린다. |
+| 공통 | `src/lib/extract/prompt.ts` | 지시문과 여행 정보(목적지, 기간) 문장 |
+| 공통 | `src/lib/extract/normalize.ts` | AI 결과를 항목 입력값 모양으로 고르고 다듬는다(일차 범위, 시각 형식, 통화). |
+| 공통 | `src/lib/items/validation.ts` | 직접 입력과 같은 검사. 미리보기 저장도 이 검사를 거친다. |
+
+- DB 변경 없음. 저장할 때 `source`를 `ai`로 둔다.
+- 저장 경로는 R-05와 같다: 입력값 검사 → 좌표 찾기 → `items`에 넣기(RLS 적용).
+- 원문은 서버 액션 안에서 AI에 넘기고 버린다. DB와 로그에 남기지 않는다.
+- 결정: B14~B19 (`decisions.md`)

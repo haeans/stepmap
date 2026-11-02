@@ -15,7 +15,7 @@
 | 권한 | Supabase RLS | "내 여행만 수정, 공유받은 사람은 보기만"을 DB에서 막는다. |
 | ORM | Drizzle | 계획서에 기록 없음 |
 | 지도 | Google Maps | 지도 표시, 실제 경로 계산, 장소 검색·지오코딩 |
-| AI 추출 | Claude API → (쓸 수 없으면) Gemini | 제공받은 Claude API 키를 먼저 쓴다. |
+| AI 추출 | Gemini API (무료 등급) | Claude API는 무료 플랜이 없어 E1에 따라 Gemini로 바꿨다(B14). |
 | 공유 | 공유 링크 + Supabase Auth 로그인 + RLS 보기 전용 | 아래 3절 |
 
 ## 2. Drizzle과 RLS를 함께 쓰는 방식
@@ -37,8 +37,8 @@
 
 | 서비스 | 비용 | 조건·주의 | 초과 방지 |
 |---|---|---|---|
-| AI 추출 – Claude | 0원 (제공받은 키) | — | 원문 길이 제한, 사용량 확인, 키는 서버 쪽에만 |
-| AI 추출 – Gemini (대체) | 무료 등급 있음 [가정] | 무료 등급은 입력 내용이 서비스 개선에 쓰일 수 있다 [가정]. 예시 원문은 개인정보를 가린 것으로만 쓴다. | 위와 같음 |
+| AI 추출 – Claude | 쓰지 않음 | 무료 플랜이 없다(B14). | — |
+| AI 추출 – Gemini (`gemini-3.5-flash-lite`, `gemini-3.1-flash-lite`) | 0원 (무료 등급, 결제 계정 연결 안 함. 모델마다 RPM 15, TPM 25만, RPD 500) | 무료 등급은 보낸 내용을 서비스 개선에 쓰고 사람이 볼 수 있다(공식 약관 확인). 한도는 프로젝트 단위이고 하루 한도는 태평양 시간 자정에 초기화된다. | 원문 길이 제한, 개인정보 가리기(B18), 재시도 없음(B17), 키는 서버 쪽에만 |
 | 구글맵 (지도 표시, 경로, 장소 검색·지오코딩) | 조건부 무료. API마다 월 무료 호출 수가 있다 [가정]. 개발·검수 규모라면 0원 | 결제 계정에 카드 등록이 필요하다. 3명 중 1명이 합의하에 등록한다. | API별 일일 할당량을 낮게 제한, 예산 알림 설정, 키를 배포 도메인에서만 쓰도록 제한 |
 | 로그인 (Supabase Auth) | 무료 등급 | — | — |
 | DB (Supabase Free) | 0원 | 용량 500MB. 일정 기간 쓰지 않으면 일시 정지된다 [가정]. | 시연 전에 미리 접속해 깨워 둔다. |
@@ -47,3 +47,21 @@
 
 - **예상 총비용**: 0원
 - **예산 한도**: 10,000원 안에서 운영한다.
+
+## 5. 버전과 기반 설정 (v0.1)
+
+| 영역 | 패키지 | 버전 |
+|---|---|---|
+| 런타임 | Node.js | 24 |
+| 화면 | next / react | 16.4.3 / 19.3.0 |
+| 스타일 | tailwindcss | 4 |
+| Supabase | @supabase/ssr / @supabase/supabase-js | 0.12.7 / 2.118.0 |
+| ORM | drizzle-orm / drizzle-kit (+ postgres, 마이그레이션 전용) | 0.45.4 / 0.31.11 |
+| 테스트 | vitest | 5.0.5 |
+| AI 추출 (v0.6) | @google/genai / zod | 2.32.0 / 4.6.7 |
+
+- **Next.js 16 주의**: 미들웨어는 `proxy`(`src/proxy.ts`)라는 이름으로 바뀌었다. 구현 전에 `node_modules/next/dist/docs/`의 해당 문서를 확인한다. (`AGENTS.md`)
+- **cacheComponents는 끈다**: 대부분의 화면이 로그인 쿠키를 읽는 사용자별 화면이라 정적 셸 이점이 작고, Supabase 쿠키 처리만 복잡해진다.
+- **Supabase 클라이언트**: `src/lib/supabase/server.ts`(서버), `src/lib/supabase/client.ts`(브라우저). 둘 다 공개 키와 로그인 쿠키로 접속하므로 RLS가 적용된다. 관리자 키(service role)는 쓰지 않는다.
+- **Drizzle**: 정의는 `src/db/schema.ts`, 마이그레이션 파일은 `drizzle/`. `DATABASE_URL`은 `drizzle-kit`만 쓴다.
+- **환경 변수**: 이름과 쓰는 단계는 `.env.example`에 있다. 값은 `.env.local`과 Vercel 환경 변수에만 둔다.

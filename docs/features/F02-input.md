@@ -46,4 +46,41 @@
 
 ## 8. 층별 설계
 
-C2 계획 단계에서 `02-FRONTEND.md`, `03-BACKEND.md`, `04-DB.md`의 해당 부분과 함께 채운다.
+### 8-1. R-03 버튼으로 여는 입력창 (v0.4)
+
+| 층 | 파일 | 내용 |
+|---|---|---|
+| 화면 | `src/app/trips/[tripId]/page.tsx` | 여행 상세. 매거진/지도 전환, 1화면, 입력창 |
+| 화면 | `.../_components/input-panel.tsx` | 입력창. 열고 닫기, Esc, 포커스 이동 (`02-FRONTEND.md` 5-2절) |
+| 화면 | `.../_components/schedule-view.tsx`, `schedule-sections.tsx` | 1화면 A안·B안 구조. 항목 자리는 빈 상태로 둔다. |
+| 공통 | `src/lib/trips/days.ts` | 여행 기간으로 DAY 1~N 목록을 만든다(최대 60일). 날짜가 없으면 DAY 1 하나 |
+| 공통 | `src/lib/trips/schedule-format.ts` | 형식 기본값 규칙(PC A안, 모바일 B안) |
+
+- 서버·DB 변경 없음.
+
+### 8-2. R-05 직접 입력·수정 (v0.5)
+
+| 층 | 파일 | 내용 |
+|---|---|---|
+| 화면 | `.../_components/input-panel.tsx` | 입력창에 "붙여넣기 / 직접 입력" 탭. 직접 입력으로 저장하면 채팅 말풍선으로 결과를 보여 준다. |
+| 화면 | `.../_components/item-form.tsx` | 항목 폼(종류, 일차, 시각, 이름, 주소, 메모, 링크, 비용·통화). 새 항목과 수정이 같이 쓴다. 종류는 고른 것이 늘 보이는 버튼 모양이다. |
+| 화면 | `.../_components/item-card.tsx` | 항목 하나. 수정은 창(`<dialog>`)으로, 삭제는 확인 후. 좌표를 못 찾은 장소는 "위치 없음" 표시 |
+| 화면 | `.../_components/schedule-sections.tsx` | A안·B안에 항목 표시. 쓴 돈은 항목별 금액만(합계는 v0.8) |
+| 서버 | `src/app/actions/items.ts` | `createItem`, `updateItem`, `deleteItem` |
+| 공통 | `src/lib/items/validation.ts` | 입력값 검사. v0.6 미리보기도 같이 쓴다. |
+| 공통 | `src/lib/items/geocode.ts` | 좌표 찾기(`03-BACKEND.md` 4-1절) |
+| 공통 | `src/lib/items/group.ts` | 1화면 영역 나누기와 정렬(일차 → 시각 → 순서) |
+| DB | `src/db/schema.ts`, `drizzle/0003~0004` | `items` 테이블, RLS 정책 4개, 권한, 트리거 (`04-DB.md` 8절) |
+
+1화면 영역에 들어가는 항목:
+
+| 영역 (A안 / B안) | 항목 |
+|---|---|
+| GO / 교통·숙소 요약 | 교통, 숙소 (모든 일차) |
+| DAY N | 그 일차의 관광지, 식당 |
+| BACK 쪽지 / 아래쪽 쪽지 | 메모 |
+| BACK 쓴 돈 / 아래쪽 쓴 돈 | 비용이 있는 모든 항목 |
+
+- 여행 기간보다 뒤 일차의 항목이 있으면 DAY를 늘려서 보여 준다(여행 날짜를 줄여도 항목이 사라지지 않게).
+- 날짜가 없는 여행은 DAY 1~10 중에서 고를 수 있다.
+- 같은 날 안의 순서(`position`)는 넣은 순서다. 일차를 바꾸면 그 날의 맨 뒤로 간다. 순서를 끌어서 바꾸는 기능은 없다.

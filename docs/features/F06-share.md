@@ -53,4 +53,17 @@
 
 ## 7. 층별 설계
 
-C6 계획 단계에서 `02-FRONTEND.md`, `03-BACKEND.md`, `04-DB.md`의 해당 부분과 함께 채운다.
+### 7-1. R-08 공유 (v0.9)
+
+| 층 | 파일 | 내용 |
+|---|---|---|
+| 화면 | `src/app/trips/[tripId]/_components/share-button.tsx` | 공유 창. 링크 만들기·복사, 유출·취소 불가 안내. 소유자에게만 보인다. |
+| 화면 | `src/app/share/[token]/page.tsx` | 공유 링크 진입. 로그인 후 등록하고 그 여행으로 보낸다. 틀린 링크면 안내만 한다. |
+| 화면 | `src/app/trips/[tripId]/page.tsx` | 공유받은 사람이면 보기 전용: 입력·공유 버튼을 숨기고 "공유받음 · 보기 전용"을 표시한다. |
+| 화면 | `.../_components/item-card.tsx`, `schedule-sections.tsx` | 보기 전용이면 항목의 수정·삭제 버튼과 수정 창을 숨긴다. |
+| 화면 | `src/app/page.tsx`, `src/app/_components/trip-row.tsx` | 목록에 공유받은 여행을 섞고 "공유받음" 표시. 이름 수정·삭제를 숨긴다. |
+| 서버 | `src/app/actions/share.ts` | `getOrCreateShareLink`: 링크가 있으면 돌려주고 없으면 만든다. |
+| DB | `src/db/schema.ts`, `drizzle/0005~0006` | `share_links`, `trip_members`, 보기 정책 확장, `accept_share` 함수 (`04-DB.md` 8절) |
+
+- 버튼은 화면에서 숨기지만, 실제로 막는 것은 RLS다. 공유받은 사람이 API로 직접 고치거나 지우면 0행, 넣으면 거절된다.
+- 결정: B25, B26 (`decisions.md`)
