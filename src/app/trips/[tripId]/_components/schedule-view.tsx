@@ -13,7 +13,8 @@ const FORMATS: { value: ScheduleFormat; label: string }[] = [
   { value: "b", label: "종이" },
 ];
 
-type Props = { trip: Trip; grouped: GroupedItems; count: number; dayOptions: TripDay[]; readOnly: boolean };
+// coverUrl: 대표 이미지 주소(F08). 없으면 매거진이 임시 그림을 쓴다.
+type Props = { trip: Trip; grouped: GroupedItems; count: number; dayOptions: TripDay[]; readOnly: boolean; coverUrl?: string | null };
 
 export function ScheduleView(props: Props) {
   const [format, setFormat] = useScheduleFormat();
