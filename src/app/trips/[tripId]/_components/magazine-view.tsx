@@ -20,7 +20,7 @@ import type { PlaceInfo } from "@/lib/map/place-info-parse";
 import { ItemCard } from "./item-card";
 import { NoteComposer } from "./note-composer";
 import { PlaceCard } from "./place-card";
-import { CostList } from "./schedule-sections";
+import { CostSection } from "./cost-section";
 import { TicketStrip } from "./ticket-strip";
 
 type Props = {
@@ -246,19 +246,25 @@ export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = n
       <section aria-labelledby="m-back" className="flex flex-col gap-6">
         <Heading id="m-back">BACK</Heading>
         <div className="grid gap-6 sm:grid-cols-2">
-          <div className="flex flex-col gap-3">
-            <p className="font-medium text-white/80">쓴 돈</p>
-            <Reveal>
-              <div className={`${PANEL} p-4`}>
-                <CostList items={grouped.costs} companions={trip.companions} />
-              </div>
-            </Reveal>
-          </div>
-          <div className="flex flex-col gap-3">
-            <p className="font-medium text-white/80">쪽지</p>
-            <Cards items={grouped.memos} empty="메모가 없습니다." days={dayOptions} readOnly={readOnly} />
-            {!readOnly && <NoteComposer tripId={trip.id} />}
-          </div>
+          <Reveal>
+            <CostSection
+              items={grouped.costs}
+              companions={trip.companions}
+              readOnly={readOnly}
+              title={<p className="font-medium text-white/80">쓴 돈</p>}
+              panelClassName={PANEL}
+            />
+          </Reveal>
+          {readOnly ? (
+            <div className="flex flex-col gap-3">
+              <p className="font-medium text-white/80">쪽지</p>
+              <Cards items={grouped.memos} empty="메모가 없습니다." days={dayOptions} readOnly={readOnly} />
+            </div>
+          ) : (
+            <NoteComposer tripId={trip.id} title={<p className="font-medium text-white/80">쪽지</p>}>
+              <Cards items={grouped.memos} empty="메모가 없습니다." days={dayOptions} readOnly={readOnly} />
+            </NoteComposer>
+          )}
         </div>
       </section>
     </div>

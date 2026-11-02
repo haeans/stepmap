@@ -3,10 +3,11 @@
 // 쪽지 영역에서 바로 쪽지(메모 항목)를 쓰는 칸 (F10). "＋ 쪽지 쓰기"를 누르면 그 자리에 펼쳐진다.
 // 저장은 입력창과 같은 createItem(종류: 메모, 1일차)을 쓴다. 글자색은 바깥을 따른다(매거진 사진 위·종이 모두).
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState, type ReactNode } from "react";
 import { createItem, type ItemActionState } from "@/app/actions/items";
 
-export function NoteComposer({ tripId }: { tripId: string }) {
+// title: 넘기면 제목 줄 오른쪽에 "＋ 쪽지 쓰기"를 둔다. children: 쓰는 칸 아래에 놓을 쪽지 목록.
+export function NoteComposer({ tripId, title, children }: { tripId: string; title?: ReactNode; children?: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState<ItemActionState, FormData>(createItem.bind(null, tripId), { error: null, saved: null });
   const formRef = useRef<HTMLFormElement>(null);
@@ -25,15 +26,18 @@ export function NoteComposer({ tripId }: { tripId: string }) {
     "w-full rounded-xl border border-current/20 bg-current/5 px-3 py-2 text-sm placeholder:text-current placeholder:opacity-50 focus:border-current/50 focus:outline-none";
 
   return (
-    <div className="flex flex-col gap-2">
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-        className="self-start rounded-full border border-current/25 px-3 py-1.5 text-sm transition hover:bg-current/10 active:scale-95"
-      >
-        {open ? "닫기" : "＋ 쪽지 쓰기"}
-      </button>
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between gap-2">
+        {title}
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+          className={`rounded-full border border-current/25 px-3 py-1 text-xs transition hover:bg-current/10 active:scale-95 ${title ? "" : "mr-auto"}`}
+        >
+          {open ? "닫기" : "＋ 쪽지 쓰기"}
+        </button>
+      </div>
       <div className={`grid transition-[grid-template-rows] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
         <div className="min-h-0 overflow-hidden">
           <form ref={formRef} action={formAction} inert={!open} className="flex flex-col gap-2 pt-1 pb-1">
@@ -54,6 +58,7 @@ export function NoteComposer({ tripId }: { tripId: string }) {
           </form>
         </div>
       </div>
+      {children}
     </div>
   );
 }
