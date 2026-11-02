@@ -1,0 +1,13 @@
+# 공통 문서, DB 마이그레이션, 저장소 설정을 고치면 haeans에게 리뷰가 자동 요청된다.
+# (integration.md 4절, 9절, decisions.md B30~B32)
+
+/CLAUDE.md          @haeans
+/AGENTS.md          @haeans
+/README.md          @haeans
+/docs/*.md          @haeans
+/docs/features/     @haeans
+/drizzle/           @haeans
+/drizzle.config.ts  @haeans
+/src/db/            @haeans
+/.github/           @haeans
+/vercel.json        @haeans
