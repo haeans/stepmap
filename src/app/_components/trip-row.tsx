@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useActionState, useRef, useState, useTransition } from "react";
 import { deleteTrip, renameTrip, type ActionState } from "@/app/actions/trips";
+import { authorLink, coverSrc, UNSPLASH_HOME } from "@/lib/cover/cover";
+import { CoverUpload } from "./cover-upload";
 import { cardSubtitle } from "@/lib/trips/card-text";
 import { PREVIEW_EMPTY_TEXT, type PreviewDay } from "@/lib/trips/preview";
 import type { Trip } from "@/lib/trips/types";
@@ -68,7 +70,18 @@ export function TripRow({ trip, shared, preview }: { trip: Trip; shared: boolean
   return (
     <li className="flex flex-col gap-2">
       <div className="group relative h-[190px] overflow-hidden rounded-3xl bg-linear-to-br from-zinc-700 to-zinc-900 text-white select-none md:h-[280px]">
-        {/* 대표 이미지 자리 (F08). 이미지가 생기면 여기에 absolute inset-0, object-cover로 꽉 차게 넣는다. */}
+        {/* 대표 이미지 (F08). 없으면 어두운 기본 카드. Next.js 이미지 최적화 대신 주소 파라미터로 크기를 줄인다(결정 3). */}
+        {trip.cover_url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={coverSrc(trip.cover_url, 1200)}
+            alt=""
+            draggable={false}
+            loading="lazy"
+            className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+            style={trip.cover_color ? { backgroundColor: trip.cover_color } : undefined}
+          />
+        )}
 
         {!editing && (
           <Link
@@ -140,8 +153,27 @@ export function TripRow({ trip, shared, preview }: { trip: Trip; shared: boolean
             공유받음
           </span>
         )}
+        {/* Unsplash 작가 표시 (결정 4) */}
+        {trip.cover_source === "unsplash" && trip.cover_author_name && !editing && (
+          <p className="absolute right-3 bottom-1.5 z-20 text-[10px] text-white/70">
+            Photo by{" "}
+            {trip.cover_author_url ? (
+              <a href={authorLink(trip.cover_author_url)} target="_blank" rel="noopener noreferrer" className="underline">
+                {trip.cover_author_name}
+              </a>
+            ) : (
+              trip.cover_author_name
+            )}{" "}
+            on{" "}
+            <a href={UNSPLASH_HOME} target="_blank" rel="noopener noreferrer" className="underline">
+              Unsplash
+            </a>
+          </p>
+        )}
+
         {!shared && !editing && (
           <div className="absolute top-4 right-4 z-20 flex gap-1.5">
+            <CoverUpload tripId={trip.id} className={CARD_BUTTON} onError={setDeleteError} />
             <button type="button" onClick={() => setEditing(true)} className={CARD_BUTTON}>
               이름 수정
             </button>
