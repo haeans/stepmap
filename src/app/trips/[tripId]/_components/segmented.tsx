@@ -54,7 +54,7 @@ export function Segmented({ label, options, value, onChange, role = "radiogroup"
       ref={rootRef}
       role={role === "radiogroup" ? "radiogroup" : undefined}
       aria-label={role === "radiogroup" ? label : undefined}
-      className="relative flex rounded-full bg-zinc-900/5 p-1 ring-1 ring-zinc-900/10 backdrop-blur-md [html[data-cover]_&]:bg-white/15 [html[data-cover]_&]:ring-white/25 dark:bg-white/10 dark:ring-white/15"
+      className="relative flex rounded-full bg-zinc-900/5 p-1 ring-1 ring-zinc-900/10 backdrop-blur-md [html[data-cover]_&]:bg-white/15 [html[data-cover]_&]:ring-white/25 dark:bg-white/10 dark:ring-white/15 in-data-[tone=dark]:bg-white/10 in-data-[tone=dark]:ring-white/15"
     >
       <span
         ref={pillRef}
