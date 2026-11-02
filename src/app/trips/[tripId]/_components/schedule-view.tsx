@@ -6,7 +6,7 @@ import type { ScheduleFormat } from "@/lib/trips/schedule-format";
 import type { Trip } from "@/lib/trips/types";
 import type { TripWeather } from "@/lib/weather/codes";
 import { MagazineView } from "./magazine-view";
-import { ScheduleB } from "./schedule-sections";
+import { PaperView } from "./paper-view";
 import { Segmented } from "./segmented";
 import { useScheduleFormat } from "./use-schedule-format";
 
@@ -38,7 +38,7 @@ export function ScheduleView(props: Props) {
         <Segmented label="일정 형식" size="sm" value={format ?? ""} options={FORMATS} onChange={(v) => setFormat(v as ScheduleFormat)} />
       </div>
       {format === "a" && <MagazineView {...props} />}
-      {format === "b" && <ScheduleB {...props} />}
+      {format === "b" && <PaperView {...props} />}
     </div>
   );
 }
