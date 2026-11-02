@@ -1,6 +1,7 @@
 "use client";
 
 // 1화면 A안 "크게"의 매거진 개편 (F10). 영역 순서는 02-FRONTEND.md 3-1(맨 위 → GO → DAY 1~N → BACK)을 지킨다.
+// GO(교통·숙소)는 제목 바로 아래 예약 카드 줄로 올렸다. 카드를 누르면 팝업으로 자세히 보고 고친다.
 // - 대표 사진이 페이지 맨 위(머리글·전환 버튼 뒤)부터 제목 영역까지 깔리고, 사진 톤의 배경색이 페이지 전체를 채운다.
 // - DAY는 가운데 기준선을 두고 PC는 좌우 번갈아, 모바일은 기준선 왼쪽에 두고 한쪽으로 정렬한다.
 // - 카드는 화면에 들어올 때 차례로 떠오르고, 마우스를 올리면 살짝 뜬다(움직임 줄이기 설정이면 움직이지 않음).
@@ -14,9 +15,10 @@ import type { Item } from "@/lib/items/types";
 import { dayColor } from "@/lib/map/places";
 import type { TripDay } from "@/lib/trips/days";
 import { averageColor, hueBackground, hueFromText, placeholderCover, toneBackground } from "@/lib/trips/tone";
-import { formatTripPeriod, type Trip } from "@/lib/trips/types";
+import type { Trip } from "@/lib/trips/types";
 import { ItemCard } from "./item-card";
 import { CostList } from "./schedule-sections";
+import { TicketStrip } from "./ticket-strip";
 
 type Props = {
   trip: Trip;
@@ -169,16 +171,7 @@ function Cards({ items, empty, days, readOnly }: { items: Item[]; empty: string;
   );
 }
 
-function Chip({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex min-w-24 flex-col gap-0.5 rounded-xl border border-white/20 bg-white/10 px-3 py-2 backdrop-blur-md transition duration-300 hover:-translate-y-0.5 hover:bg-white/20 motion-reduce:transition-none">
-      <span className="text-xs text-white/60">{label}</span>
-      <span className="text-sm font-medium">{value}</span>
-    </div>
-  );
-}
-
-export function MagazineView({ trip, grouped, count, dayOptions, readOnly, coverUrl = null }: Props) {
+export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = null }: Props) {
   const hue = hueFromText(trip.destination || trip.title);
   const photoTone = usePhotoTone(coverUrl);
   const background = photoTone ?? hueBackground(hue);
@@ -190,7 +183,7 @@ export function MagazineView({ trip, grouped, count, dayOptions, readOnly, cover
     <div className="flex flex-col gap-20 pb-16 text-white">
       <CoverLayer image={image} background={background} heroRef={heroRef} />
 
-      {/* 맨 위: 대표 사진(배경 층), 여행 제목, 기간, 기록 수 */}
+      {/* 맨 위: 대표 사진(배경 층), 여행 제목, GO(교통·숙소 예약 카드, 누르면 자세히) */}
       <section
         ref={heroRef}
         aria-label={coverUrl ? "여행 개요 (대표 이미지)" : "여행 개요 (임시 대표 그림)"}
@@ -200,27 +193,9 @@ export function MagazineView({ trip, grouped, count, dayOptions, readOnly, cover
           {trip.destination && <p className="text-sm tracking-[0.3em] text-white/80 uppercase">{trip.destination}</p>}
           <h2 className="text-5xl font-bold tracking-tight break-keep text-white/95 drop-shadow-[0_4px_24px_rgba(0,0,0,0.45)] md:text-8xl">{trip.title}</h2>
         </Reveal>
-        <Reveal delay={150} className="flex flex-wrap gap-2">
-          <Chip label="기간" value={formatTripPeriod(trip)} />
-          <Chip label="일정" value={`${grouped.days.length}일`} />
-          <Chip label="함께" value={`${trip.companions}명`} />
-          <Chip label="기록" value={`${count}개`} />
+        <Reveal delay={150}>
+          <TicketStrip items={[...grouped.transport, ...grouped.lodging]} days={dayOptions} readOnly={readOnly} />
         </Reveal>
-      </section>
-
-      {/* GO: 출발과 머물 곳 */}
-      <section aria-labelledby="m-go" className="flex flex-col gap-6">
-        <Heading id="m-go">GO</Heading>
-        <div className="grid gap-6 sm:grid-cols-2">
-          <div className="flex flex-col gap-3">
-            <p className="font-medium text-white/80">교통</p>
-            <Cards items={grouped.transport} empty="아직 교통 항목이 없습니다." days={dayOptions} readOnly={readOnly} />
-          </div>
-          <div className="flex flex-col gap-3">
-            <p className="font-medium text-white/80">숙소</p>
-            <Cards items={grouped.lodging} empty="아직 숙소 항목이 없습니다." days={dayOptions} readOnly={readOnly} />
-          </div>
-        </div>
       </section>
 
       {/* DAY 1~N: 기준선 */}

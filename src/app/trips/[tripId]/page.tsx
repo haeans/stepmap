@@ -49,7 +49,10 @@ export default async function TripPage({ params, searchParams }: PageProps<"/tri
           ) : (
             <ShareButton tripId={trip.id} />
           )}
-          <ViewSwitch tripId={trip.id} current={view} />
+          {/* 넓은 화면(xl)에서는 화면 오른쪽 위 끝에 붙인다. 크게/종이 버튼은 그 아래(schedule-view). */}
+          <div className="xl:absolute xl:top-5 xl:right-8 xl:z-20">
+            <ViewSwitch tripId={trip.id} current={view} />
+          </div>
         </div>
       </div>
       </div>
