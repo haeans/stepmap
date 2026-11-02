@@ -112,7 +112,8 @@ function GoDialog({ dialogRef, label, children, onClose }: { dialogRef: RefObjec
         // 바깥(어두운 곳)을 누르면 닫는다
         if (e.target === e.currentTarget) e.currentTarget.close();
       }}
-      className="m-auto w-[min(23rem,calc(100vw-2rem))] overflow-visible bg-transparent p-0 text-zinc-900 backdrop:bg-black/55 backdrop:backdrop-blur-sm"
+      // 웹(넓은 화면)에서는 창 전체를 글씨·간격까지 비율 그대로 키운다(zoom): md 1.25배, lg 1.4배
+      className="m-auto w-[min(23rem,calc(100vw-2rem))] overflow-visible bg-transparent p-0 text-zinc-900 backdrop:bg-black/55 backdrop:backdrop-blur-sm md:[zoom:1.25] lg:[zoom:1.4]"
     >
       <div className="relative transition duration-300 ease-out starting:translate-y-4 starting:scale-95 starting:opacity-0">
         <button
@@ -270,7 +271,7 @@ function StayCard({ item, lodgings, days, coverImage, companions }: { item: Item
   };
   return (
     <div className="overflow-hidden rounded-3xl bg-white shadow-2xl">
-      <div className="relative h-40 bg-cover bg-center" style={{ backgroundImage: `url("${coverImage}")` }}>
+      <div className="relative h-40 bg-cover bg-center md:h-52" style={{ backgroundImage: `url("${coverImage}")` }}>
         <span className="absolute top-3 left-3 rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white shadow">✓ 숙소</span>
       </div>
       <div className="flex flex-col gap-4 p-5">
