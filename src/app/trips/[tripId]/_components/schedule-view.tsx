@@ -4,7 +4,8 @@ import type { GroupedItems } from "@/lib/items/group";
 import type { TripDay } from "@/lib/trips/days";
 import type { ScheduleFormat } from "@/lib/trips/schedule-format";
 import type { Trip } from "@/lib/trips/types";
-import { ScheduleA, ScheduleB } from "./schedule-sections";
+import { MagazineView } from "./magazine-view";
+import { ScheduleB } from "./schedule-sections";
 import { useScheduleFormat } from "./use-schedule-format";
 
 const FORMATS: { value: ScheduleFormat; label: string }[] = [
@@ -33,7 +34,7 @@ export function ScheduleView(props: Props) {
           </button>
         ))}
       </div>
-      {format === "a" && <ScheduleA {...props} />}
+      {format === "a" && <MagazineView {...props} />}
       {format === "b" && <ScheduleB {...props} />}
     </div>
   );
