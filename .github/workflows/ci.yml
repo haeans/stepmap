@@ -1,0 +1,36 @@
+# PR과 main 푸시마다 자체검수와 같은 검사를 돌린다. (decisions.md B32, integration.md 6절)
+# 키는 쓰지 않는다. 빌드에 필요한 NEXT_PUBLIC_ 값은 가짜 값으로 채운다.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-placeholder
+      NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ci-placeholder
+      NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID: ci-placeholder
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
