@@ -36,9 +36,11 @@ export default async function TripPage({ params, searchParams }: PageProps<"/tri
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 p-6 pb-28">
+      {/* 매거진 "크게"에서는 사진 위에 놓이므로 흰 글씨로 바뀐다(<html data-cover>, F10). */}
+      <div className="flex flex-col gap-6 [html[data-cover]_&]:text-white">
       <AppHeader email={user.email} />
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link href="/" className="text-sm text-zinc-600 hover:underline dark:text-zinc-400">
+        <Link href="/" className="text-sm opacity-70 transition hover:underline hover:opacity-100">
           ← 여행 목록
         </Link>
         <div className="flex items-center gap-2">
@@ -49,6 +51,7 @@ export default async function TripPage({ params, searchParams }: PageProps<"/tri
           )}
           <ViewSwitch tripId={trip.id} current={view} />
         </div>
+      </div>
       </div>
       {view === "schedule" ? (
         <ScheduleView trip={trip} grouped={grouped} count={items?.length ?? 0} dayOptions={choices} readOnly={readOnly} />
