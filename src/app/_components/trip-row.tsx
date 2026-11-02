@@ -70,18 +70,20 @@ export function TripRow({ trip, shared, preview }: { trip: Trip; shared: boolean
       <div className="group relative h-[190px] overflow-hidden rounded-3xl bg-linear-to-br from-zinc-700 to-zinc-900 text-white select-none md:h-[280px]">
         {/* 대표 이미지 자리 (F08). 이미지가 생기면 여기에 absolute inset-0, object-cover로 꽉 차게 넣는다. */}
 
-        <Link
-          href={`/trips/${trip.id}`}
-          aria-label={trip.title}
-          draggable={false}
-          onPointerDown={onPointerDown}
-          onPointerUp={endPress}
-          onPointerCancel={endPress}
-          onPointerLeave={endPress}
-          onClick={onClick}
-          onContextMenu={onContextMenu}
-          className="absolute inset-0 rounded-3xl [-webkit-touch-callout:none] focus-visible:ring-4 focus-visible:ring-white/70 focus-visible:outline-none focus-visible:ring-inset"
-        />
+        {!editing && (
+          <Link
+            href={`/trips/${trip.id}`}
+            aria-label={trip.title}
+            draggable={false}
+            onPointerDown={onPointerDown}
+            onPointerUp={endPress}
+            onPointerCancel={endPress}
+            onPointerLeave={endPress}
+            onClick={onClick}
+            onContextMenu={onContextMenu}
+            className="absolute inset-0 rounded-3xl [-webkit-touch-callout:none] focus-visible:ring-4 focus-visible:ring-white/70 focus-visible:outline-none focus-visible:ring-inset"
+          />
+        )}
 
         {/* 글씨가 보이게 카드 아래쪽만 어둡게 */}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-linear-to-t from-black/70 to-transparent" />

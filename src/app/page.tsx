@@ -20,11 +20,13 @@ export default async function Home() {
   // (작업 파일 leedaekeon578-f09-trip-cards 결정 5)
   const previews = new Map<string, PreviewDay[]>();
   if (data?.length) {
-    const { data: items } = await supabase
+    const { data: items, error: itemsError } = await supabase
       .from("items")
       .select("trip_id, day, time, position, kind, name")
       .in("trip_id", data.map((trip) => trip.id))
       .returns<(PreviewItem & { trip_id: string })[]>();
+    // 미리보기는 실패해도 목록은 그대로 보여 준다. 로그만 남긴다.
+    if (itemsError) console.error("trip previews failed", itemsError.code);
     const byTrip = new Map<string, PreviewItem[]>();
     for (const item of items ?? []) byTrip.set(item.trip_id, [...(byTrip.get(item.trip_id) ?? []), item]);
     for (const [tripId, tripItems] of byTrip) previews.set(tripId, pickPreviewDays(tripItems));
