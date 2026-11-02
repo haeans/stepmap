@@ -74,6 +74,13 @@
 | 올린 사진이 있는 여행 지우기 → Storage 사진도 지워짐 | 통과(haeans, 로컬) |
 | F09 기존 기능(카드 눌러 들어가기, 미리보기, 이름 수정) | 통과(haeans, 로컬) |
 | `npm run lint`, `typecheck`, `test`(90개), `build` | 통과 |
+| 키 값이 코드·커밋에 없음 (`integration.md` 8절) | 통과 (커밋 내용 검색, `.env.local` 추적 안 됨) |
+| `regression.md` 2절·v0.3·v0.9·v1.0 권한: 보기 전용 계정이 남의 여행 대표 이미지 칸 고치기 0행, 로그인 안 하면 trips 읽기 0행 | 통과(스크립트) |
+| `regression.md` v0.3: `anon`에 trips 권한 없음, `authenticated`는 SELECT·INSERT·UPDATE·DELETE만, public 표 4개 RLS 켜짐 | 통과(DB 조회) |
+| 대표 이미지 칸 CHECK: http 주소·틀린 색·다른 출처 값 거절, 거절 뒤 값 그대로 | 통과(스크립트) |
+| `owns_trip_cover` 함수를 로그인 안 하고 부르면 거절 | 통과(스크립트) |
+| 공유받은 여행의 대표 이미지 보기 (R-08) | 통과(haeans, 로컬). 스크립트 확인 때는 공유된 여행이 없어 건너뜀 |
+| `regression.md` R-01·R-02 목록 기능(이름 고치기, 지우기, 오가며 열기) | 통과(haeans, 로컬, F09 기존 기능 항목) |
 
 ## 6. 질문
 
