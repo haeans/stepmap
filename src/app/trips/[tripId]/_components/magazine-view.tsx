@@ -16,7 +16,6 @@ import { dayColor } from "@/lib/map/places";
 import type { TripDay } from "@/lib/trips/days";
 import { averageColor, hueBackground, hueFromText, placeholderCover, toneBackground } from "@/lib/trips/tone";
 import type { Trip } from "@/lib/trips/types";
-import type { PlaceInfo } from "@/lib/map/place-info-parse";
 import { ItemCard } from "./item-card";
 import { NoteComposer } from "./note-composer";
 import { PlaceCard } from "./place-card";
@@ -30,8 +29,7 @@ type Props = {
   dayOptions: TripDay[];
   readOnly: boolean;
   coverUrl?: string | null; // F08 머지 후 여행의 대표 이미지 주소를 넘긴다
-  places?: Record<string, PlaceInfo>; // 항목 id → Google Places 사진·영업시간 (서버에서 구함)
-  photos?: Record<string, string>; // 항목 id → 직접 넣은 사진 주소 (Places 사진보다 먼저)
+  photos?: Record<string, string>; // 항목 id → 직접 넣은 사진 주소. 없으면 일차 색 그라데이션
 };
 
 const MUTED = "text-sm text-white/60";
@@ -176,7 +174,7 @@ function Cards({ items, empty, days, readOnly }: { items: Item[]; empty: string;
   );
 }
 
-export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = null, places = {}, photos = {} }: Props) {
+export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = null, photos = {} }: Props) {
   const hue = hueFromText(trip.destination || trip.title);
   const photoTone = usePhotoTone(coverUrl);
   const background = photoTone ?? hueBackground(hue);
@@ -230,7 +228,7 @@ export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = n
                     <ul className="flex flex-col gap-3">
                       {dayPlaces.map((item, i) => (
                         <Reveal as="li" key={item.id} delay={i * 80}>
-                          <PlaceCard key={item.updated_at} item={item} info={places[item.id] ?? null} photoUrl={photos[item.id]} color={color} days={dayOptions} readOnly={readOnly} />
+                          <PlaceCard key={item.updated_at} item={item} photoUrl={photos[item.id]} color={color} days={dayOptions} readOnly={readOnly} />
                         </Reveal>
                       ))}
                     </ul>

@@ -33,6 +33,9 @@
 |---|---|---|
 | 화면 | `src/app/trips/[tripId]/_components/magazine-view.tsx` (새 파일) | 매거진 화면. 사진 층(맨 위부터), 사진 톤, `<html data-cover>`, 기준선 일정, 떠오르는 카드 |
 | 화면 | `src/app/trips/[tripId]/_components/ticket-strip.tsx` (새 파일) | 교통·숙소 예약 카드 줄과 상세 팝업(수정·삭제) |
+| 화면 | `src/app/trips/[tripId]/_components/place-card.tsx` (새 파일) | DAY 장소 카드. 누르면 서랍처럼 펼쳐져 시간·티켓·주소·메모·지도·수정·삭제 |
+| 화면 | `src/app/trips/[tripId]/_components/cost-section.tsx`, `note-composer.tsx` (새 파일) | 쓴 돈 바로 수정, 쪽지 바로 쓰기 |
+| 화면 | `src/app/trips/[tripId]/_components/input-panel.tsx`, `item-fields.tsx`, `item-form.tsx`, `paste-extract.tsx`, `form-styles.ts`(새 파일) | 입력창을 어두운 유리 패널로, 입력 칸·버튼 공용 모양 |
 | 화면 | `src/app/trips/[tripId]/_components/segmented.tsx` (새 파일) | 움직이는 전환 버튼 |
 | 화면 | `src/app/trips/[tripId]/_components/view-switch.tsx` | 매거진/지도를 `Segmented`로 |
 | 화면 | `src/app/trips/[tripId]/_components/schedule-view.tsx` | 형식 "a"에서 `MagazineView`, 크게/종이를 `Segmented`로, `coverUrl` 받기, 넓은 화면 오른쪽 위 |
@@ -59,6 +62,10 @@
 | [hyunw0000-f10-magazine] 결정 7 | 화면 | 장소 카드는 레퍼런스처럼 어두운 유리 카드. `ItemCard`·`CostList`는 바깥 글자색을 따르게 바꾼다(F10+F11 후 매거진에서만 쓰임). |
 | [hyunw0000-f10-magazine] 결정 8 | 화면 | 전환 버튼은 공용 `Segmented`(미끄러지는 알약, 누를 때 눌림). 넓은 화면(xl, 1280px 이상)에서만 화면 오른쪽 위 끝에 붙인다(그보다 좁으면 머리글과 겹쳐서). (담당자 지시) |
 | [hyunw0000-f10-magazine] 결정 9 | 화면 | 스크롤바는 웹·모바일 모두 숨긴다(`globals.css`). (담당자 지시) |
+| [hyunw0000-f10-magazine] 결정 10 | 화면 | DAY 장소 카드는 사진 자리가 있는 카드이고, 누르면 서랍처럼 펼쳐져 시간·티켓(비용·예약 링크)·주소·메모·지도·수정·삭제를 보여 준다. (담당자 지시) |
+| [hyunw0000-f10-magazine] 결정 11 | 화면 | 장소 사진 API(Google Places 사진)는 시험 후 지금은 쓰지 않는다(유료, 출처 미정). 사진이 없으면 일차 색 그라데이션. "구글 지도" 버튼은 API 없이 좌표 검색 링크로 연다. (담당자 지시) |
+| [hyunw0000-f10-magazine] 결정 12 | 화면 | 쪽지 제목 오른쪽 "＋ 쪽지 쓰기"로 바로 쓰고, 쓴 돈 제목 오른쪽 "수정"으로 금액·통화를 바로 고친다. (담당자 지시) |
+| [hyunw0000-f10-magazine] 결정 13 | 화면 | 여행 상세 머리글은 넓은 화면(xl)에서 화면 폭 전체 한 줄(로고·여행 목록 …… 이메일·로그아웃·공유·매거진/지도). (담당자 지시) |
 
 ## 5. 회귀 항목
 
@@ -79,6 +86,7 @@
 - 대표 이미지 저장소(Supabase Storage 등)가 CORS로 사진 픽셀 읽기를 허용해야 사진 톤 배경이 된다. 막혀 있으면 목적지 색으로 대신 나온다.
 - `app-header.tsx`, `globals.css`는 디자인 담당(F07) 파일이다. PR에 디자인 담당을 리뷰어로 넣는다(integration.md 9절).
 - 스크롤바 숨김을 앱 전체에 둘지, 여행 상세에만 둘지 F07과 맞춘다.
+- 장소 사진의 출처(직접 올리기면 DB·저장소 변경 필요, Google Places면 비용)는 다음 킥오프에서 정한다. 카드는 `photos`(항목 id → 사진 주소)를 받으면 바로 보여 준다.
 
 ## 7. 공통 문서 반영 요청
 

@@ -1,25 +1,17 @@
 "use client";
 
 // 매거진 DAY 장소 카드 (F10). 사진이 들어간 카드를 누르면 서랍처럼 아래로 펼쳐지며
-// 그 일정에 필요한 것(시간, 티켓·입장료와 예약 링크, 영업시간, 주소, 메모, 지도)을 보여 준다. 수정·삭제도 여기서 한다.
-// 사진: 직접 넣은 사진(photoUrl) → Google Places 사진 → 없으면 일차 색 그라데이션.
+// 그 일정에 필요한 것(시간, 티켓·입장료와 예약 링크, 주소, 메모, 지도)을 보여 준다. 수정·삭제도 여기서 한다.
+// 사진: 직접 넣은 사진(photoUrl). 없으면 일차 색 그라데이션. (장소 사진 API는 쓰지 않는다 — 출처 미정)
 
 import Link from "next/link";
 import { useId, useRef, useState, useTransition, type ReactNode } from "react";
 import { deleteItem, updateItem } from "@/app/actions/items";
 import { formatCost, formatTime, ITEM_KIND_LABELS, type Item } from "@/lib/items/types";
-import type { PlaceInfo } from "@/lib/map/place-info-parse";
 import type { TripDay } from "@/lib/trips/days";
 import { ItemForm } from "./item-form";
 
-type Props = { item: Item; info: PlaceInfo | null; photoUrl?: string | null; color: string; days: TripDay[]; readOnly: boolean };
-
-// 오늘 요일의 영업시간 한 줄 ("월요일: ..."은 일요일부터가 아니라 월요일부터 온다)
-function todayHours(hours: string[]): string | null {
-  if (hours.length !== 7) return null;
-  const index = (new Date().getDay() + 6) % 7;
-  return hours[index] ?? null;
-}
+type Props = { item: Item; photoUrl?: string | null; color: string; days: TripDay[]; readOnly: boolean };
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -30,21 +22,20 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-export function PlaceCard({ item, info, photoUrl = null, color, days, readOnly }: Props) {
+export function PlaceCard({ item, photoUrl = null, color, days, readOnly }: Props) {
   const [open, setOpen] = useState(false);
-  const [showWeek, setShowWeek] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleting, startDelete] = useTransition();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const drawerId = useId();
 
-  const photo = photoUrl ?? info?.photoUrl ?? null;
-  const credit = photoUrl ? null : info?.photoCredit;
+  const photo = photoUrl;
   const cost = formatCost(item.cost_amount, item.cost_currency);
   const date = days.find((d) => d.day === item.day)?.date;
   const time = formatTime(item.time);
-  const today = info ? todayHours(info.hours) : null;
   const onMap = item.lat !== null;
+  // API 없이 좌표로 구글 지도를 여는 일반 링크
+  const mapsUrl = onMap ? `https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lng}` : null;
 
   function onDelete() {
     if (!window.confirm(`"${item.name}" 항목을 지울까요?`)) return;
@@ -75,7 +66,6 @@ export function PlaceCard({ item, info, photoUrl = null, color, days, readOnly }
           )}
           <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" />
           {time && <span className="absolute top-3 left-3 rounded-full bg-black/45 px-2.5 py-1 font-mono text-xs backdrop-blur-md">{time}</span>}
-          {credit && <span className="absolute top-3 right-3 max-w-[50%] truncate text-[10px] text-white/70">사진: {credit} · Google</span>}
           <div className="absolute inset-x-3 bottom-3 flex items-end justify-between gap-2">
             <div className="min-w-0">
               <p className="text-xs text-white/70">
@@ -120,25 +110,8 @@ export function PlaceCard({ item, info, photoUrl = null, color, days, readOnly }
                   )}
                 </div>
               </Row>
-              {info && info.hours.length > 0 && (
-                <Row label="영업시간">
-                  {/* 오늘 요일은 서버와 브라우저 시간대가 다를 수 있다 */}
-                  <p suppressHydrationWarning>{today ?? info.hours[0]}</p>
-                  <button type="button" onClick={() => setShowWeek((v) => !v)} className="mt-1 text-xs text-white/60 underline-offset-2 hover:underline">
-                    {showWeek ? "접기" : "요일별 보기"}
-                  </button>
-                  {showWeek && (
-                    <ul className="mt-1 space-y-0.5 text-xs text-white/75">
-                      {info.hours.map((h) => (
-                        <li key={h}>{h}</li>
-                      ))}
-                    </ul>
-                  )}
-                </Row>
-              )}
               {item.address && <Row label="주소">{item.address}</Row>}
               {item.memo && <Row label="메모"><p className="whitespace-pre-wrap">{item.memo}</p></Row>}
-              {info?.rating && <Row label="평점">★ {info.rating.toFixed(1)} (Google)</Row>}
               {!onMap && <Row label="위치"><span className="text-amber-300">위치 없음: 지도에 표시되지 않습니다. 주소를 넣어 다시 저장해 보세요.</span></Row>}
             </dl>
 
@@ -148,8 +121,8 @@ export function PlaceCard({ item, info, photoUrl = null, color, days, readOnly }
                   지도에서 보기
                 </Link>
               )}
-              {info?.mapsUrl && (
-                <a href={info.mapsUrl} target="_blank" rel="noopener noreferrer" className="rounded-full border border-white/25 px-3 py-1.5 transition hover:bg-white/15 active:scale-95">
+              {mapsUrl && (
+                <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="rounded-full border border-white/25 px-3 py-1.5 transition hover:bg-white/15 active:scale-95">
                   구글 지도 ↗
                 </a>
               )}
