@@ -33,8 +33,8 @@ export function ScheduleView(props: Props) {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* 넓은 화면(xl)에서는 매거진/지도 버튼 아래, 화면 오른쪽 위 끝에 붙인다. */}
-      <div className="self-end xl:absolute xl:top-[4.25rem] xl:right-8 xl:z-20">
+      {/* 넓은 화면(xl)에서는 머리글 줄의 매거진/지도 버튼 아래, 화면 오른쪽 끝에 붙인다. */}
+      <div className="self-end xl:absolute xl:top-[4.75rem] xl:right-8 xl:z-20">
         <Segmented label="일정 형식" size="sm" value={format ?? ""} options={FORMATS} onChange={(v) => setFormat(v as ScheduleFormat)} />
       </div>
       {format === "a" && <MagazineView {...props} />}
