@@ -4,6 +4,7 @@ import { AppHeader } from "@/app/_components/app-header";
 import { requireUser } from "@/lib/auth/user";
 import { groupItems } from "@/lib/items/group";
 import { ITEM_COLUMNS, type Item } from "@/lib/items/types";
+import { placeInfos } from "@/lib/map/place-info";
 import { mapPlaces } from "@/lib/map/places";
 import { dayRoute } from "@/lib/map/routes";
 import { createClient } from "@/lib/supabase/server";
@@ -57,7 +58,15 @@ export default async function TripPage({ params, searchParams }: PageProps<"/tri
       </div>
       </div>
       {view === "schedule" ? (
-        <ScheduleView trip={trip} grouped={grouped} count={items?.length ?? 0} dayOptions={choices} readOnly={readOnly} />
+        <ScheduleView
+          trip={trip}
+          grouped={grouped}
+          count={items?.length ?? 0}
+          dayOptions={choices}
+          readOnly={readOnly}
+          // 매거진 장소 카드의 사진·영업시간 (Google Places, 하루 캐시)
+          places={await placeInfos(grouped.days.flatMap((d) => d.places))}
+        />
       ) : (
         <TripMap items={items ?? []} days={grouped.days.map((d) => d.day.day)} itemId={typeof query.item === "string" ? query.item : null} />
       )}

@@ -16,7 +16,9 @@ import { dayColor } from "@/lib/map/places";
 import type { TripDay } from "@/lib/trips/days";
 import { averageColor, hueBackground, hueFromText, placeholderCover, toneBackground } from "@/lib/trips/tone";
 import type { Trip } from "@/lib/trips/types";
+import type { PlaceInfo } from "@/lib/map/place-info-parse";
 import { ItemCard } from "./item-card";
+import { PlaceCard } from "./place-card";
 import { CostList } from "./schedule-sections";
 import { TicketStrip } from "./ticket-strip";
 
@@ -27,6 +29,8 @@ type Props = {
   dayOptions: TripDay[];
   readOnly: boolean;
   coverUrl?: string | null; // F08 머지 후 여행의 대표 이미지 주소를 넘긴다
+  places?: Record<string, PlaceInfo>; // 항목 id → Google Places 사진·영업시간 (서버에서 구함)
+  photos?: Record<string, string>; // 항목 id → 직접 넣은 사진 주소 (Places 사진보다 먼저)
 };
 
 const MUTED = "text-sm text-white/60";
@@ -171,7 +175,7 @@ function Cards({ items, empty, days, readOnly }: { items: Item[]; empty: string;
   );
 }
 
-export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = null }: Props) {
+export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = null, places = {}, photos = {} }: Props) {
   const hue = hueFromText(trip.destination || trip.title);
   const photoTone = usePhotoTone(coverUrl);
   const background = photoTone ?? hueBackground(hue);
@@ -203,7 +207,7 @@ export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = n
         <Heading id="m-days">DAY BY DAY</Heading>
         <ol className="relative">
           <span aria-hidden className="absolute top-2 bottom-0 left-3 w-px bg-gradient-to-b from-white/50 via-white/25 to-transparent md:left-1/2" />
-          {grouped.days.map(({ day, places }, index) => {
+          {grouped.days.map(({ day, places: dayPlaces }, index) => {
             // PC: 짝수 번째는 내용이 왼쪽·제목이 오른쪽, 홀수 번째는 반대
             const contentLeft = index % 2 === 0;
             const color = dayColor(day.day);
@@ -216,10 +220,20 @@ export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = n
                 <Reveal className={`md:row-start-1 ${contentLeft ? "md:col-start-2" : "md:col-start-1 md:text-right"}`}>
                   {day.date && <p className={MUTED}>{day.date}</p>}
                   <p className="text-3xl font-bold tracking-tight">DAY {day.day}</p>
-                  <p className={MUTED}>장소 {places.length}곳</p>
+                  <p className={MUTED}>장소 {dayPlaces.length}곳</p>
                 </Reveal>
                 <div className={`md:row-start-1 ${contentLeft ? "md:col-start-1" : "md:col-start-2"}`}>
-                  <Cards items={places} empty="아직 장소가 없습니다." days={dayOptions} readOnly={readOnly} />
+                  {dayPlaces.length === 0 ? (
+                    <p className={MUTED}>아직 장소가 없습니다.</p>
+                  ) : (
+                    <ul className="flex flex-col gap-3">
+                      {dayPlaces.map((item, i) => (
+                        <Reveal as="li" key={item.id} delay={i * 80}>
+                          <PlaceCard key={item.updated_at} item={item} info={places[item.id] ?? null} photoUrl={photos[item.id]} color={color} days={dayOptions} readOnly={readOnly} />
+                        </Reveal>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               </li>
             );
