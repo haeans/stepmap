@@ -153,7 +153,7 @@ function ItemDialogBody({ item, days, readOnly, close, children }: { item: Item;
     return (
       // 창은 웹에서 1.25·1.4배로 커지므로 수정 화면은 그만큼 되돌려 원래 크기로 보이게 한다
       <div data-tone="dark" className={`${EDIT_PANEL} md:[zoom:0.8] lg:[zoom:0.7143]`}>
-        <EditHeader title="항목 수정" sub={item.name} onClose={() => setEditing(false)} closeLabel="수정 그만두고 돌아가기" />
+        <EditHeader title="항목 수정" sub={item.name} onClose={() => setEditing(false)} back />
         <div className="max-h-[70vh] overflow-y-auto px-5 pb-5">
           <ItemForm key={item.updated_at} action={updateItem.bind(null, item.id, item.trip_id)} days={days} item={item} submitLabel="고치기" onSaved={() => setEditing(false)} />
         </div>
