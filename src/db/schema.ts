@@ -1,6 +1,7 @@
 // Drizzle 테이블 정의와 RLS 정책 정의만 둔다. (decisions.md S2)
 // 앱의 데이터 읽기·쓰기는 여기서 하지 않고 src/lib/supabase의 클라이언트로 한다.
-// 테이블은 사이클마다 추가한다: trips(v0.3), items(v0.5), share_links·trip_members(v0.9)
+// 테이블은 사이클마다 추가한다: trips(v0.3), items(v0.5), share_links·trip_members(v0.9), trips 대표 이미지 칸(F08)
+// 대표 이미지 Storage 버킷과 정책은 drizzle/ 아래 직접 쓴 마이그레이션에 있다. (F08)
 // 테이블 권한(GRANT)과 트리거는 drizzle/ 아래 직접 쓴 마이그레이션에 있다. (decisions.md B6)
 
 import { sql } from "drizzle-orm";
@@ -40,11 +41,25 @@ export const trips = pgTable(
     startDate: date("start_date"),
     endDate: date("end_date"),
     companions: integer("companions").notNull().default(1),
+    // 대표 이미지 (F08). 자동(Unsplash)은 주소·대표 색·작가만, 올린 사진은 Storage 주소만 둔다.
+    coverUrl: text("cover_url"),
+    coverColor: text("cover_color"),
+    coverSource: text("cover_source"),
+    coverAuthorName: text("cover_author_name"),
+    coverAuthorUrl: text("cover_author_url"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     index("trips_owner_id_idx").on(t.ownerId),
+    check("trips_cover_url", sql`${t.coverUrl} is null or (${t.coverUrl} ~ '^https://' and char_length(${t.coverUrl}) <= 2000)`),
+    check("trips_cover_color", sql`${t.coverColor} is null or ${t.coverColor} ~ '^#[0-9A-Fa-f]{6}$'`),
+    check("trips_cover_source", sql`${t.coverSource} is null or ${t.coverSource} in ('unsplash', 'upload')`),
+    check("trips_cover_author_name", sql`${t.coverAuthorName} is null or char_length(${t.coverAuthorName}) <= 200`),
+    check(
+      "trips_cover_author_url",
+      sql`${t.coverAuthorUrl} is null or (${t.coverAuthorUrl} ~ '^https://' and char_length(${t.coverAuthorUrl}) <= 2000)`,
+    ),
     check("trips_title_length", sql`char_length(${t.title}) between 1 and 100`),
     check("trips_destination_length", sql`char_length(${t.destination}) <= 100`),
     check("trips_companions_range", sql`${t.companions} between 1 and 99`),
