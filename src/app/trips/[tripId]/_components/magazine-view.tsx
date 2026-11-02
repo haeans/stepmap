@@ -11,9 +11,10 @@
 import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import type { GroupedItems } from "@/lib/items/group";
-import { formatTime, type Item } from "@/lib/items/types";
+import type { Item } from "@/lib/items/types";
 import { dayColor } from "@/lib/map/places";
 import type { TripDay } from "@/lib/trips/days";
+import { dayAreas } from "@/lib/trips/areas";
 import { averageColor, hueBackground, hueFromText, placeholderCover, toneBackground } from "@/lib/trips/tone";
 import type { Trip } from "@/lib/trips/types";
 import { ItemCard } from "./item-card";
@@ -174,20 +175,12 @@ function Cards({ items, empty, days, readOnly }: { items: Item[]; empty: string;
   );
 }
 
-// 그날의 설명: 시간대 · 장소 수, 다녀가는 장소들
-function daySummary(places: Item[]): { span: string; route: string } {
-  const times = places.map((p) => formatTime(p.time)).filter(Boolean);
-  const span = [times.length > 0 ? (times.length > 1 ? `${times[0]} – ${times[times.length - 1]}` : times[0]) : null, `장소 ${places.length}곳`]
-    .filter(Boolean)
-    .join(" · ");
-  return { span, route: places.map((p) => p.name).join(" → ") };
-}
-
-// DAY 한 칸 (F10). 접혀 있을 때는 그날의 설명 카드, DAY를 누르면 서랍처럼 장소 카드들이 펼쳐진다.
+// DAY 한 칸 (F10). 제목 아래에 그날의 지역만 짧게 보이고, DAY를 누르면 서랍처럼 장소 카드들이 펼쳐진다.
 // PC: 짝수 번째는 내용이 왼쪽·제목이 오른쪽, 홀수 번째는 반대. 모바일: 기준선 왼쪽, 한쪽 정렬.
 function DayBlock({
   day,
   places,
+  destination,
   contentLeft,
   photos,
   dayOptions,
@@ -195,6 +188,7 @@ function DayBlock({
 }: {
   day: TripDay;
   places: Item[];
+  destination: string;
   contentLeft: boolean;
   photos: Record<string, string>;
   dayOptions: TripDay[];
@@ -203,7 +197,7 @@ function DayBlock({
   const [open, setOpen] = useState(false);
   const drawerId = useId();
   const color = dayColor(day.day);
-  const { span, route } = daySummary(places);
+  const { areas, more } = dayAreas(places.map((p) => p.address), destination);
   const toggle = () => setOpen((v) => !v);
   const empty = places.length === 0;
 
@@ -219,45 +213,26 @@ function DayBlock({
         <button type="button" onClick={toggle} disabled={empty} aria-expanded={open} aria-controls={drawerId} className={`group inline-block text-left disabled:cursor-default ${contentLeft ? "" : "md:text-right"}`}>
           {day.date && <p className={MUTED}>{day.date}</p>}
           <p className="text-3xl font-bold tracking-tight transition group-hover:opacity-80">DAY {day.day}</p>
-          <p className={MUTED}>{empty ? "아직 장소가 없습니다" : open ? "접기 ↑" : "펼치기 ↓"}</p>
+          {areas.length > 0 && (
+            <p className="mt-1 text-base font-medium text-white/85">
+              {areas.join(" · ")}
+              {more > 0 && <span className="text-white/55"> 외 {more}곳</span>}
+            </p>
+          )}
+          <p className={`mt-1 ${MUTED}`}>{empty ? "아직 장소가 없습니다" : `장소 ${places.length}곳 · ${open ? "접기 ↑" : "펼치기 ↓"}`}</p>
         </button>
       </Reveal>
 
       <div className={`md:row-start-1 ${contentLeft ? "md:col-start-1" : "md:col-start-2"}`}>
         {empty ? null : (
           <>
-            {/* 그날의 설명 카드 */}
-            <Reveal>
-              <button
-                type="button"
-                onClick={toggle}
-                aria-expanded={open}
-                aria-controls={drawerId}
-                className={`${PANEL} group flex w-full items-start gap-3 p-4 text-left ${open ? "border-white/35 bg-white/[0.13]" : ""}`}
-              >
-                <span aria-hidden className="mt-1 h-10 w-1 shrink-0 rounded-full" style={{ backgroundColor: color }} />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-xs text-white/60">{span}</span>
-                  <span className="mt-1 block leading-snug font-semibold break-keep">{route}</span>
-                </span>
-                <span
-                  aria-hidden
-                  className={`flex size-8 shrink-0 items-center justify-center rounded-full bg-white/10 transition duration-300 ${open ? "rotate-180 bg-white/25" : "group-hover:bg-white/20"}`}
-                >
-                  <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-                    <path d="m6 9 6 6 6-6" />
-                  </svg>
-                </span>
-              </button>
-            </Reveal>
-
             {/* 서랍: 그날의 장소 카드들 */}
             <div
               id={drawerId}
               className={`grid transition-[grid-template-rows] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
             >
               <div className="min-h-0 overflow-hidden" inert={!open}>
-                <ul className="flex flex-col gap-3 pt-3">
+                <ul className="flex flex-col gap-3">
                   {places.map((item, i) => (
                     <Reveal as="li" key={item.id} delay={i * 80}>
                       <PlaceCard key={item.updated_at} item={item} photoUrl={photos[item.id]} color={color} days={dayOptions} readOnly={readOnly} />
@@ -306,7 +281,7 @@ export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = n
         <ol className="relative">
           <span aria-hidden className="absolute top-2 bottom-0 left-3 w-px bg-gradient-to-b from-white/50 via-white/25 to-transparent md:left-1/2" />
           {grouped.days.map(({ day, places: dayPlaces }, index) => (
-            <DayBlock key={day.day} day={day} places={dayPlaces} contentLeft={index % 2 === 0} photos={photos} dayOptions={dayOptions} readOnly={readOnly} />
+            <DayBlock key={day.day} day={day} places={dayPlaces} destination={trip.destination} contentLeft={index % 2 === 0} photos={photos} dayOptions={dayOptions} readOnly={readOnly} />
           ))}
         </ol>
       </section>
