@@ -11,6 +11,7 @@ import { formatCost, formatTime, type Item } from "@/lib/items/types";
 import type { TripDay } from "@/lib/trips/days";
 import { isPass, parseFlight, passLines, returnFlight, stayRange } from "@/lib/trips/go-info";
 import { clothingTip, isRainy, weatherKind, weatherLabel, type TripWeather, type WeatherKind } from "@/lib/weather/codes";
+import { EDIT_PANEL, EditHeader } from "./edit-sheet";
 import { ItemForm } from "./item-form";
 
 type Props = {
@@ -150,14 +151,12 @@ function ItemDialogBody({ item, days, readOnly, close, children }: { item: Item;
   const { editing, setEditing, error, deleting, onDelete } = useItemActions(item, close);
   if (editing) {
     return (
-      <div className="max-h-[80vh] overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl dark:bg-zinc-950 dark:text-zinc-100">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-semibold">항목 수정</h2>
-          <button type="button" onClick={() => setEditing(false)} className="text-sm text-zinc-500 hover:underline">
-            돌아가기
-          </button>
+      // 창은 웹에서 1.25·1.4배로 커지므로 수정 화면은 그만큼 되돌려 원래 크기로 보이게 한다
+      <div data-tone="dark" className={`${EDIT_PANEL} md:[zoom:0.8] lg:[zoom:0.7143]`}>
+        <EditHeader title="항목 수정" sub={item.name} onClose={() => setEditing(false)} closeLabel="수정 그만두고 돌아가기" />
+        <div className="max-h-[70vh] overflow-y-auto px-5 pb-5">
+          <ItemForm key={item.updated_at} action={updateItem.bind(null, item.id, item.trip_id)} days={days} item={item} submitLabel="고치기" onSaved={() => setEditing(false)} />
         </div>
-        <ItemForm key={item.updated_at} action={updateItem.bind(null, item.id, item.trip_id)} days={days} item={item} submitLabel="고치기" onSaved={() => setEditing(false)} />
       </div>
     );
   }

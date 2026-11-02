@@ -5,6 +5,7 @@ import { useRef, useState, useTransition } from "react";
 import { deleteItem, updateItem } from "@/app/actions/items";
 import { GEOCODED_KINDS, formatCost, formatTime, ITEM_KIND_LABELS, type Item } from "@/lib/items/types";
 import type { TripDay } from "@/lib/trips/days";
+import { EDIT_DIALOG, EditHeader } from "./edit-sheet";
 import { ItemForm } from "./item-form";
 
 type Props = { item: Item; days: TripDay[]; compact?: boolean; readOnly?: boolean };
@@ -73,15 +74,11 @@ export function ItemCard({ item, days, compact = false, readOnly = false }: Prop
         <dialog
           ref={dialogRef}
           aria-label={`${item.name} 수정`}
-          className="m-auto w-[min(32rem,calc(100vw-2rem))] rounded-lg bg-white p-0 text-zinc-900 backdrop:bg-black/40 dark:bg-zinc-950 dark:text-zinc-100"
+          data-tone="dark"
+          className={EDIT_DIALOG}
         >
-          <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
-            <h2 className="font-semibold">항목 수정</h2>
-            <button type="button" onClick={() => dialogRef.current?.close()} aria-label="수정 창 닫기" className="rounded px-2 py-1 hover:bg-zinc-100 dark:hover:bg-zinc-900">
-              ✕
-            </button>
-          </div>
-          <div className="max-h-[80vh] overflow-y-auto p-4">
+          <EditHeader title="항목 수정" sub={item.name} onClose={() => dialogRef.current?.close()} closeLabel="수정 창 닫기" />
+          <div className="max-h-[75vh] overflow-y-auto px-5 pb-5">
             <ItemForm
               action={updateItem.bind(null, item.id, item.trip_id)}
               days={days}
