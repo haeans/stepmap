@@ -8,10 +8,10 @@
 // 대표 이미지(F08)가 들어오기 전에는 목적지로 색을 정한 임시 그림을 쓴다.
 // 이 화면이 열려 있는 동안 <html data-cover>를 붙인다. 머리글·전환 버튼이 이 표시를 보고 사진 위 글자색(흰색)으로 바뀐다.
 
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import type { GroupedItems } from "@/lib/items/group";
-import type { Item } from "@/lib/items/types";
+import { formatTime, type Item } from "@/lib/items/types";
 import { dayColor } from "@/lib/map/places";
 import type { TripDay } from "@/lib/trips/days";
 import { averageColor, hueBackground, hueFromText, placeholderCover, toneBackground } from "@/lib/trips/tone";
@@ -174,6 +174,105 @@ function Cards({ items, empty, days, readOnly }: { items: Item[]; empty: string;
   );
 }
 
+// 그날의 설명: 시간대 · 장소 수, 다녀가는 장소들
+function daySummary(places: Item[]): { span: string; route: string } {
+  const times = places.map((p) => formatTime(p.time)).filter(Boolean);
+  const span = [times.length > 0 ? (times.length > 1 ? `${times[0]} – ${times[times.length - 1]}` : times[0]) : null, `장소 ${places.length}곳`]
+    .filter(Boolean)
+    .join(" · ");
+  return { span, route: places.map((p) => p.name).join(" → ") };
+}
+
+// DAY 한 칸 (F10). 접혀 있을 때는 그날의 설명 카드, DAY를 누르면 서랍처럼 장소 카드들이 펼쳐진다.
+// PC: 짝수 번째는 내용이 왼쪽·제목이 오른쪽, 홀수 번째는 반대. 모바일: 기준선 왼쪽, 한쪽 정렬.
+function DayBlock({
+  day,
+  places,
+  contentLeft,
+  photos,
+  dayOptions,
+  readOnly,
+}: {
+  day: TripDay;
+  places: Item[];
+  contentLeft: boolean;
+  photos: Record<string, string>;
+  dayOptions: TripDay[];
+  readOnly: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const drawerId = useId();
+  const color = dayColor(day.day);
+  const { span, route } = daySummary(places);
+  const toggle = () => setOpen((v) => !v);
+  const empty = places.length === 0;
+
+  return (
+    <li aria-label={`${day.day}일차`} className="relative grid gap-4 pb-12 pl-10 md:grid-cols-2 md:gap-x-16 md:pl-0">
+      <span aria-hidden className="absolute top-2 left-3 flex size-3.5 -translate-x-1/2 md:left-1/2">
+        <span className="absolute inline-flex size-full rounded-full opacity-60 motion-safe:animate-ping" style={{ backgroundColor: color }} />
+        <span className="relative inline-flex size-3.5 rounded-full ring-4 ring-white/20" style={{ backgroundColor: color }} />
+      </span>
+
+      {/* 제목: 누르면 펼치고 접는다 */}
+      <Reveal className={`md:row-start-1 ${contentLeft ? "md:col-start-2" : "md:col-start-1 md:text-right"}`}>
+        <button type="button" onClick={toggle} disabled={empty} aria-expanded={open} aria-controls={drawerId} className={`group inline-block text-left disabled:cursor-default ${contentLeft ? "" : "md:text-right"}`}>
+          {day.date && <p className={MUTED}>{day.date}</p>}
+          <p className="text-3xl font-bold tracking-tight transition group-hover:opacity-80">DAY {day.day}</p>
+          <p className={MUTED}>{empty ? "아직 장소가 없습니다" : open ? "접기 ↑" : "펼치기 ↓"}</p>
+        </button>
+      </Reveal>
+
+      <div className={`md:row-start-1 ${contentLeft ? "md:col-start-1" : "md:col-start-2"}`}>
+        {empty ? null : (
+          <>
+            {/* 그날의 설명 카드 */}
+            <Reveal>
+              <button
+                type="button"
+                onClick={toggle}
+                aria-expanded={open}
+                aria-controls={drawerId}
+                className={`${PANEL} group flex w-full items-start gap-3 p-4 text-left ${open ? "border-white/35 bg-white/[0.13]" : ""}`}
+              >
+                <span aria-hidden className="mt-1 h-10 w-1 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-xs text-white/60">{span}</span>
+                  <span className="mt-1 block leading-snug font-semibold break-keep">{route}</span>
+                </span>
+                <span
+                  aria-hidden
+                  className={`flex size-8 shrink-0 items-center justify-center rounded-full bg-white/10 transition duration-300 ${open ? "rotate-180 bg-white/25" : "group-hover:bg-white/20"}`}
+                >
+                  <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </span>
+              </button>
+            </Reveal>
+
+            {/* 서랍: 그날의 장소 카드들 */}
+            <div
+              id={drawerId}
+              className={`grid transition-[grid-template-rows] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
+            >
+              <div className="min-h-0 overflow-hidden" inert={!open}>
+                <ul className="flex flex-col gap-3 pt-3">
+                  {places.map((item, i) => (
+                    <Reveal as="li" key={item.id} delay={i * 80}>
+                      <PlaceCard key={item.updated_at} item={item} photoUrl={photos[item.id]} color={color} days={dayOptions} readOnly={readOnly} />
+                    </Reveal>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </li>
+  );
+}
+
 export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = null, photos = {} }: Props) {
   const hue = hueFromText(trip.destination || trip.title);
   const photoTone = usePhotoTone(coverUrl);
@@ -206,37 +305,9 @@ export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = n
         <Heading id="m-days">DAY BY DAY</Heading>
         <ol className="relative">
           <span aria-hidden className="absolute top-2 bottom-0 left-3 w-px bg-gradient-to-b from-white/50 via-white/25 to-transparent md:left-1/2" />
-          {grouped.days.map(({ day, places: dayPlaces }, index) => {
-            // PC: 짝수 번째는 내용이 왼쪽·제목이 오른쪽, 홀수 번째는 반대
-            const contentLeft = index % 2 === 0;
-            const color = dayColor(day.day);
-            return (
-              <li key={day.day} aria-label={`${day.day}일차`} className="relative grid gap-4 pb-14 pl-10 md:grid-cols-2 md:gap-x-16 md:pl-0">
-                <span aria-hidden className="absolute top-2 left-3 flex size-3.5 -translate-x-1/2 md:left-1/2">
-                  <span className="absolute inline-flex size-full rounded-full opacity-60 motion-safe:animate-ping" style={{ backgroundColor: color }} />
-                  <span className="relative inline-flex size-3.5 rounded-full ring-4 ring-white/20" style={{ backgroundColor: color }} />
-                </span>
-                <Reveal className={`md:row-start-1 ${contentLeft ? "md:col-start-2" : "md:col-start-1 md:text-right"}`}>
-                  {day.date && <p className={MUTED}>{day.date}</p>}
-                  <p className="text-3xl font-bold tracking-tight">DAY {day.day}</p>
-                  <p className={MUTED}>장소 {dayPlaces.length}곳</p>
-                </Reveal>
-                <div className={`md:row-start-1 ${contentLeft ? "md:col-start-1" : "md:col-start-2"}`}>
-                  {dayPlaces.length === 0 ? (
-                    <p className={MUTED}>아직 장소가 없습니다.</p>
-                  ) : (
-                    <ul className="flex flex-col gap-3">
-                      {dayPlaces.map((item, i) => (
-                        <Reveal as="li" key={item.id} delay={i * 80}>
-                          <PlaceCard key={item.updated_at} item={item} photoUrl={photos[item.id]} color={color} days={dayOptions} readOnly={readOnly} />
-                        </Reveal>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </li>
-            );
-          })}
+          {grouped.days.map(({ day, places: dayPlaces }, index) => (
+            <DayBlock key={day.day} day={day} places={dayPlaces} contentLeft={index % 2 === 0} photos={photos} dayOptions={dayOptions} readOnly={readOnly} />
+          ))}
         </ol>
       </section>
 
