@@ -17,6 +17,7 @@ import type { TripDay } from "@/lib/trips/days";
 import { dayAreas } from "@/lib/trips/areas";
 import { averageColor, hueBackground, hueFromText, placeholderCover, toneBackground } from "@/lib/trips/tone";
 import type { Trip } from "@/lib/trips/types";
+import type { TripWeather } from "@/lib/weather/codes";
 import { ItemCard } from "./item-card";
 import { NoteComposer } from "./note-composer";
 import { PlaceCard } from "./place-card";
@@ -30,6 +31,7 @@ type Props = {
   dayOptions: TripDay[];
   readOnly: boolean;
   coverUrl?: string | null; // F08 머지 후 여행의 대표 이미지 주소를 넘긴다
+  weather?: TripWeather | null; // GO 패널 날씨 (서버에서 구함)
   photos?: Record<string, string>; // 항목 id → 직접 넣은 사진 주소. 없으면 일차 색 그라데이션
 };
 
@@ -248,7 +250,7 @@ function DayBlock({
   );
 }
 
-export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = null, photos = {} }: Props) {
+export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = null, photos = {}, weather = null }: Props) {
   const hue = hueFromText(trip.destination || trip.title);
   const photoTone = usePhotoTone(coverUrl);
   const background = photoTone ?? hueBackground(hue);
@@ -271,7 +273,16 @@ export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = n
           <h2 className="text-5xl font-bold tracking-tight break-keep text-white/95 drop-shadow-[0_4px_24px_rgba(0,0,0,0.45)] md:text-8xl">{trip.title}</h2>
         </Reveal>
         <Reveal delay={150}>
-          <TicketStrip items={[...grouped.transport, ...grouped.lodging]} days={dayOptions} readOnly={readOnly} />
+          <TicketStrip
+            tripId={trip.id}
+            items={[...grouped.transport, ...grouped.lodging]}
+            days={dayOptions}
+            readOnly={readOnly}
+            weather={weather}
+            coverImage={image}
+            companions={trip.companions}
+            startDate={trip.start_date}
+          />
         </Reveal>
       </section>
 

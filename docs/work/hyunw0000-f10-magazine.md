@@ -32,7 +32,7 @@
 | 층 | 파일 | 내용 |
 |---|---|---|
 | 화면 | `src/app/trips/[tripId]/_components/magazine-view.tsx` (새 파일) | 매거진 화면. 사진 층(맨 위부터), 사진 톤, `<html data-cover>`, 기준선 일정, 떠오르는 카드 |
-| 화면 | `src/app/trips/[tripId]/_components/ticket-strip.tsx` (새 파일) | 교통·숙소 예약 카드 줄과 상세 팝업(수정·삭제) |
+| 화면 | `src/app/trips/[tripId]/_components/ticket-strip.tsx` (새 파일) | GO 패널: 항공권·숙소·교통 패스·날씨·준비물 카드와 창(레퍼런스 5종), 항목 수정·삭제 |
 | 화면 | `src/app/trips/[tripId]/_components/place-card.tsx` (새 파일) | DAY 장소 카드. 누르면 서랍처럼 펼쳐져 시간·티켓·주소·메모·지도·수정·삭제 |
 | 화면 | `src/app/trips/[tripId]/_components/cost-section.tsx`, `note-composer.tsx` (새 파일) | 쓴 돈 바로 수정, 쪽지 바로 쓰기 |
 | 화면 | `src/app/trips/[tripId]/_components/input-panel.tsx`, `item-fields.tsx`, `item-form.tsx`, `paste-extract.tsx`, `form-styles.ts`(새 파일) | 입력창을 어두운 유리 패널로, 입력 칸·버튼 공용 모양 |
@@ -46,7 +46,10 @@
 | 화면 (디자인 담당 파일) | `src/app/_components/app-header.tsx` | 이메일·로그아웃 색이 바깥 글자색을 따르게 (흰 바탕에서는 거의 같음) |
 | 화면 (디자인 담당 파일) | `src/app/globals.css` | 스크롤바 숨김 |
 | 로직 | `src/lib/trips/tone.ts`, `tone.test.ts` (새 파일) | 평균색, 배경색 만들기, 목적지 → 색상, 임시 대표 그림(SVG) |
-| 서버 | 없음 | 기존 `updateItem`·`deleteItem` 그대로 |
+| 로직 | `src/lib/trips/go-info.ts`, `go-info.test.ts` (새 파일) | 항공편(공항 코드·편명·돌아오는 편), 숙소 체크인·체크아웃·박수, 교통 패스 노선 |
+| 로직 | `src/lib/trips/areas.ts`, `areas.test.ts` (새 파일) | DAY 제목 아래 지역(동네) 뽑기 |
+| 서버 | `src/lib/weather/open-meteo.ts`, `codes.ts`, `codes.test.ts` (새 파일) | 여행 날씨(Open-Meteo, 키 없음, 3시간 캐시). 16일 안이면 예보, 더 멀면 작년 같은 날 |
+| 서버 | 액션 변경 없음 | 기존 `createItem`·`updateItem`·`deleteItem` 그대로 |
 | DB | 없음 | DB 변경 없음 |
 
 ## 4. 결정 (임시 번호)
@@ -65,6 +68,10 @@
 | [hyunw0000-f10-magazine] 결정 10 | 화면 | DAY 장소 카드는 사진 자리가 있는 카드이고, 누르면 서랍처럼 펼쳐져 시간·티켓(비용·예약 링크)·주소·메모·지도·수정·삭제를 보여 준다. (담당자 지시) |
 | [hyunw0000-f10-magazine] 결정 11 | 화면 | 장소 사진 API(Google Places 사진)는 시험 후 지금은 쓰지 않는다(유료, 출처 미정). 사진이 없으면 일차 색 그라데이션. "구글 지도" 버튼은 API 없이 좌표 검색 링크로 연다. (담당자 지시) |
 | [hyunw0000-f10-magazine] 결정 12 | 화면 | 쪽지 제목 오른쪽 "＋ 쪽지 쓰기"로 바로 쓰고, 쓴 돈 제목 오른쪽 "수정"으로 금액·통화를 바로 고친다. (담당자 지시) |
+| [hyunw0000-f10-magazine] 결정 14 | 화면 | GO 패널 카드를 누르면 레퍼런스("GO 패널을 누르면 뜨는 창 5종") 모양의 창: 항공권(탑승권), 숙소 예약(체크인·체크아웃·여행 기간 막대), 날씨, 교통 패스, 준비물. 저장 칸이 없는 값(도착 시각·좌석·수하물·체크인 시각)은 만들지 않고 메모로 보여 준다. (담당자 지시) |
+| [hyunw0000-f10-magazine] 결정 15 | 서버 | 날씨는 Open-Meteo(무료, 키 없음)로 숙소(없으면 첫 장소) 좌표에서 구한다. 여행이 16일 안이면 예보, 더 멀면 작년 같은 날짜의 실제 날씨를 "작년 기준"으로 보여 준다. |
+| [hyunw0000-f10-magazine] 결정 16 | 화면 | 교통 패스는 비행기가 아닌 "교통" 항목으로 본다. 메모의 쉼표 목록을 "탈 수 있는 노선"으로 보여 준다. |
+| [hyunw0000-f10-magazine] 결정 17 | 화면 | 준비물 체크리스트는 DB 변경이 없는 작업이라 브라우저(localStorage, 여행별)에만 저장한다. 공유받은 사람에게는 보이지 않는다. |
 | [hyunw0000-f10-magazine] 결정 13 | 화면 | 여행 상세 머리글은 넓은 화면(xl)에서 화면 폭 전체 한 줄(로고·여행 목록 …… 이메일·로그아웃·공유·매거진/지도). (담당자 지시) |
 
 ## 5. 회귀 항목
@@ -86,6 +93,9 @@
 - 대표 이미지 저장소(Supabase Storage 등)가 CORS로 사진 픽셀 읽기를 허용해야 사진 톤 배경이 된다. 막혀 있으면 목적지 색으로 대신 나온다.
 - `app-header.tsx`, `globals.css`는 디자인 담당(F07) 파일이다. PR에 디자인 담당을 리뷰어로 넣는다(integration.md 9절).
 - 스크롤바 숨김을 앱 전체에 둘지, 여행 상세에만 둘지 F07과 맞춘다.
+- 날씨에 새 외부 서비스(Open-Meteo)를 쓴다. 키·비용은 없지만 외부 서비스 추가라 haeans 확인이 필요하다(B30).
+- 준비물을 기기 사이에 맞추거나 동행과 나누려면 DB 칸(또는 테이블)이 필요하다. 다음 킥오프 안건.
+- 항공권의 도착 시각·좌석·수하물, 숙소의 체크인·체크아웃 시각을 칸으로 둘지(DB 변경) 다음 킥오프 안건.
 - 장소 사진의 출처(직접 올리기면 DB·저장소 변경 필요, Google Places면 비용)는 다음 킥오프에서 정한다. 카드는 `photos`(항목 id → 사진 주소)를 받으면 바로 보여 준다.
 
 ## 7. 공통 문서 반영 요청

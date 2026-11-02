@@ -7,6 +7,7 @@ import { ITEM_COLUMNS, type Item } from "@/lib/items/types";
 import { mapPlaces } from "@/lib/map/places";
 import { dayRoute } from "@/lib/map/routes";
 import { createClient } from "@/lib/supabase/server";
+import { tripWeather } from "@/lib/weather/open-meteo";
 import { dayChoices, tripDays } from "@/lib/trips/days";
 import { TRIP_COLUMNS, type Trip } from "@/lib/trips/types";
 import { InputPanel } from "./_components/input-panel";
@@ -62,6 +63,13 @@ export default async function TripPage({ params, searchParams }: PageProps<"/tri
           count={items?.length ?? 0}
           dayOptions={choices}
           readOnly={readOnly}
+          // GO 패널 날씨: 숙소(없으면 첫 장소) 좌표로 Open-Meteo에서 구한다 (3시간 캐시)
+          weather={await tripWeather({
+            place: trip.destination || trip.title,
+            ...weatherSpot(items ?? []),
+            start: trip.start_date,
+            end: trip.end_date,
+          })}
         />
       ) : (
         <TripMap items={items ?? []} days={grouped.days.map((d) => d.day.day)} itemId={typeof query.item === "string" ? query.item : null} />
@@ -69,6 +77,12 @@ export default async function TripPage({ params, searchParams }: PageProps<"/tri
       {!readOnly && <InputPanel tripId={trip.id} days={choices} />}
     </main>
   );
+}
+
+// 날씨를 볼 좌표: 숙소 → 첫 장소
+function weatherSpot(items: Item[]): { lat: number | null; lng: number | null } {
+  const spot = items.find((i) => i.kind === "lodging" && i.lat !== null) ?? items.find((i) => i.lat !== null);
+  return { lat: spot?.lat ?? null, lng: spot?.lng ?? null };
 }
 
 // 2화면(지도). 일차별 경로는 서버에서 구한다(캐시, B21).

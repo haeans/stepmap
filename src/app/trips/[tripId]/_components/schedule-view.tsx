@@ -4,6 +4,7 @@ import type { GroupedItems } from "@/lib/items/group";
 import type { TripDay } from "@/lib/trips/days";
 import type { ScheduleFormat } from "@/lib/trips/schedule-format";
 import type { Trip } from "@/lib/trips/types";
+import type { TripWeather } from "@/lib/weather/codes";
 import { MagazineView } from "./magazine-view";
 import { ScheduleB } from "./schedule-sections";
 import { Segmented } from "./segmented";
@@ -24,6 +25,7 @@ type Props = {
   readOnly: boolean;
   coverUrl?: string | null;
   photos?: Record<string, string>;
+  weather?: TripWeather | null;
 };
 
 export function ScheduleView(props: Props) {
