@@ -28,9 +28,9 @@ type Props = {
 };
 
 const MUTED = "text-sm text-white/60";
-// 사진 배경 위에 놓는 반투명 카드. 항목 카드(ItemCard)의 글자색이 그대로 읽힌다.
+// 사진 톤 배경 위의 어두운 유리 카드(레퍼런스 WHAT'S INCLUDED). 항목 카드(ItemCard)는 바깥 글자색(흰색)을 따른다.
 const PANEL =
-  "rounded-2xl bg-white/90 text-zinc-900 shadow-lg shadow-black/25 ring-1 ring-white/40 backdrop-blur-md transition duration-300 ease-out hover:-translate-y-1 hover:bg-white hover:shadow-2xl motion-reduce:transition-none motion-reduce:hover:translate-y-0 dark:bg-zinc-900/80 dark:text-zinc-100 dark:ring-white/10 dark:hover:bg-zinc-900";
+  "rounded-2xl border border-white/15 bg-white/[0.07] text-white shadow-lg shadow-black/30 backdrop-blur-xl transition duration-300 ease-out hover:-translate-y-1 hover:border-white/35 hover:bg-white/[0.13] hover:shadow-2xl motion-reduce:transition-none motion-reduce:hover:translate-y-0";
 
 // 대표 사진의 평균색으로 배경색을 만든다. 다른 도메인 사진을 읽지 못하면(CORS) null로 두고 기본색을 쓴다.
 function usePhotoTone(url: string | null): string | null {
