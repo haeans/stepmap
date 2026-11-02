@@ -108,7 +108,7 @@ export function InputPanel({ tripId, days }: { tripId: string; days: TripDay[] }
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
-        className={`fixed bottom-6 right-6 z-30 rounded-full bg-zinc-900 px-5 py-3 font-medium text-white shadow-lg hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 ${open ? "max-md:hidden md:right-[25.5rem]" : ""}`}
+        className={`fixed bottom-6 right-6 z-30 rounded-full bg-zinc-900 px-5 py-3 font-medium text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-zinc-700 hover:shadow-xl active:scale-95 dark:bg-zinc-100 dark:text-zinc-900 [html[data-cover]_&]:bg-white [html[data-cover]_&]:text-zinc-900 [html[data-cover]_&]:shadow-black/40 [html[data-cover]_&]:hover:bg-white/90 ${open ? "max-md:hidden md:right-[25.5rem]" : ""}`}
       >
         {open ? "입력창 닫기" : "＋ 입력"}
       </button>

@@ -88,7 +88,9 @@ export function PlaceCard({ item, info, photoUrl = null, color, days, readOnly }
               aria-hidden
               className={`flex size-8 shrink-0 items-center justify-center rounded-full bg-white/15 backdrop-blur-md transition duration-300 ${open ? "rotate-180 bg-white/30" : "group-hover:bg-white/25"}`}
             >
-              ⌄
+              <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="m6 9 6 6 6-6" />
+              </svg>
             </span>
           </div>
         </div>

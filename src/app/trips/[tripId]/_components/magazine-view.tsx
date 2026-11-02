@@ -18,6 +18,7 @@ import { averageColor, hueBackground, hueFromText, placeholderCover, toneBackgro
 import type { Trip } from "@/lib/trips/types";
 import type { PlaceInfo } from "@/lib/map/place-info-parse";
 import { ItemCard } from "./item-card";
+import { NoteComposer } from "./note-composer";
 import { PlaceCard } from "./place-card";
 import { CostList } from "./schedule-sections";
 import { TicketStrip } from "./ticket-strip";
@@ -256,6 +257,7 @@ export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = n
           <div className="flex flex-col gap-3">
             <p className="font-medium text-white/80">쪽지</p>
             <Cards items={grouped.memos} empty="메모가 없습니다." days={dayOptions} readOnly={readOnly} />
+            {!readOnly && <NoteComposer tripId={trip.id} />}
           </div>
         </div>
       </section>
