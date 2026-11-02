@@ -1,7 +1,9 @@
 # — GitHub·Vercel 협업 설정
 
-> 담당: haeans · 브랜치: `haeans/github-setup` · 킥오프: 2026-11-02 (B32로 결정, 별도 킥오프 PR 없음)
-> 상태: PR
+> **반영 완료 (2026-11-02, #17)**: 결정 1 → B36, 결정 2 → B37(고침: 우회는 긴급 수정만), 회귀 항목 → `regression.md` 4절. Vercel 미리보기 끄기는 #13·#14에서 `ignoreCommand` → `git.deploymentEnabled`로 바뀜.
+>
+> 담당: haeans · 이슈: #10 · 브랜치: `haeans/github-setup` · 킥오프: 2026-11-02 (B32로 결정, 별도 킥오프 PR 없음)
+> 상태: 반영 완료
 
 ## 1. 범위
 
