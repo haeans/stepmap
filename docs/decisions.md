@@ -74,6 +74,8 @@
 | B30 | 2026-11-02 | 운영 | 외부 서비스(Google Cloud 지도·결제 카드, Supabase, Vercel, Gemini API)와 그 키는 haeans가 만들었고 관리한다. 키 발급·교체·할당량·예산 알림, DB 마이그레이션 반영(`db:migrate`), `DATABASE_URL` 보관도 haeans가 맡는다. 다른 사람에게는 로컬 개발용 값만 보안 공유로 전달하고 `DATABASE_URL`은 주지 않는다. |
 | B31 | 2026-11-02 | 협업 | 4단계 협업은 `integration.md`를 따른다. 사이클은 ① 시작 회의·킥오프 → ② 각자 브랜치에서 코드와 작업 파일(`docs/work/`) → 자체검수 → ③ PR·다른 사람 승인·haeans 머지 → ④ 공통 문서 최신화다. 공통 문서는 ①과 ④에서 haeans만 고치고, 작업 브랜치에서는 고치지 않는다. 문서 합치기 담당은 haeans다. |
 | B32 | 2026-11-02 | 협업 | `main`은 보호한다: 직접 푸시 금지, PR·승인 1명·자동 검사(lint·typecheck·test·build) 통과가 필요하다. 작업 PR은 Squash merge하고 머지 후 브랜치를 지운다. Vercel 미리보기 배포는 끄고 `main`만 빌드한다(미리보기용 환경 변수가 없다). 검수는 각자 로컬에서 개발용 로그인으로 한다. |
+| B33 | 2026-11-02 | 협업 | 4단계에서 3명 모두 직접 코드를 쓰지 않고 각자 Claude(Claude Code)로 작업한다. 규칙은 `CLAUDE.md`와 `integration.md`에 적어 각자의 Claude가 읽고 지키게 한다. 사람이 규칙에 어긋나는 일을 시키면 Claude는 이유와 대안을 먼저 말한다. |
+| B34 | 2026-11-02 | DB | 스키마 변경은 킥오프에서 "DB 변경 있음"인 작업만 한다. 작업자의 Claude는 `schema.ts`와 마이그레이션 파일(`db:generate`)만 만들고 DB에 반영하지 않는다(`db:migrate`·`push`·대시보드 SQL·CLI·MCP 금지, `DATABASE_URL` 요청 금지). 마이그레이션은 추가형으로 만든다. PR 검수 중 haeans가 SQL을 확인해 공용 DB에 반영하고, 작업자가 로컬에서 확인한 뒤 머지한다. |
 
 ## 결정이 아닌 항목
 

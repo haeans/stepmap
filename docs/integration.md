@@ -19,6 +19,7 @@ v1.0을 AI 하나가 만든 뒤, 세 명이 수정·확장을 나눠 맡아 합�
   - 외부 서비스와 키 관리: Google Cloud(지도·결제), Supabase, Vercel, Gemini
   - PR 머지, DB 마이그레이션 반영(`npm run db:migrate`)
   - 공통 문서 수정(①킥오프, ④최신화)
+- **코드는 Claude가 쓴다** (B33): 3명 모두 직접 코드를 쓰지 않고 각자 Claude(Claude Code)로 작업한다. 사람은 할 일을 지시하고, 결과를 검수·승인한다. 이 문서와 `CLAUDE.md`의 규칙은 각자의 Claude가 읽고 스스로 지킨다. 사람이 규칙에 어긋나는 일을 시키면 Claude는 먼저 이유와 대안을 말한다.
 
 ## 3. 사이클
 
@@ -83,7 +84,12 @@ v1.0을 AI 하나가 만든 뒤, 세 명이 수정·확장을 나눠 맡아 합�
 
 - haeans가 승인받은 순서대로 머지한다. 방식은 Squash merge.
 - 머지 전에 PR의 "Update branch"로 최신 `main`을 받고 자동 검사를 다시 통과시킨다.
-- DB 스키마가 바뀌는 PR은 한 번에 하나만 연다(킥오프에서 "DB 변경 있음"으로 표시). 머지 직후 haeans가 `npm run db:migrate`로 반영하고, 배포본을 확인한다.
+- DB 스키마가 바뀌는 PR은 한 번에 하나만 연다(킥오프에서 "DB 변경 있음"으로 표시). (B34)
+  1. 작업자의 Claude가 `schema.ts`를 고치고 `npm run db:generate`로 마이그레이션 파일만 만든다. DB 반영은 하지 않는다(`DATABASE_URL`이 없다).
+  2. PR 검수 중 haeans가 마이그레이션 SQL(추가형인지, RLS·권한이 있는지)을 확인하고 `npm run db:migrate`로 공용 DB에 반영한다.
+  3. 작업자가 로컬에서 새 구조로 동작을 확인한다.
+  4. 승인 후 haeans가 머지하면 새 코드가 자동 배포된다. 마이그레이션이 추가형이라 2~4 사이에도 배포본은 그대로 동작한다.
+  - 반영한 뒤 PR이 취소되면, haeans가 되돌리는 마이그레이션을 따로 만들지 그대로 둘지 정한다.
 
 ## 8. 머지 전 확인
 
@@ -100,7 +106,7 @@ v1.0을 AI 하나가 만든 뒤, 세 명이 수정·확장을 나눠 맡아 합�
 
 | 곳 | 규칙 |
 |---|---|
-| `drizzle/`(마이그레이션 번호, `meta/_journal.json`) | 스키마 변경은 한 번에 한 브랜치만. 반영은 haeans. |
+| `drizzle/`(마이그레이션 번호, `meta/_journal.json`) | 스키마 변경은 한 번에 한 브랜치만. 파일은 작업자의 Claude가 만들고, 반영은 haeans. (7절) |
 | `package.json`, `package-lock.json` | 패키지 추가는 PR에 적는다. lock 파일 충돌은 `main` 쪽을 받고 `npm install`을 다시 돌린다. |
 | `src/app/globals.css`, `src/app/layout.tsx`, `src/app/_components/` | 디자인 담당이 주인이다. 다른 사람이 고치면 PR에 디자인 담당을 리뷰어로 지정한다. |
 
