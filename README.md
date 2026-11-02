@@ -38,9 +38,12 @@ Next.js · Vercel Hobby · Supabase Free(PostgreSQL) · Supabase Auth(구글 로
 
 Node.js 24가 필요하다.
 
-1. 의존성 설치: `npm install`
+1. 의존성 설치: `npm ci`
 2. 환경 변수: `.env.example`을 `.env.local`로 복사하고 값을 채운다. (`.env.local`은 저장소에 올리지 않는다)
+   - 값은 haeans가 보안 공유로 준다. `DATABASE_URL`은 비워 둔다(마이그레이션은 haeans만 한다). 자세한 목록은 `docs/integration.md` 10절.
 3. 개발 서버: `npm run dev` → http://localhost:3000
+   - 로그인 화면의 개발용 로그인 버튼(소유자, 보기 전용)으로 들어간다. 로컬에서만 보이고 배포본에는 없다(B27).
+   - 로컬도 배포본과 같은 Supabase DB와 API 할당량을 쓴다.
 
 | 명령 | 내용 |
 |---|---|
@@ -53,15 +56,17 @@ Node.js 24가 필요하다.
 
 ## 배포
 
-- Vercel Hobby에 배포한다.
+- Vercel Hobby에 배포한다. `main`에 머지되면 자동으로 배포된다(B29).
 - 3명 모두 접속할 수 있는 공개 주소로 배포한다.
 - 공개 주소: https://stepmap-pi.vercel.app (2026-11-02 배포)
+- 외부 서비스(Google Cloud, Supabase, Vercel, Gemini)와 키는 haeans가 관리한다(B30).
+- 협업 규칙(브랜치, PR, 머지, 문서)은 [docs/integration.md](docs/integration.md)에 있다.
 
-### 배포 설정 순서 (v1.0)
+### 배포 설정 순서 (v1.0에서 한 것, 다시 만들 때 참고)
 
-1. **Vercel 프로젝트**: GitHub 저장소 `haeans/stepmap`을 가져온다. 가져올 때 `main`(문서만 있음)을 보고 판단하므로 첫 배포는 실패한다. Settings > Build and Deployment에서 Framework Preset을 **Next.js**로 바꾸고 Build·Output·Install의 Override를 모두 끈다. Node.js Version은 24.x. Settings > Environments > Production > Branch Tracking을 `haeans/v1.0`으로 바꾼다. `main`은 쓰지 않는다.
+1. **Vercel 프로젝트**: GitHub 저장소 `haeans/stepmap`을 가져온다. Settings > Build and Deployment에서 Framework Preset이 **Next.js**인지 확인하고 Build·Output·Install의 Override를 모두 끈다(v1.0 때는 `main`에 코드가 없어 "Other"로 잡혔다). Node.js Version은 24.x. Settings > Environments > Production > Branch Tracking은 `main`(v1.0 확인 때는 `haeans/v1.0`). 미리보기 배포는 저장소의 `vercel.json`(`ignoreCommand`)이 건너뛴다(B32).
 2. **환경 변수** (프로젝트 사이드바 > Environment Variables, Production만). `DEV_*`(개발용 로그인)는 넣지 않는다: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, `NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID`, `GOOGLE_MAPS_SERVER_KEY`, `GEMINI_API_KEY`. `DATABASE_URL`은 마이그레이션 전용이라 넣지 않는다. `NEXT_PUBLIC_` 4개는 브라우저에 공개되는 값이라 Config로만 넣을 수 있다(키처럼 보인다는 경고는 무시). `GOOGLE_MAPS_SERVER_KEY`, `GEMINI_API_KEY`는 Secret. `NEXT_PUBLIC_`으로 시작하는 값은 빌드에 들어가므로 바꾸면 다시 배포한다.
-3. **배포**: Deployments > Create Deployment에서 `haeans/v1.0`을 넣는다. Production·Ready가 붙으면 Domains의 짧은 주소가 공개 주소다.
+3. **배포**: `main`에 머지하면 자동으로 된다. 직접 하려면 Deployments > Create Deployment에서 `main`을 넣는다. Production·Ready가 붙으면 Domains의 짧은 주소가 공개 주소다.
 4. **Supabase 로그인 주소** (Authentication > URL Configuration): Site URL을 배포 주소로 바꾸고, Redirect URLs에 `https://배포주소/**`를 더한다. 로컬 개발용 localhost 항목은 남겨 둔다. Site URL이 localhost로 남아 있으면 배포본에서 구글 로그인 후 localhost로 돌아간다.
 5. **구글 로그인 동의 화면** (Google Cloud > OAuth consent screen): 게시 상태가 Testing이면 3명의 구글 계정을 Test users에 넣는다.
 6. **Supabase 이메일 공급자** (Authentication > Providers > Email): 로컬 개발용 로그인(B27)이 이메일·비밀번호 계정을 쓰므로 켜 둔다. 화면에는 구글 로그인만 보인다. 대신 이메일 가입은 확인 메일을 거치게 두고(Confirm email 켬), API 일일 할당량으로 남용을 막는다. 구글 외 가입을 완전히 막는 것은 확장 단계에서 정한다.
