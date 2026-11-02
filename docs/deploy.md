@@ -12,10 +12,12 @@
 | 저장소 | Add New > Project | GitHub `haeans/stepmap` |
 | 프레임워크 | Settings > Build and Deployment | Framework Preset **Next.js**, Build·Output·Install Override 모두 끔, Node.js 24.x |
 | 운영 브랜치 | Settings > Environments > Production > Branch Tracking | `main` (B29) |
-| 미리보기 배포 | 저장소 `vercel.json`의 `ignoreCommand` | 운영이 아니면 빌드를 건너뜀 (B32) |
+| 미리보기 배포 | 저장소 `vercel.json`의 `git.deploymentEnabled` | `main`만 자동 배포, 나머지 브랜치는 배포하지 않음 (B32) |
 
 - `main`에 머지하면 자동으로 운영 배포된다. 직접 하려면 Deployments > Create Deployment에 `main`을 넣는다.
 - 공개 주소는 Overview > Domains의 짧은 주소다. 배포마다 생기는 긴 주소는 쓰지 않는다.
+- 미리보기 배포에는 환경 변수가 없어서 열면 서버 오류가 난다. 미리보기 배포를 Promote to Production 하지 않는다.
+- `ignoreCommand`(`VERCEL_ENV` 검사)로 미리보기를 막으면 직접 만든 운영 배포까지 취소된다(#13). 브랜치 기준인 `git.deploymentEnabled`를 쓴다.
 - 저장소를 처음 가져올 때 `main`에 코드가 없으면 Framework가 "Other"로 잡혀 `No Output Directory named "public"` 오류가 난다(v1.0 때 겪음). Preset을 Next.js로 바꾸고 다시 배포한다.
 
 ### 환경 변수
