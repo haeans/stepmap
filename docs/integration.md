@@ -24,16 +24,16 @@ v1.0을 AI 하나가 만든 뒤, 세 명이 수정·확장을 나눠 맡아 합�
 
 | 단계 | 하는 일 | 누가 | 결과물 |
 |---|---|---|---|
-| ① 시작 회의 → 킥오프 | 할 일·담당자·브랜치 이름·DB 변경 여부를 정한다. 합의한 공통 문서 수정(PRD 범위, 결정, 규칙)도 여기서 한다. | 3인 회의, 반영은 haeans | `main`에 킥오프 PR |
+| ① 시작 회의 → 킥오프 | 할 일·담당자·브랜치 이름·DB 변경 여부를 정한다. 작업마다 GitHub 이슈를 하나 만든다. 합의한 공통 문서 수정(PRD 범위, 결정, 규칙)도 여기서 한다. | 3인 회의, 반영은 haeans | 이슈, `main`에 킥오프 PR |
 | ② 작업 → 자체검수 | 최신 `main`에서 브랜치를 파고 코드와 작업 파일만 고친다. 자체검수 후 PR을 연다. | 담당자 | 코드, `docs/work/<브랜치>.md` |
-| ③ PR → 검수 → 머지 | 작성자가 아닌 1명이 승인한다. haeans가 승인 순서대로 머지한다. | 검수자, haeans | `main` 머지, 자동 배포 |
+| ③ PR → 검수 → 머지 | PR 본문에 `Closes #이슈번호`를 넣는다. 작성자가 아닌 1명이 승인한다. haeans가 승인 순서대로 머지하면 이슈가 자동으로 닫힌다. | 검수자, haeans | `main` 머지, 자동 배포 |
 | ④ 공통 문서 최신화 | 머지된 작업 파일의 결정·회귀 항목·질문을 공통 문서로 옮긴다. 사이클 끝에 몰아서 한다. | haeans | `main`에 sync PR |
 
 ## 4. 문서 규칙 (충돌 방지)
 
 ### 4-1. 공통 문서와 작업 파일
 
-- **공통 문서**: `CLAUDE.md`, `AGENTS.md`, `README.md`, `docs/` 바로 아래 문서 전부(`01-PRD.md`, `02-FRONTEND.md`, `03-BACKEND.md`, `04-DB.md`, `STACK.md`, `decisions.md`, `open-questions.md`, `integration.md`, `regression.md`, `README.md`), `docs/features/README.md`, `docs/features/F01`~`F06`
+- **공통 문서**: `CLAUDE.md`, `AGENTS.md`, `README.md`, `docs/` 바로 아래 문서 전부(`01-PRD.md`, `02-FRONTEND.md`, `03-BACKEND.md`, `04-DB.md`, `STACK.md`, `deploy.md`, `decisions.md`, `open-questions.md`, `integration.md`, `regression.md`, `README.md`), `docs/features/README.md`, `docs/features/F01`~`F06`
 - **작업 파일**: `docs/work/<브랜치 이름에서 /를 -로 바꾼 것>.md`. 작업마다 새로 하나 만든다. 양식은 `docs/work/README.md`.
 
 ### 4-2. 언제 누가 고치나
@@ -46,6 +46,7 @@ v1.0을 AI 하나가 만든 뒤, 세 명이 수정·확장을 나눠 맡아 합�
 
 - 작업 브랜치에서는 공통 문서를 고치지 않는다. 고칠 내용은 작업 파일의 "공통 문서 반영 요청"에 적는다.
 - `01-PRD.md`(범위)와 `STACK.md`(스택)는 3인 합의가 있어야 고친다.
+- 루트 `README.md`는 짧게 유지한다. 개요, 실행 방법, 공개 주소만 두고 절차·설정·긴 설명은 `docs/` 문서(예: `deploy.md`)로 보내 링크만 둔다.
 - 작업 파일의 결정은 임시 번호(`[작업 파일 이름] 결정 1`)로 적는다. B-번호는 ④에서 haeans가 붙인다.
 - ④에서 옮긴 작업 파일은 맨 위에 "반영 완료(날짜, sync PR)"를 적고 지우지 않는다.
 
@@ -71,7 +72,8 @@ v1.0을 AI 하나가 만든 뒤, 세 명이 수정·확장을 나눠 맡아 합�
 
 ## 6. PR
 
-- PR 양식(`.github/pull_request_template.md`)을 채운다: 작업 파일 링크, 자체검수 결과, DB 변경 여부, 공통 문서 반영 요청.
+- PR 양식(`.github/pull_request_template.md`)을 채운다: `Closes #이슈번호`, 작업 파일 링크, 자체검수 결과, DB 변경 여부, 공통 문서 반영 요청.
+- 커밋 메시지에도 이슈 번호를 적으면(`(#12)`) 커밋에서 이슈로 바로 이동할 수 있다. v1.0까지의 작업은 이슈 #3~#10에 커밋을 연결해 두었다.
 - 자체검수: `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`와 작업 파일의 회귀 항목, 관련된 `regression.md` 항목을 로컬에서 확인한다(개발용 로그인).
 - 자동 검사(GitHub Actions)가 PR마다 lint·typecheck·test·build를 돌린다. 통과해야 머지할 수 있다.
 - 작성자가 아닌 1명이 승인해야 머지할 수 있다. 공통 문서·`drizzle/`·`.github/`를 건드리면 CODEOWNERS로 haeans에게 리뷰가 요청된다.

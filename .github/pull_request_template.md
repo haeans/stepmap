@@ -1,5 +1,7 @@
 ## 작업
 
+Closes #
+
 - 작업 파일: `docs/work/<브랜치에서 /를 -로>.md`
 - 기능번호·담당: <!-- features/README.md 3절 -->
 
