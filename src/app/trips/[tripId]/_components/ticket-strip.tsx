@@ -96,7 +96,7 @@ function WeatherIcon({ kind, className = "size-6" }: { kind: WeatherKind; classN
 
 // ───────── 창(팝업) 틀 ─────────
 
-function GoDialog({ dialogRef, label, children, onClose }: { dialogRef: RefObject<HTMLDialogElement | null>; label: string; children: ReactNode; onClose?: () => void }) {
+function GoDialog({ dialogRef, label, children, onClose, actions = false }: { dialogRef: RefObject<HTMLDialogElement | null>; label: string; children: ReactNode; onClose?: () => void; actions?: boolean }) {
   return (
     <dialog
       ref={dialogRef}
@@ -108,7 +108,8 @@ function GoDialog({ dialogRef, label, children, onClose }: { dialogRef: RefObjec
       }}
       // 웹(넓은 화면)에서는 창 전체를 글씨·간격까지 비율 그대로 키운다(zoom): md 1.25배, lg 1.4배
       // 창이 화면보다 길면(숙소 창 등) 창 안에서 위아래로 스크롤한다. 높이는 키운 비율만큼 나눠 화면 안에 들어오게 한다.
-      className="m-auto max-h-[calc(100dvh-2rem)] w-[min(23rem,calc(100vw-2rem))] overflow-y-auto overscroll-contain bg-transparent p-0 text-zinc-900 backdrop:bg-black/55 backdrop:backdrop-blur-sm md:max-h-[calc((100dvh-2rem)/1.25)] md:[zoom:1.25] lg:max-h-[calc((100dvh-2rem)/1.4)] lg:[zoom:1.4]"
+      // 수정·삭제가 있는 창은 웹에서 오른쪽 세로 버튼 자리만큼 넓다
+      className={`m-auto max-h-[calc(100dvh-2rem)] w-[min(23rem,calc(100vw-2rem))] overflow-y-auto ${actions ? "md:w-[min(26.5rem,calc((100vw-2rem)/1.25))] lg:w-[min(26.5rem,calc((100vw-2rem)/1.4))]" : ""} overscroll-contain bg-transparent p-0 text-zinc-900 backdrop:bg-black/55 backdrop:backdrop-blur-sm md:max-h-[calc((100dvh-2rem)/1.25)] md:[zoom:1.25] lg:max-h-[calc((100dvh-2rem)/1.4)] lg:[zoom:1.4]`}
     >
       <div className="relative transition duration-300 ease-out starting:translate-y-4 starting:scale-95 starting:opacity-0">
         {/* 닫기 버튼은 창을 스크롤해도 위에 남는다 */}
@@ -128,7 +129,7 @@ function GoDialog({ dialogRef, label, children, onClose }: { dialogRef: RefObjec
   );
 }
 
-// 항공권·숙소·패스 창 아래: 수정·삭제. 수정을 누르면 카드 대신 흰 수정 폼.
+// 항공권·숙소·패스 창의 수정·삭제(좁은 화면은 카드 아래, 웹은 카드 오른쪽 위 세로). 수정을 누르면 카드 대신 흰 수정 폼.
 function useItemActions(item: Item, close: () => void) {
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -159,17 +160,20 @@ function ItemDialogBody({ item, days, readOnly, close, children }: { item: Item;
   }
   return (
     <>
-      {children}
-      {!readOnly && (
-        <div className="mt-3 flex justify-center gap-2 text-sm text-white">
-          <button type="button" onClick={() => setEditing(true)} className="rounded-full bg-white/15 px-4 py-1.5 backdrop-blur-md transition hover:bg-white/25 active:scale-95">
-            수정
-          </button>
-          <button type="button" onClick={onDelete} disabled={deleting} className="rounded-full bg-white/15 px-4 py-1.5 text-rose-200 backdrop-blur-md transition hover:bg-rose-500/30 active:scale-95 disabled:opacity-50">
-            {deleting ? "지우는 중…" : "삭제"}
-          </button>
-        </div>
-      )}
+      <div className="md:flex md:items-start md:gap-2">
+        <div className="min-w-0 md:flex-1">{children}</div>
+        {!readOnly && (
+          // 좁은 화면: 카드 아래 가로. 웹(md 이상): 카드 오른쪽 위에 세로(닫기 버튼 바로 아래), 스크롤해도 따라온다.
+          <div className="mt-3 flex justify-center gap-2 text-sm text-white md:sticky md:top-11 md:mt-0 md:w-14 md:shrink-0 md:flex-col md:text-xs">
+            <button type="button" onClick={() => setEditing(true)} className="rounded-full bg-white/15 px-4 py-1.5 backdrop-blur-md transition hover:bg-white/25 active:scale-95 md:px-0">
+              수정
+            </button>
+            <button type="button" onClick={onDelete} disabled={deleting} className="rounded-full bg-white/15 px-4 py-1.5 text-rose-200 backdrop-blur-md transition hover:bg-rose-500/30 active:scale-95 disabled:opacity-50 md:px-0">
+              {deleting ? "지우는 중…" : "삭제"}
+            </button>
+          </div>
+        )}
+      </div>
       {error && <p className="mt-2 text-center text-sm text-rose-200">{error}</p>}
     </>
   );
@@ -686,7 +690,7 @@ function GroupTile({ kind, group, items, days, readOnly, coverImage, companions 
   return (
     <>
       <Tile icon={icon} kind={KIND_LABEL[kind]} corner={corner} title={groupTitle(kind, group)} foot={groupFoot(kind, group, lodgings, days)} onOpen={d.open} />
-      <GoDialog dialogRef={d.ref} label={`${KIND_LABEL[kind]} 자세히`}>
+      <GoDialog dialogRef={d.ref} label={`${KIND_LABEL[kind]} 자세히`} actions={!readOnly}>
         {group.length > 1 && (
           <div role="tablist" aria-label={`${KIND_LABEL[kind]} 고르기`} className="mb-3 flex gap-2 overflow-x-auto pb-1">
             {group.map((g, i) => (
