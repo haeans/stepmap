@@ -1,7 +1,7 @@
 "use client";
 
 // 쪽지 영역에서 바로 쪽지(메모 항목)를 쓰는 칸 (F10). "＋ 쪽지 쓰기"를 누르면 그 자리에 펼쳐진다.
-// 저장은 입력창과 같은 createItem(종류: 메모, 1일차)을 쓴다. 글자색은 바깥을 따른다(매거진 사진 위·종이 모두).
+// 저장은 입력창과 같은 createItem(종류: 메모, 1일차)을 쓴다. 글자색은 바깥을 따른다(매거진 사진 위).
 
 import { useActionState, useEffect, useRef, useState, type ReactNode } from "react";
 import { createItem, type ItemActionState } from "@/app/actions/items";

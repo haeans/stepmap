@@ -38,7 +38,7 @@ export default async function TripPage({ params, searchParams }: PageProps<"/tri
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 p-6 pb-28">
-      {/* 매거진 "크게"에서는 사진 위에 놓이므로 흰 글씨로 바뀐다(<html data-cover>, F10).
+      {/* 매거진에서는 사진 위에 놓이므로 흰 글씨로 바뀐다(<html data-cover>, F10).
           넓은 화면(xl)에서는 화면 폭 전체로 펼쳐 한 줄로 놓는다: 로고 · 여행 목록 …… 이메일 · 로그아웃 · 공유 · 매거진/지도 */}
       <div className="flex flex-col gap-6 [html[data-cover]_&]:text-white xl:mx-[calc(50%-50vw)] xl:flex-row xl:items-center xl:gap-4 xl:px-8">
       <AppHeader email={user.email} className="xl:contents" />
@@ -52,7 +52,7 @@ export default async function TripPage({ params, searchParams }: PageProps<"/tri
           ) : (
             <ShareButton tripId={trip.id} />
           )}
-          {/* 넓은 화면(xl)에서는 머리글 줄 오른쪽 끝. 크게/종이 버튼은 그 아래(schedule-view). */}
+          {/* 넓은 화면(xl)에서는 머리글 줄 오른쪽 끝. */}
           <ViewSwitch tripId={trip.id} current={view} />
         </div>
       </div>
