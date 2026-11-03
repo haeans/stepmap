@@ -45,3 +45,4 @@ export function AppHeader({ email, className = "" }: { email: string; className?
     </header>
   );
 }
+export const LogoMark = () => <span aria-hidden className="flex size-7 -rotate-3 items-center justify-center rounded-md bg-accent font-serif text-sm leading-none text-[#fbf7ef] shadow-sm">步</span>;
