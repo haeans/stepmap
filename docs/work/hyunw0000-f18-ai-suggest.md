@@ -75,8 +75,8 @@ PRD 4절 C8 F18 ("v1.0 이후 후보"의 "AI 일정 도우미"). F17(입력창 �
 
 | 문서 | 반영할 내용 |
 |---|---|
-| `decisions.md` B16 | 결정 1로 고침("모르면 DAY 1" 삭제) |
-| `decisions.md` B17 | 결정 2로 고침(같은 원문 다시 보내기 허용) |
+| `decisions.md` B16 | 결정 1로 고침("모르면 DAY 1" 삭제) → 반영 완료(2026-11-03, `haeans/kickoff-c8-f22`) |
+| `decisions.md` B17 | 결정 2로 고침(같은 원문 다시 보내기 허용) → 반영 완료(2026-11-03, `haeans/kickoff-c8-f22`) |
 | `decisions.md` 새 B-번호 | 결정 3, 결정 4 |
 | `02-FRONTEND.md` 5-3절 | 미리보기 추천 표시, 매거진 추천 카드(넣기·빼기), 새 파일 `suggestions.ts`·`suggestion-card.tsx` |
 | `03-BACKEND.md` 추출 부분 | 추천 칸(`suggested_day`·`suggested_time`·`reason`), 기존 일정 맥락 |
