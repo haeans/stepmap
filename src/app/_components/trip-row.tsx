@@ -10,7 +10,7 @@ import { PREVIEW_EMPTY_TEXT, type PreviewDay } from "@/lib/trips/preview";
 import type { Trip } from "@/lib/trips/types";
 
 const LONG_PRESS_MS = 500;
-const CARD_BUTTON = "rounded-full bg-black/40 px-3 py-1.5 text-xs text-white backdrop-blur-sm hover:bg-black/60 disabled:opacity-50";
+const CARD_BUTTON = "rounded-full bg-white/15 px-3 py-1.5 text-xs font-medium text-white ring-1 ring-white/20 backdrop-blur-md hover:bg-white/25 disabled:opacity-50";
 
 // 여행 카드 (F09). 작업 파일 leedaekeon578-f09-trip-cards 결정 1~5.
 // shared: 공유받은 여행. "공유받음"을 표시하고 이름 수정·삭제 버튼을 숨긴다. (R-08)
@@ -69,7 +69,7 @@ export function TripRow({ trip, shared, preview }: { trip: Trip; shared: boolean
 
   return (
     <li className="flex flex-col gap-2">
-      <div className="group relative h-[190px] overflow-hidden rounded-3xl bg-linear-to-br from-zinc-700 to-zinc-900 text-white select-none md:h-[280px]">
+      <div className="group relative h-[190px] overflow-hidden rounded-[1.75rem] bg-linear-to-br from-zinc-600 via-zinc-800 to-zinc-950 text-white shadow-md transition duration-300 select-none hover:-translate-y-0.5 hover:shadow-xl md:h-[280px]">
         {/* 대표 이미지 (F08). 없으면 어두운 기본 카드. Next.js 이미지 최적화 대신 주소 파라미터로 크기를 줄인다(결정 3). */}
         {trip.cover_url && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -94,7 +94,7 @@ export function TripRow({ trip, shared, preview }: { trip: Trip; shared: boolean
             onPointerLeave={endPress}
             onClick={onClick}
             onContextMenu={onContextMenu}
-            className="absolute inset-0 rounded-3xl [-webkit-touch-callout:none] focus-visible:ring-4 focus-visible:ring-white/70 focus-visible:outline-none focus-visible:ring-inset"
+            className="absolute inset-0 rounded-[1.75rem] [-webkit-touch-callout:none] focus-visible:ring-4 focus-visible:ring-white/70 focus-visible:outline-none focus-visible:ring-inset"
           />
         )}
 
@@ -110,7 +110,7 @@ export function TripRow({ trip, shared, preview }: { trip: Trip; shared: boolean
               maxLength={100}
               autoFocus
               aria-label="여행 이름"
-              className="min-w-0 flex-1 rounded-md bg-white/90 px-3 py-1.5 text-zinc-900"
+              className="min-w-0 flex-1 rounded-full bg-white/90 px-4 py-1.5 text-zinc-900"
             />
             <button type="submit" disabled={pending} className={CARD_BUTTON}>
               저장
@@ -121,14 +121,14 @@ export function TripRow({ trip, shared, preview }: { trip: Trip; shared: boolean
           </form>
         ) : (
           <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col gap-1 p-5">
-            <h3 className="text-2xl font-semibold break-words md:text-3xl">{trip.title}</h3>
+            <h3 className="text-2xl break-words md:text-[2rem]">{trip.title}</h3>
             {subtitle && <p className="text-sm text-white/80">{subtitle}</p>}
           </div>
         )}
 
         {!editing && (
           <div
-            className={`pointer-events-none absolute z-10 flex-col gap-2 overflow-hidden bg-black/75 p-5 pt-14 text-sm ${
+            className={`pointer-events-none absolute z-10 flex-col gap-2 overflow-hidden bg-black/70 p-5 pt-14 text-sm backdrop-blur-md ${
               pressed ? "inset-0 flex" : "inset-y-0 right-0 hidden w-1/2 group-hover:flex"
             }`}
           >
@@ -149,7 +149,7 @@ export function TripRow({ trip, shared, preview }: { trip: Trip; shared: boolean
         )}
 
         {shared && (
-          <span className="pointer-events-none absolute top-4 left-4 z-20 rounded-full bg-black/40 px-2.5 py-1 text-xs text-white backdrop-blur-sm">
+          <span className="pointer-events-none absolute top-4 left-4 z-20 rounded-full bg-white/15 px-2.5 py-1 text-xs font-medium text-white ring-1 ring-white/20 backdrop-blur-md">
             공유받음
           </span>
         )}

@@ -1,21 +1,167 @@
 @import "tailwindcss";
 
+/*
+ * 디자인 토큰 (F07 전체 디자인·톤 모던화)
+ * - 한지 느낌: 미색 베이지 바탕에 옅은 종이 결, 먹색 글자, 포인트는 인주(도장) 빨강 하나만 쓴다.
+ * - 제목은 명조(Noto Serif KR), 본문은 고딕(Geist + Noto Sans KR).
+ * - 화면 코드가 쓰는 zinc 회색을 베이지 회색으로 바꿔, 각 화면을 고치지 않고도 톤이 같이 바뀌게 한다.
+ * - 모서리는 전체적으로 더 둥글게, 그림자는 옅고 넓게.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #e8dabf;
+  --foreground: #2a241d;
+  --surface: #f5ecda;
+  --muted: #7d6e57;
+  --line: #d6c3a1;
+  --accent: #b5412e;
+  --accent-soft: #efd2c2;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #17140f;
+    --foreground: #f1e9db;
+    --surface: #221e18;
+    --muted: #a99c87;
+    --line: #3a3229;
+    --accent: #d9604a;
+    --accent-soft: #3d2019;
+  }
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-surface: var(--surface);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --font-sans: var(--font-geist-sans), var(--font-noto-kr), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-noto-serif-kr), ui-serif, serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@theme {
+  /* 흰색: 새하얀 흰색 대신 한지 흰색. 입력창·종이 형식처럼 bg-white를 쓰는 곳도 톤이 맞는다. */
+  --color-white: #f8f1e3;
+
+  /* 회색: zinc → 베이지 회색 */
+  --color-zinc-50: #f6eedf;
+  --color-zinc-100: #ece0c9;
+  --color-zinc-200: #dfcfb2;
+  --color-zinc-300: #cfbb99;
+  --color-zinc-400: #ae9f87;
+  --color-zinc-500: #887a64;
+  --color-zinc-600: #655849;
+  --color-zinc-700: #4a4036;
+  --color-zinc-800: #302a23;
+  --color-zinc-900: #231e18;
+  --color-zinc-950: #16130f;
+
+  /* 모서리 */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.5rem;
+
+  /* 그림자: 옅고 넓게 */
+  --shadow-sm: 0 1px 2px rgb(58 44 26 / 0.04), 0 1px 3px rgb(58 44 26 / 0.06);
+  --shadow-md: 0 4px 12px rgb(58 44 26 / 0.06), 0 1px 3px rgb(58 44 26 / 0.05);
+  --shadow-lg: 0 12px 32px rgb(58 44 26 / 0.10), 0 2px 6px rgb(58 44 26 / 0.05);
+  --shadow-xl: 0 24px 48px rgb(58 44 26 / 0.14), 0 4px 10px rgb(58 44 26 / 0.06);
+}
+
+@layer base {
+  /* 한지 결: 잔 무늬(노이즈)와 가로로 긴 섬유 결을 아주 옅게 겹친다. 이미지 파일 없이 SVG로 그린다. */
+  body {
+    background-color: var(--background);
+    background-image:
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='f'><feTurbulence type='fractalNoise' baseFrequency='0.012 0.35' numOctaves='2' seed='7' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.47 0 0 0 0 0.38 0 0 0 0 0.25 0 0 0 0.14 0'/></filter><rect width='100%' height='100%' filter='url(%23f)'/></svg>"),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.40 0 0 0 0 0.32 0 0 0 0 0.20 0 0 0 0.10 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    color: var(--foreground);
+    font-family: var(--font-geist-sans), var(--font-noto-kr), ui-sans-serif, system-ui, sans-serif;
+    font-feature-settings: "ss01", "cv11";
+    word-break: keep-all;
+    /* 머리글 바탕(w-screen)이 세로 스크롤바 폭만큼 넘쳐 가로 스크롤이 생기지 않게. clip은 sticky를 깨지 않는다. */
+    overflow-x: clip;
+  }
+
+  /* 제목은 명조. 한지 위 인쇄물 느낌 */
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-noto-serif-kr), ui-serif, serif;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+  }
+
+  ::selection {
+    background: var(--accent-soft);
+    color: var(--foreground);
+  }
+
+  /* Tailwind v4는 버튼 기본 커서가 화살표다. 누를 수 있는 것은 손가락으로. */
+  button:not(:disabled),
+  [role="button"]:not(:disabled),
+  label:has(> input[type="radio"]),
+  label:has(> input[type="checkbox"]) {
+    cursor: pointer;
+  }
+
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    transition:
+      background-color 150ms ease,
+      border-color 150ms ease,
+      color 150ms ease,
+      box-shadow 150ms ease,
+      transform 150ms ease;
+  }
+
+  button:not(:disabled):active {
+    transform: scale(0.97);
+  }
+
+  /* 키보드 포커스는 포인트 색 테두리 하나로 통일 */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline-offset: 0;
+    border-color: transparent;
+  }
+
+  input:not([type="radio"], [type="checkbox"]),
+  select,
+  textarea {
+    background-color: var(--surface);
+  }
+
+  input[type="checkbox"],
+  input[type="radio"] {
+    accent-color: var(--accent);
+  }
+
+  /* 창(수정·공유)은 떠 있는 카드처럼 */
+  dialog {
+    background: var(--surface);
+    color: var(--foreground);
+    box-shadow: var(--shadow-xl);
+    border-radius: var(--radius-2xl);
+  }
+
+  dialog::backdrop {
+    background: rgb(15 14 13 / 0.35);
+    backdrop-filter: blur(6px);
   }
 }
 
@@ -25,10 +171,4 @@
 }
 *::-webkit-scrollbar {
   display: none;
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
 }

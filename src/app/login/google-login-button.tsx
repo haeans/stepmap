@@ -24,13 +24,16 @@ export function GoogleLoginButton({ next }: { next: string }) {
   }
 
   return (
-    <div className="flex flex-col items-center gap-2">
+    <div className="flex w-full flex-col items-center gap-2">
       <button
         type="button"
         onClick={signIn}
         disabled={pending}
-        className="rounded-md border border-zinc-300 px-5 py-2.5 font-medium hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-900"
+        className="flex w-full items-center justify-center gap-2.5 rounded-full bg-foreground px-5 py-3 font-medium text-background shadow-md hover:opacity-90 disabled:opacity-50"
       >
+        <span aria-hidden className="flex size-5 items-center justify-center rounded-full bg-background text-xs font-bold text-foreground">
+          G
+        </span>
         {pending ? "구글로 이동 중…" : "구글 계정으로 로그인"}
       </button>
       {error && <p className="text-sm text-red-600">{error}</p>}

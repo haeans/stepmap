@@ -3,7 +3,10 @@
 import { useActionState, useState } from "react";
 import { createTrip, type ActionState } from "@/app/actions/trips";
 
-const INPUT = "rounded-md border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950";
+const INPUT = "rounded-xl border border-line bg-surface px-3.5 py-2.5 placeholder:text-zinc-400";
+const LABEL = "flex flex-col gap-1.5 text-sm font-medium text-muted";
+const PRIMARY =
+  "rounded-full bg-foreground px-5 py-2.5 font-medium text-background shadow-sm hover:opacity-90 disabled:opacity-50";
 
 export function NewTripForm() {
   const [open, setOpen] = useState(false);
@@ -14,47 +17,49 @@ export function NewTripForm() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="self-start rounded-md bg-zinc-900 px-4 py-2 font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900"
+        className={`${PRIMARY} flex items-center gap-1.5 self-start`}
       >
+        <span aria-hidden className="text-lg leading-none">＋</span>
         새 여행 만들기
       </button>
     );
   }
 
   return (
-    <form action={action} className="flex flex-col gap-3 rounded-md border border-zinc-200 p-4 dark:border-zinc-800">
-      <label className="flex flex-col gap-1 text-sm">
+    <form action={action} className="flex flex-col gap-4 rounded-3xl border border-line bg-surface p-6 shadow-md">
+      <p className="font-serif text-xl font-bold">새 여행</p>
+      <label className={LABEL}>
         여행 이름
         <input name="title" required maxLength={100} placeholder="예: 홍콩 3박 4일" className={INPUT} autoFocus />
       </label>
-      <label className="flex flex-col gap-1 text-sm">
+      <label className={LABEL}>
         목적지
         <input name="destination" maxLength={100} placeholder="예: 홍콩" className={INPUT} />
       </label>
-      <div className="flex flex-wrap gap-3">
-        <label className="flex flex-col gap-1 text-sm">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-[1fr_1fr_7rem]">
+        <label className={LABEL}>
           시작일
           <input type="date" name="startDate" className={INPUT} />
         </label>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className={LABEL}>
           종료일
           <input type="date" name="endDate" className={INPUT} />
         </label>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className={LABEL}>
           동행 인원
-          <input type="number" name="companions" min={1} max={99} defaultValue={1} className={`${INPUT} w-24`} />
+          <input type="number" name="companions" min={1} max={99} defaultValue={1} className={INPUT} />
         </label>
       </div>
       {state.error && <p className="text-sm text-red-600">{state.error}</p>}
-      <div className="flex gap-2">
+      <div className="flex gap-2 pt-1">
         <button
           type="submit"
           disabled={pending}
-          className="rounded-md bg-zinc-900 px-4 py-2 font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+          className={PRIMARY}
         >
           {pending ? "만드는 중…" : "만들기"}
         </button>
-        <button type="button" onClick={() => setOpen(false)} className="rounded-md px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-900">
+        <button type="button" onClick={() => setOpen(false)} className="rounded-full px-5 py-2.5 text-muted hover:bg-zinc-100 hover:text-foreground dark:hover:bg-zinc-800">
           취소
         </button>
       </div>
