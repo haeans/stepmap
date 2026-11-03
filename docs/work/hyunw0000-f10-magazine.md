@@ -89,7 +89,8 @@
 
 ## 6. 질문
 
-- F08 머지 후 대표 이미지 주소를 어디서 넘길지(`trips` 칸 이름)는 F08 결과를 보고 연결한다. 연결은 F10 PR에서 할지 F08 이후 작은 PR에서 할지 정해야 한다.
+- ~~F08 머지 후 대표 이미지 주소를 어디서 넘길지~~ → 해결(2026-11-03, 담당자 결정): F10 PR에서 `page.tsx`가 `trip.cover_url`을 `coverSrc(…, 1920)`로 `ScheduleView`의 `coverUrl`에 넘긴다.
+- 매거진 첫 화면에 Unsplash 사진이 깔릴 때 작가 표시(`cover_author_name`, `authorLink`)를 아직 넣지 않았다. 여행 목록 카드(F09)에는 있다. Unsplash 표시 규칙상 매거진에도 넣을지 리뷰에서 정한다.
 - 대표 이미지 저장소(Supabase Storage 등)가 CORS로 사진 픽셀 읽기를 허용해야 사진 톤 배경이 된다. 막혀 있으면 목적지 색으로 대신 나온다.
 - `app-header.tsx`, `globals.css`는 디자인 담당(F07) 파일이다. PR에 디자인 담당을 리뷰어로 넣는다(integration.md 9절).
 - 스크롤바 숨김을 앱 전체에 둘지, 여행 상세에만 둘지 F07과 맞춘다.

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppHeader } from "@/app/_components/app-header";
 import { requireUser } from "@/lib/auth/user";
+import { coverSrc } from "@/lib/cover/cover";
 import { groupItems } from "@/lib/items/group";
 import { ITEM_COLUMNS, type Item } from "@/lib/items/types";
 import { mapPlaces } from "@/lib/map/places";
@@ -70,6 +71,8 @@ export default async function TripPage({ params, searchParams }: PageProps<"/tri
             start: trip.start_date,
             end: trip.end_date,
           })}
+          // 대표 이미지(F08). 없으면 매거진이 목적지 색의 임시 그림을 쓴다.
+          coverUrl={trip.cover_url ? coverSrc(trip.cover_url, 1920) : null}
         />
       ) : (
         <TripMap items={items ?? []} days={grouped.days.map((d) => d.day.day)} itemId={typeof query.item === "string" ? query.item : null} />
