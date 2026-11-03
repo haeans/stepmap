@@ -50,6 +50,20 @@
       "when": 1793533489633,
       "tag": "0006_shares_grants",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793619311616,
+      "tag": "0007_trip_covers",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793619317317,
+      "tag": "0008_trip_covers_storage",
+      "breakpoints": true
     }
   ]
 }
