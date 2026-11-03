@@ -6,36 +6,37 @@ import type { TripDay } from "@/lib/trips/days";
 import { BUBBLE_IN, BUBBLE_OUT } from "./form-styles";
 import { ItemForm } from "./item-form";
 import { PasteExtract } from "./paste-extract";
-import { Segmented } from "./segmented";
+import { PawIcon } from "./paw-icon";
 
-type Mode = "manual" | "paste";
+// R-03: 평소에는 닫혀 있고 버튼을 누르면 열리는 채팅 모양 입력창.
+// F17: 밝은 한지 톤 패널(PC는 오른쪽에 떠 있는 카드, 모바일은 아래에서 올라오는 시트), 곰발바닥 버튼으로 연다.
+// "일정 넣기" 제목 아래 탭 두 개(왼쪽 "붙여넣기" R-04, 오른쪽 "직접 입력" R-05)로 고르고, 고른 탭의 화면만 보인다.
+// 탭마다 안내·저장 알림·쓰던 내용을 따로 갖는다. 다른 탭으로 가거나 창을 닫아도 지우지 않고 숨겨 두어 돌아오면 남아 있다.
+type Tab = "paste" | "manual";
 
-const TABS: { value: Mode; label: string }[] = [
+const TABS: { value: Tab; label: string }[] = [
   { value: "paste", label: "붙여넣기" },
   { value: "manual", label: "직접 입력" },
 ];
 
-// R-03: 평소에는 닫혀 있고 버튼을 누르면 열리는 채팅 모양 입력창.
-// F10: 어두운 유리 패널(PC는 오른쪽에 떠 있는 카드, 모바일은 아래에서 올라오는 시트), 열릴 때 미끄러져 들어온다.
-// 붙여넣기 추출(R-04)과 직접 입력(R-05)을 탭으로 고른다.
 export function InputPanel({ tripId, days, defaultOpen = false }: { tripId: string; days: TripDay[]; defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
-  const [mode, setMode] = useState<Mode>("manual");
-  const [messages, setMessages] = useState<string[]>([]);
+  const [tab, setTab] = useState<Tab>("paste");
   const panelId = useId();
-  const bodyRef = useRef<HTMLDivElement>(null);
+  const tabsId = useId();
+  const panelRef = useRef<HTMLElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const wasOpen = useRef(false);
 
-  // 열리면 첫 입력칸으로, 닫히면 입력 버튼으로 포커스를 옮긴다.
+  // 열리면(또는 탭을 바꾸면) 고른 탭의 첫 입력칸으로, 닫히면 곰발바닥 버튼으로 포커스를 옮긴다.
   useEffect(() => {
     if (open) {
-      bodyRef.current?.querySelector<HTMLElement>("textarea, input[name=name]")?.focus();
+      panelRef.current?.querySelector<HTMLElement>(`[data-tab="${tab}"] :is(textarea, input:not([type=hidden]):not([type=radio]))`)?.focus();
     } else if (wasOpen.current) {
       toggleRef.current?.focus();
     }
     wasOpen.current = open;
-  }, [open, mode]);
+  }, [open, tab]);
 
   useEffect(() => {
     if (!open) return;
@@ -46,67 +47,114 @@ export function InputPanel({ tripId, days, defaultOpen = false }: { tripId: stri
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [open]);
 
-  const onItemSaved = useCallback((name: string) => {
-    setMessages((m) => [...m, `"${name}" 항목을 저장했습니다.`]);
-  }, []);
-  const onSaved = useCallback((message: string) => {
-    setMessages((m) => [...m, message]);
-  }, []);
-
   return (
     <>
       {open && (
-        <>
-          {/* 모바일: 뒤를 살짝 어둡게. 누르면 닫힌다. */}
-          <div aria-hidden onClick={() => setOpen(false)} className="fixed inset-0 z-20 bg-black/40 backdrop-blur-[2px] transition-opacity duration-300 starting:opacity-0 md:hidden" />
-          <section
-            id={panelId}
-            role="dialog"
-            aria-label="입력창"
-            data-tone="dark"
-            className="fixed inset-x-0 bottom-0 z-20 flex h-[85vh] flex-col overflow-hidden rounded-t-3xl border border-white/10 bg-zinc-950/85 text-white shadow-2xl shadow-black/50 backdrop-blur-2xl [color-scheme:dark] transition duration-300 ease-out starting:translate-y-8 starting:opacity-0 md:inset-y-4 md:right-4 md:left-auto md:h-auto md:w-[26rem] md:rounded-3xl md:starting:translate-x-8 md:starting:translate-y-0"
-          >
-            <header className="flex items-center justify-between gap-2 px-5 pt-5 pb-3">
-              <Segmented label="입력 방식" size="sm" value={mode} options={TABS} onChange={(v) => setMode(v as Mode)} />
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                aria-label="입력창 닫기"
-                className="flex size-9 items-center justify-center rounded-full text-white/70 transition hover:rotate-90 hover:bg-white/10 hover:text-white active:scale-90"
-              >
-                ✕
-              </button>
-            </header>
-            <div ref={bodyRef} className="flex flex-1 flex-col gap-3 overflow-y-auto px-5 pt-2 pb-5">
-              <p className={BUBBLE_IN}>
-                {mode === "manual"
-                  ? "항목 하나를 직접 입력하세요. 주소를 비워 두면 이름과 여행 목적지로 위치를 찾습니다."
-                  : "티켓, 예약 메일, 메모를 붙여넣으세요. 뽑은 항목은 미리보기에서 확인하고 저장합니다."}
-              </p>
-              {messages.map((m, i) => (
-                <p key={i} role="status" className={`${BUBBLE_OUT} transition duration-300 starting:translate-y-2 starting:opacity-0`}>
-                  ✓ {m}
-                </p>
-              ))}
-              {mode === "manual" ? (
-                <ItemForm action={createItem.bind(null, tripId)} days={days} submitLabel="저장" onSaved={onItemSaved} />
-              ) : (
-                <PasteExtract tripId={tripId} days={days} onSaved={onSaved} />
-              )}
-            </div>
-          </section>
-        </>
+        // 모바일: 뒤를 살짝 어둡게. 누르면 닫힌다.
+        <div aria-hidden onClick={() => setOpen(false)} className="fixed inset-0 z-20 bg-black/30 backdrop-blur-[2px] transition-opacity duration-300 starting:opacity-0 md:hidden" />
       )}
+      <section
+        ref={panelRef}
+        id={panelId}
+        hidden={!open}
+        role="dialog"
+        aria-label="입력창"
+        className="fixed inset-x-0 bottom-0 z-20 flex h-[85vh] flex-col overflow-hidden rounded-t-3xl border border-line bg-surface/95 text-foreground shadow-2xl shadow-black/25 backdrop-blur-2xl transition duration-300 ease-out starting:translate-y-8 starting:opacity-0 md:inset-y-4 md:right-4 md:left-auto md:h-auto md:w-[26rem] md:rounded-3xl md:starting:translate-x-8 md:starting:translate-y-0"
+      >
+        <header className="flex items-center justify-between gap-2 px-5 pt-5 pb-3">
+          <h2 className="text-xl font-bold tracking-tight">일정 넣기</h2>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            aria-label="입력창 닫기"
+            className="flex size-9 items-center justify-center rounded-full text-muted transition hover:rotate-90 hover:bg-foreground/5 hover:text-foreground active:scale-90"
+          >
+            ✕
+          </button>
+        </header>
+        <div role="tablist" aria-label="입력 방식" className="relative mx-5 grid grid-cols-2 rounded-full bg-foreground/[0.06] p-1 ring-1 ring-line">
+          {/* 고른 탭 뒤로 알약이 미끄러져 간다. */}
+          <span
+            aria-hidden
+            className={`absolute top-1 bottom-1 left-1 w-[calc(50%-0.25rem)] rounded-full bg-zinc-900 shadow-md transition-transform duration-300 ease-out motion-reduce:transition-none dark:bg-white ${tab === "manual" ? "translate-x-full" : ""}`}
+          />
+          {TABS.map((t) => (
+            <button
+              key={t.value}
+              type="button"
+              role="tab"
+              id={`${tabsId}-${t.value}`}
+              aria-selected={tab === t.value}
+              aria-controls={`${tabsId}-${t.value}-panel`}
+              onClick={() => setTab(t.value)}
+              className={`relative z-10 rounded-full py-2 text-sm transition-colors duration-300 active:scale-95 ${tab === t.value ? "font-semibold text-white dark:text-zinc-900" : "text-muted hover:text-foreground"}`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-1 flex-col overflow-y-auto px-5 pt-4 pb-5">
+          <div role="tabpanel" id={`${tabsId}-paste-panel`} aria-labelledby={`${tabsId}-paste`} data-tab="paste" hidden={tab !== "paste"}>
+            <PasteSection tripId={tripId} days={days} />
+          </div>
+          <div role="tabpanel" id={`${tabsId}-manual-panel`} aria-labelledby={`${tabsId}-manual`} data-tab="manual" hidden={tab !== "manual"}>
+            <ManualSection tripId={tripId} days={days} />
+          </div>
+        </div>
+      </section>
+
       <button
         ref={toggleRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
+        aria-label={open ? "입력창 닫기" : "입력창 열기"}
         aria-expanded={open}
-        aria-controls={open ? panelId : undefined}
-        className={`fixed bottom-6 right-6 z-30 rounded-full bg-zinc-900 px-5 py-3 font-medium text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-zinc-700 hover:shadow-xl active:scale-95 dark:bg-zinc-100 dark:text-zinc-900 [html[data-cover]_&]:bg-white [html[data-cover]_&]:text-zinc-900 [html[data-cover]_&]:shadow-black/40 [html[data-cover]_&]:hover:bg-white/90 ${open ? "max-md:hidden md:right-[28rem]" : ""}`}
+        aria-controls={panelId}
+        className={`fixed right-6 bottom-6 z-30 flex size-14 items-center justify-center rounded-full bg-zinc-900 text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-zinc-700 hover:shadow-xl active:scale-95 dark:bg-zinc-100 dark:text-zinc-900 [html[data-cover]_&]:bg-white [html[data-cover]_&]:text-zinc-900 [html[data-cover]_&]:shadow-black/40 [html[data-cover]_&]:hover:bg-white/90 ${open ? "max-md:hidden md:right-[28rem]" : ""}`}
       >
-        {open ? "입력창 닫기" : "＋ 입력"}
+        <PawIcon className={`size-7 transition duration-300 ${open ? "-rotate-12" : ""}`} />
       </button>
     </>
+  );
+}
+
+// 저장 알림 목록을 칸마다 따로 갖는다.
+function useMessages() {
+  const [messages, setMessages] = useState<string[]>([]);
+  const push = useCallback((m: string) => setMessages((list) => [...list, m]), []);
+  return [messages, push] as const;
+}
+
+function SectionHead({ hint, messages }: { hint: string; messages: string[] }) {
+  return (
+    <>
+      <p className={BUBBLE_IN}>{hint}</p>
+      {messages.map((m, i) => (
+        <p key={i} role="status" className={`${BUBBLE_OUT} transition duration-300 starting:translate-y-2 starting:opacity-0`}>
+          ✓ {m}
+        </p>
+      ))}
+    </>
+  );
+}
+
+function PasteSection({ tripId, days }: { tripId: string; days: TripDay[] }) {
+  const [messages, push] = useMessages();
+  return (
+    <section className="flex flex-col gap-3">
+      <SectionHead hint="티켓, 예약 메일, 메모를 붙여넣으세요. 뽑은 항목은 미리보기에서 확인하고 저장합니다." messages={messages} />
+      <PasteExtract tripId={tripId} days={days} onSaved={push} />
+    </section>
+  );
+}
+
+function ManualSection({ tripId, days }: { tripId: string; days: TripDay[] }) {
+  const [messages, push] = useMessages();
+  const onItemSaved = useCallback((name: string) => push(`"${name}" 항목을 저장했습니다.`), [push]);
+  return (
+    <section className="flex flex-col gap-3">
+      <SectionHead hint="항목 하나를 직접 입력하세요. 주소를 비워 두면 이름과 여행 목적지로 위치를 찾습니다." messages={messages} />
+      <ItemForm action={createItem.bind(null, tripId)} days={days} submitLabel="저장" onSaved={onItemSaved} />
+    </section>
   );
 }

@@ -44,7 +44,7 @@ export function PasteExtract({
   }
 
   return (
-    <form action={extractAction} onSubmit={() => setSentText(text.trim())} className="mt-auto flex flex-col gap-2">
+    <form action={extractAction} onSubmit={() => setSentText(text.trim())} className="flex flex-col gap-2">
       {extracting && (
         <p role="status" className={`${BUBBLE_IN} animate-pulse`}>
           일정을 추출하고 있습니다…
@@ -52,7 +52,7 @@ export function PasteExtract({
       )}
       <textarea
         name="text"
-        rows={8}
+        rows={5}
         value={text}
         onChange={(e) => setText(e.target.value)}
         maxLength={MAX_TEXT_LENGTH}
@@ -63,7 +63,7 @@ export function PasteExtract({
       <p className="text-xs leading-relaxed opacity-55">
         이름·예약번호 같은 개인정보는 지우고 붙여넣어 주세요. 이메일·전화번호·카드 번호는 보내기 전에 자동으로 가립니다.
       </p>
-      {state.error && !extracting && <p className="rounded-xl bg-rose-500/15 px-3 py-2 text-sm text-rose-300">{state.error}</p>}
+      {state.error && !extracting && <p className="rounded-xl bg-rose-500/15 px-3 py-2 text-sm text-rose-700 dark:text-rose-300">{state.error}</p>}
       {alreadySent && !extracting && <p className="text-xs opacity-55">이미 보낸 내용입니다. 고친 뒤에 다시 보낼 수 있습니다.</p>}
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs opacity-55">
@@ -114,21 +114,21 @@ function ExtractPreview({
       {items.map((item, i) => (
         <fieldset
           key={i}
-          className="flex flex-col gap-4 rounded-2xl border border-white/15 bg-white/[0.04] p-4 transition has-[input[name$='.include']:not(:checked)]:opacity-40"
+          className="flex flex-col gap-4 rounded-2xl border border-line bg-background/40 p-4 transition has-[input[name$='.include']:not(:checked)]:opacity-40"
         >
           <legend className="sr-only">항목 {i + 1}</legend>
           <label className="flex items-center justify-between text-sm font-semibold">
             항목 {i + 1}
             <span className="flex items-center gap-1 font-normal">
-              <input type="checkbox" name={`items.${i}.include`} defaultChecked className="size-4 accent-white" />
+              <input type="checkbox" name={`items.${i}.include`} defaultChecked className="size-4" />
               넣기
             </span>
           </label>
           <ItemFields days={choices} values={item} prefix={`items.${i}.`} />
         </fieldset>
       ))}
-      {state.error && <p className="rounded-xl bg-rose-500/15 px-3 py-2 text-sm text-rose-300">{state.error}</p>}
-      <div className="sticky bottom-0 -mx-1 flex justify-end gap-2 rounded-2xl bg-zinc-950/80 px-1 py-2 backdrop-blur-xl">
+      {state.error && <p className="rounded-xl bg-rose-500/15 px-3 py-2 text-sm text-rose-700 dark:text-rose-300">{state.error}</p>}
+      <div className="sticky bottom-0 -mx-1 flex justify-end gap-2 rounded-2xl bg-surface/90 px-1 py-2 backdrop-blur-xl">
         <button type="button" onClick={onCancel} disabled={saving} className={GHOST}>
           취소
         </button>

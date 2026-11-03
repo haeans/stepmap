@@ -14,6 +14,6 @@ export const GHOST = "rounded-full px-4 py-2.5 text-sm opacity-75 transition hov
 export const CHIP =
   "cursor-pointer rounded-full border border-current/20 px-3.5 py-1.5 text-sm transition hover:border-current/40 active:scale-95 has-[:checked]:border-zinc-900 has-[:checked]:bg-zinc-900 has-[:checked]:text-white has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-current/40 dark:has-[:checked]:border-white dark:has-[:checked]:bg-white dark:has-[:checked]:text-zinc-900 in-data-[tone=dark]:has-[:checked]:border-white in-data-[tone=dark]:has-[:checked]:bg-white in-data-[tone=dark]:has-[:checked]:text-zinc-900";
 
-// 채팅 말풍선: 받은 말(왼쪽), 보낸 말·완료 알림(오른쪽)
-export const BUBBLE_IN = "max-w-[85%] self-start rounded-2xl rounded-tl-md bg-white/10 px-4 py-2.5 text-sm leading-relaxed ring-1 ring-white/10";
-export const BUBBLE_OUT = "max-w-[85%] self-end rounded-2xl rounded-tr-md bg-white px-4 py-2.5 text-sm text-zinc-900 shadow-lg";
+// 채팅 말풍선: 받은 말(왼쪽), 보낸 말·완료 알림(오른쪽). F17부터 밝은 입력창 안에서 쓴다.
+export const BUBBLE_IN = "max-w-[85%] self-start rounded-2xl rounded-tl-md bg-foreground/[0.06] px-4 py-2.5 text-sm leading-relaxed ring-1 ring-line";
+export const BUBBLE_OUT = "max-w-[85%] self-end rounded-2xl rounded-tr-md bg-zinc-900 px-4 py-2.5 text-sm text-white shadow-lg dark:bg-white dark:text-zinc-900";
