@@ -59,8 +59,19 @@ v1.0 이후 분담은 ① 시작 회의에서 정하고, haeans가 킥오프 PR�
 | F10 | 매거진 탭 개편 (우선순위 1, F08 이후) | [#22](https://github.com/haeans/stepmap/issues/22) | hyunw0000 | `hyunw0000/f10-magazine` | [작업 파일](../work/hyunw0000-f10-magazine.md) | 없음 | 반영 완료 (PR #29) |
 | F11 | 리스트 탭 시험 (우선순위 2) | [#23](https://github.com/haeans/stepmap/issues/23) | hyunw0000 | `hyunw0000/f11-list-view` | [작업 파일](../work/hyunw0000-f11-list-view.md) | 없음 | 반영 완료 (PR #30) |
 | F12 | 지도 내 위치 → 핀 경로, 실시간 위치 | [#24](https://github.com/haeans/stepmap/issues/24) | — | — | | 없음 | 보류 |
+| F13 | 1화면 종이 형식 삭제 (1단계, F16보다 먼저) | [#33](https://github.com/haeans/stepmap/issues/33) | (팀에서 정함) | `<담당>/f13-remove-paper` | | 없음 | 킥오프 |
+| F14 | 지도 탭 개편: 전체 화면 지도·패널·핀 세부·일차 강조·가까운 일정으로 이동 (1단계) | [#34](https://github.com/haeans/stepmap/issues/34) | (팀에서 정함) | `<담당>/f14-map-fullscreen` | | 없음 | 킥오프 |
+| F15 | 동선 규칙: 시작·끝은 교통 거점 또는 숙소, 이동 구간 점선 (1단계, F14 위에 쌓기) | [#35](https://github.com/haeans/stepmap/issues/35) | (팀에서 정함) | `<담당>/f15-route-rules` | | 없음 | 킥오프 |
+| F16 | 매거진 탭 개선: 패널 통합·날씨·준비물·지도 버튼 (1단계, F13 다음) | [#36](https://github.com/haeans/stepmap/issues/36) | (팀에서 정함) | `<담당>/f16-magazine-panels` | | 없음 | 킥오프 |
+| F17 | 입력창 개선: 밝은 바탕·곰발바닥 버튼·추출과 직접 입력 분리·칸 구조 (1단계) | [#37](https://github.com/haeans/stepmap/issues/37) | (팀에서 정함) | `<담당>/f17-input-panel` | | 없음 | 킥오프 |
+| F18 | AI 일정 도우미 1: 일차·시각 없는 일정 추천 (1단계, F17 위에 쌓기) | [#38](https://github.com/haeans/stepmap/issues/38) | (팀에서 정함) | `<담당>/f18-ai-suggest` | | 없음 | 킥오프 |
+| F19 | AI 일정 도우미 2: 대화로 새 일정 짜기 → 허락하면 저장 (1단계) | [#39](https://github.com/haeans/stepmap/issues/39) | (팀에서 정함) | `<담당>/f19-ai-planner` | | 없음 | 킥오프 |
+| F20 | 예약 정보 보호: 예약번호·링크 마스킹 (1단계) | [#40](https://github.com/haeans/stepmap/issues/40) | (팀에서 정함) | `<담당>/f20-booking-mask` | | **있음** | 킥오프 |
+| F21 | 디자인 마무리: 첫 화면·로고·목록 배경·매거진 표지 (2단계, 1단계 배포 후) | [#41](https://github.com/haeans/stepmap/issues/41) | (팀에서 정함) | `<담당>/f21-design-finish` | | 없음 | 킥오프 |
 
 > C7 (2026-11-02 킥오프, 2026-11-03 최신화): 범위는 `01-PRD.md` 4절 "C7". F07~F11은 머지 후 공통 문서에 반영했다(`decisions.md` B39~B83). DB 변경은 F08 하나뿐이었다(B34, 마이그레이션 0007·0008). F11 "리스트 탭"은 별도 탭이 아니라 매거진 "종이" 개편으로 진행했고(B77, B78), 유지 여부는 팀이 써 본 뒤 정한다(`open-questions.md`). F12는 보류다.
+
+> C8 (2026-11-03 킥오프): 범위는 `01-PRD.md` 4절 "C8". 1단계는 기능(F13~F20), 2단계 디자인(F21)은 1단계를 모두 배포한 뒤 배포본을 보고 시작한다. 담당자는 이 표를 보고 팀에서 정해 적고, 브랜치의 `<담당>`을 자기 이름으로 바꾼다. DB 변경은 F20 하나뿐이다(B34). 같은 파일을 고치는 작업: F13 → F16(`schedule-view.tsx`), F14 → F15(지도), F17 → F18·F19(입력창). 뒤 작업은 앞 작업이 머지된 뒤 하거나 앞 브랜치 위에 쌓는다(B81). F17·F18·F19는 같은 담당자를 추천한다. F21 담당이 디자인 담당 파일의 주인이다(`integration.md` 9절).
 
 > 상태: 킥오프 → 작업 중 → PR → 머지 → 반영 완료 (보류: 이번 사이클에서 진행하지 않음, 다음 킥오프에서 다시 정함)
 > 맡는 일이 정해진 사람: haeans — 외부 서비스·키 관리, PR 머지, DB 마이그레이션 반영, 공통 문서 반영 (B30, B31)
