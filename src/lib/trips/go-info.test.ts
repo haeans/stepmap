@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Item } from "@/lib/items/types";
-import { isPass, parseFlight, passLines, returnFlight, stayRange } from "./go-info";
+import { isPass, isTicket, parseFlight, parseRide, passLines, returnFlight, stayRange } from "./go-info";
 
 function item(over: Partial<Item>): Item {
   return {
@@ -42,10 +42,26 @@ describe("stayRange", () => {
 });
 
 describe("교통 패스", () => {
-  it("비행기가 아닌 교통 항목이 패스, 메모를 노선 목록으로", () => {
+  it("이름에 패스·1일권 같은 말이 있는 교통 항목이 패스, 메모를 노선 목록으로", () => {
     expect(isPass(item({ name: "간사이 레일패스" }))).toBe(true);
+    expect(isPass(item({ name: "부산 도시철도 1일권" }))).toBe(true);
+    expect(isPass(item({ name: "KTX 101 서울→부산" }))).toBe(false);
     expect(isPass(item({ name: "ICN → KIX" }))).toBe(false);
     expect(isPass(item({ kind: "lodging", name: "호텔" }))).toBe(false);
     expect(passLines("JR 교토선, 한큐 교토선\n오사카 메트로")).toEqual(["JR 교토선", "한큐 교토선", "오사카 메트로"]);
+  });
+});
+
+describe("승차권", () => {
+  it("패스도 비행기도 아닌 교통 항목", () => {
+    expect(isTicket(item({ name: "KTX 101 서울→부산" }))).toBe(true);
+    expect(isTicket(item({ name: "간사이 레일패스" }))).toBe(false);
+    expect(isTicket(item({ name: "ICN → KIX" }))).toBe(false);
+    expect(isTicket(item({ kind: "lodging", name: "호텔" }))).toBe(false);
+  });
+  it("이름에서 출발·도착과 열차·버스 이름을 뽑는다", () => {
+    expect(parseRide("KTX 101 서울→부산")).toEqual({ carrier: "KTX 101", from: "서울", to: "부산", bus: false });
+    expect(parseRide("동서울 -> 속초 고속버스")).toEqual({ carrier: "고속버스", from: "동서울", to: "속초", bus: true });
+    expect(parseRide("KTX-산천 부산")).toBeNull();
   });
 });
