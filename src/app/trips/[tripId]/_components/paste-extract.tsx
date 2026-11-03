@@ -1,110 +1,300 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
-import { extractItems, saveExtractedItems, type ExtractState, type SaveExtractedState } from "@/app/actions/extract";
+import { useActionState, useEffect, useRef, useState, useTransition, type KeyboardEvent } from "react";
+import { sendChat } from "@/app/actions/assistant";
+import { extractItems, saveExtractedItems, type SaveExtractedState } from "@/app/actions/extract";
+import type { ProposalItem } from "@/lib/assistant/proposal";
+import { MAX_CHAT_LENGTH, pasteScore, routeMessage, type Route } from "@/lib/assistant/route";
 import { MAX_TEXT_LENGTH, type ExtractedItem } from "@/lib/extract/normalize";
 import type { TripDay } from "@/lib/trips/days";
-import { BUBBLE_IN, FIELD, GHOST, PRIMARY as BUTTON } from "./form-styles";
+import {
+  appendEntry,
+  clearChat,
+  newId,
+  readChat,
+  replaceOpenProposals,
+  updateEntry,
+  useChat,
+  type AssistantEntry,
+  type PreviewStatus,
+} from "./chat-store";
+import { BUBBLE_IN, BUBBLE_OUT, FIELD, GHOST, PRIMARY as BUTTON } from "./form-styles";
 import { ItemFields } from "./item-fields";
 import { addSuggestions } from "./suggestions";
 
 // R-04 붙여넣기 → 자동 추출 → 미리보기 → 저장 (02-FRONTEND.md 5-3절)
 // F18: 원문에 일차·시각이 없어 AI가 추천한 항목은 미리보기를 거치지 않고 바로 매거진 DAY에 "추천" 카드로 띄운다.
-// 카드에서 "넣기"를 눌러야 저장된다. 원문에 일차·시각이 다 있는 항목만 지금처럼 미리보기에서 확인하고 저장한다.
-export function PasteExtract({
+// F19: 붙여넣기 탭이 대화창이 된다. 입력칸 하나에 붙여넣어도 되고 말을 걸어도 된다.
+// 보내면 코드(routeMessage)가 붙여넣기(추출)인지 대화인지 고른다. 틀렸으면 결과 아래 버튼으로 다른 쪽으로 다시 보낸다.
+// 대화 제안은 미리보기에서 고치고 "저장"을 눌러야 저장된다. ([hyunw0000-f19-ai-planner] 결정 1·4)
+
+const DONE = { error: null, items: null };
+
+export function PasteExtract({ tripId, days }: { tripId: string; days: TripDay[] }) {
+  const entries = useChat(tripId);
+  const [text, setText] = useState("");
+  const [pending, startTransition] = useTransition();
+  const [pendingRoute, setPendingRoute] = useState<Route | null>(null);
+  const [inputError, setInputError] = useState<string | null>(null);
+  // 다른 쪽으로 다시 보낼 원문. 원문은 저장하지 않으므로(B15) 이 화면 메모리에만 둔다. 도우미 말 id → 원문
+  const [originals, setOriginals] = useState<Record<string, string>>({});
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ block: "nearest" });
+  }, [entries.length, pending]);
+
+  function say(entry: Omit<AssistantEntry, "id" | "role">, original: string) {
+    const id = newId();
+    setOriginals((o) => ({ ...o, [id]: original }));
+    appendEntry(tripId, { id, role: "assistant", ...entry });
+  }
+
+  async function runExtract(message: string) {
+    const form = new FormData();
+    form.set("text", message);
+    const result = await extractItems(tripId, DONE, form);
+    if (!result.items) {
+      say({ text: result.error ?? "찾은 항목이 없습니다.", error: true, switchTo: "chat" }, message);
+      return;
+    }
+    // F18: 추천 항목 → 매거진 추천 카드, 나머지 → 미리보기
+    const suggested = result.items.filter((i) => i.suggest);
+    const rest = result.items.filter((i) => !i.suggest);
+    addSuggestions(
+      tripId,
+      suggested.map(({ suggest, ...item }) => ({ item, suggest: suggest! })),
+    );
+    const parts = [`항목 ${result.items.length}개를 찾았어요.`];
+    if (suggested.length) parts.push(`일차·시각이 없던 ${suggested.length}개는 매거진 DAY에 추천 카드로 띄웠어요. 카드에서 "넣기"를 눌러야 저장돼요.`);
+    if (rest.length) parts.push(`${rest.length}개는 아래에서 확인하고 저장해 주세요.`);
+    say({ text: parts.join(" "), extract: rest.length ? { items: rest, status: "open" } : undefined, switchTo: "chat" }, message);
+  }
+
+  async function runChat(message: string) {
+    // 이번 말은 이미 대화에 넣었으므로 뺀다. 붙여넣은 원문은 보내지 않는다.
+    const before = readChat(tripId).slice(0, -1);
+    const history = before
+      .filter((e) => !(e.role === "assistant" && e.error))
+      .map((e) => ({ role: e.role, text: e.role === "user" && e.pasted ? "(붙여넣기로 일정을 넣음)" : e.text.slice(0, MAX_CHAT_LENGTH) }));
+    const open = [...before].reverse().find((e): e is AssistantEntry => e.role === "assistant" && e.proposal?.status === "open");
+    const plan = (open?.proposal?.items ?? []).map(({ kind, day, time, name }) => ({ kind, day, time, name }));
+
+    const result = await sendChat(tripId, { message, history, plan });
+    const switchTo = pasteScore(message) >= 2 ? ("extract" as const) : undefined;
+    if (!result.ok) {
+      say({ text: result.error, error: true, switchTo }, message);
+      return;
+    }
+    if (result.items.length) replaceOpenProposals(tripId);
+    say(
+      {
+        text: result.reply,
+        quickReplies: result.quickReplies,
+        notes: result.notes,
+        proposal: result.items.length ? { items: result.items, status: "open" } : undefined,
+        switchTo,
+      },
+      message,
+    );
+  }
+
+  function send(raw: string, forced?: Route) {
+    const message = raw.trim();
+    if (!message || pending) return;
+    const route = forced ?? routeMessage(message);
+    if (route === "chat" && message.length > MAX_CHAT_LENGTH) {
+      setInputError(`말은 ${MAX_CHAT_LENGTH.toLocaleString()}자까지 보낼 수 있습니다. 티켓·예약 메일이라면 "붙여넣기로 뽑기"를 눌러 주세요.`);
+      return;
+    }
+    setInputError(null);
+    appendEntry(tripId, {
+      id: newId(),
+      role: "user",
+      pasted: route === "extract",
+      text: route === "extract" ? `붙여넣은 내용 · ${message.length.toLocaleString()}자` : message,
+    });
+    if (raw === text) setText("");
+    setPendingRoute(route);
+    startTransition(async () => {
+      await (route === "extract" ? runExtract(message) : runChat(message));
+      setPendingRoute(null);
+    });
+  }
+
+  function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    // Enter로 보내고 Shift+Enter로 줄을 바꾼다. 한글 조합 중에는 보내지 않는다.
+    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+      e.preventDefault();
+      send(text);
+    }
+  }
+
+  const lastAssistant = entries.at(-1)?.role === "assistant" ? (entries.at(-1) as AssistantEntry) : null;
+
+  return (
+    <div className="flex flex-col gap-3">
+      {entries.map((entry) =>
+        entry.role === "user" ? (
+          <p key={entry.id} className={`${BUBBLE_OUT} whitespace-pre-wrap ${entry.pasted ? "italic opacity-80" : ""}`}>
+            {entry.text}
+          </p>
+        ) : (
+          <AssistantMessage
+            key={entry.id}
+            tripId={tripId}
+            days={days}
+            entry={entry}
+            canSwitch={!pending && entry.id in originals}
+            onSwitch={(route) => send(originals[entry.id] ?? "", route)}
+          />
+        ),
+      )}
+
+      {pending && (
+        <p role="status" className={`${BUBBLE_IN} animate-pulse`}>
+          {pendingRoute === "extract" ? "일정을 추출하고 있습니다…" : "일정을 생각하고 있어요…"}
+        </p>
+      )}
+
+      {!pending && lastAssistant?.quickReplies && lastAssistant.quickReplies.length > 0 && (
+        <div className="flex flex-wrap gap-2" aria-label="다음 말 추천">
+          {lastAssistant.quickReplies.map((q) => (
+            <button
+              key={q}
+              type="button"
+              onClick={() => send(q, "chat")}
+              className="rounded-full border border-current/20 px-3.5 py-1.5 text-sm transition hover:border-current/40 active:scale-95"
+            >
+              {q}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div ref={bottomRef} />
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          send(text);
+        }}
+        className="sticky bottom-0 -mx-1 flex flex-col gap-2 rounded-2xl bg-surface/95 px-1 pt-2 pb-1 backdrop-blur-xl"
+      >
+        <textarea
+          name="text"
+          data-autofocus
+          rows={3}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={onKeyDown}
+          maxLength={MAX_TEXT_LENGTH}
+          aria-label="붙여넣거나 말 걸기"
+          placeholder={'티켓·예약 메일을 붙여넣거나 "둘째 날 일정 짜 줘"처럼 말해 보세요'}
+          className={`${FIELD} resize-none leading-relaxed`}
+        />
+        <p className="text-xs leading-relaxed opacity-55">
+          보낸 내용은 Google AI가 처리하며 사람이 볼 수 있습니다. 이름·예약번호 같은 개인정보는 지우고 보내 주세요. 이메일·전화번호·카드 번호는 자동으로 가립니다.
+        </p>
+        {inputError && <p className="rounded-xl bg-rose-500/15 px-3 py-2 text-sm text-rose-700 dark:text-rose-300">{inputError}</p>}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1">
+            <p className="text-xs opacity-55">{text.length.toLocaleString()}자 · 원문은 저장하지 않습니다.</p>
+            {entries.length > 0 && (
+              <button type="button" onClick={() => clearChat(tripId)} disabled={pending} className={`${GHOST} px-2 py-1 text-xs`}>
+                대화 지우기
+              </button>
+            )}
+          </div>
+          <button type="submit" disabled={pending || !text.trim()} className={BUTTON}>
+            {pending ? "보내는 중…" : "보내기"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+const STATUS_TEXT: Record<Exclude<PreviewStatus, "open">, string> = {
+  saved: "저장했어요",
+  closed: "저장하지 않고 닫았어요",
+  replaced: "다음 제안으로 바뀌었어요",
+};
+
+function AssistantMessage({
   tripId,
   days,
-  onSaved,
+  entry,
+  canSwitch,
+  onSwitch,
 }: {
   tripId: string;
   days: TripDay[];
-  onSaved: (message: string) => void;
+  entry: AssistantEntry;
+  canSwitch: boolean;
+  onSwitch: (route: Route) => void;
 }) {
-  const [text, setText] = useState("");
+  const preview = entry.proposal ? { type: "proposal" as const, ...entry.proposal } : entry.extract ? { type: "extract" as const, ...entry.extract } : null;
 
-  // 추출 결과를 나눈다: 추천 항목 → 추천 카드, 나머지 → 미리보기
-  async function extract(prev: ExtractState, form: FormData): Promise<ExtractState> {
-    const result = await extractItems(tripId, prev, form);
-    if (!result.items) return result;
-    const suggested = result.items.filter((i) => i.suggest);
-    const rest = result.items.filter((i) => !i.suggest);
-    if (suggested.length) {
-      addSuggestions(
-        tripId,
-        suggested.map(({ suggest, ...item }) => ({ item, suggest: suggest! })),
-      );
-      onSaved(`추천 ${suggested.length}개를 DAY BY DAY에 띄웠습니다. 카드에서 "넣기"를 눌러야 저장됩니다.`);
-    }
-    if (!rest.length) setText("");
-    return { error: null, items: rest.length ? rest : null };
-  }
-
-  const [state, extractAction, extracting] = useActionState(extract, { error: null, items: null });
-  // 저장하거나 취소한 추출 결과. 같은 결과의 미리보기를 다시 열지 않는다.
-  const [closed, setClosed] = useState<ExtractState | null>(null);
-  const preview = state.items && closed !== state ? state.items : null;
-
-  if (preview) {
-    return (
-      <ExtractPreview
-        tripId={tripId}
-        days={days}
-        items={preview}
-        onCancel={() => setClosed(state)}
-        onDone={(count) => {
-          setClosed(state);
-          setText("");
-          onSaved(`추출한 항목 ${count}개를 저장했습니다.`);
-        }}
-      />
+  function setStatus(status: PreviewStatus, saved?: number) {
+    updateEntry(tripId, entry.id, (e) =>
+      e.proposal ? { ...e, proposal: { ...e.proposal, status, saved } } : e.extract ? { ...e, extract: { ...e.extract, status, saved } } : e,
     );
   }
 
   return (
-    <form action={extractAction} className="flex flex-col gap-2">
-      {extracting && (
-        <p role="status" className={`${BUBBLE_IN} animate-pulse`}>
-          일정을 추출하고 있습니다…
-        </p>
-      )}
-      <textarea
-        name="text"
-        rows={5}
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        maxLength={MAX_TEXT_LENGTH}
-        aria-label="붙여넣을 내용"
-        placeholder="여기에 붙여넣기"
-        className={`${FIELD} resize-none leading-relaxed`}
-      />
-      <p className="text-xs leading-relaxed opacity-55">
-        이름·예약번호 같은 개인정보는 지우고 붙여넣어 주세요. 이메일·전화번호·카드 번호는 보내기 전에 자동으로 가립니다.
+    <div className="flex flex-col gap-2">
+      <p className={entry.error ? "max-w-[85%] self-start rounded-2xl rounded-tl-md bg-rose-500/15 px-4 py-2.5 text-sm text-rose-700 dark:text-rose-300" : `${BUBBLE_IN} whitespace-pre-wrap`}>
+        {entry.text}
       </p>
-      {state.error && !extracting && <p className="rounded-xl bg-rose-500/15 px-3 py-2 text-sm text-rose-700 dark:text-rose-300">{state.error}</p>}
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-xs opacity-55">
-          {text.length.toLocaleString()} / {MAX_TEXT_LENGTH.toLocaleString()}자 · 원문은 저장하지 않습니다.
-        </p>
-        <button type="submit" disabled={extracting || !text.trim()} className={BUTTON}>
-          {extracting ? "추출 중…" : "보내기"}
+      {entry.notes && entry.notes.length > 0 && (
+        <ul className="ml-1 flex flex-col gap-0.5 text-xs text-muted">
+          {entry.notes.map((n) => (
+            <li key={n}>· {n}</li>
+          ))}
+        </ul>
+      )}
+      {preview &&
+        (preview.status === "open" ? (
+          <ItemsPreview
+            tripId={tripId}
+            days={days}
+            type={preview.type}
+            items={preview.items}
+            onCancel={() => setStatus("closed")}
+            onSaved={(count) => setStatus("saved", count)}
+          />
+        ) : (
+          <p className="ml-1 text-xs text-muted">
+            {preview.type === "proposal" ? "제안" : "추출 결과"} {preview.items.length}개 · {STATUS_TEXT[preview.status]}
+            {preview.status === "saved" && preview.saved ? ` (${preview.saved}개)` : ""}
+          </p>
+        ))}
+      {canSwitch && entry.switchTo && (
+        <button type="button" onClick={() => onSwitch(entry.switchTo!)} className={`${GHOST} self-start px-2 py-1 text-xs`}>
+          {entry.switchTo === "chat" ? "대화로 다시 보내기" : "붙여넣기로 뽑기"}
         </button>
-      </div>
-    </form>
+      )}
+    </div>
   );
 }
 
-function ExtractPreview({
+type PreviewItem = ExtractedItem | ProposalItem;
+
+function ItemsPreview({
   tripId,
   days,
+  type,
   items,
   onCancel,
-  onDone,
+  onSaved,
 }: {
   tripId: string;
   days: TripDay[];
-  items: ExtractedItem[];
+  type: "extract" | "proposal";
+  items: PreviewItem[];
   onCancel: () => void;
-  onDone: (count: number) => void;
+  onSaved: (count: number) => void;
 }) {
   const [state, saveAction, saving] = useActionState(saveExtractedItems.bind(null, tripId), { error: null, saved: null });
   const handled = useRef<SaveExtractedState | null>(null);
@@ -112,9 +302,9 @@ function ExtractPreview({
   useEffect(() => {
     if (state.saved && handled.current !== state) {
       handled.current = state;
-      onDone(state.saved);
+      onSaved(state.saved);
     }
-  }, [state, onDone]);
+  }, [state, onSaved]);
 
   // 여행 기간보다 뒤 일차로 뽑힌 항목도 고를 수 있게 일차 목록을 늘린다.
   const lastDay = Math.max(days.length, ...items.map((i) => i.day));
@@ -122,29 +312,48 @@ function ExtractPreview({
   for (let d = days.length + 1; d <= lastDay; d++) choices.push({ day: d, date: null });
 
   return (
-    <form action={saveAction} className="flex flex-col gap-3" aria-label="추출 결과 미리보기">
-      <p className={BUBBLE_IN}>
-        항목 {items.length}개를 찾았습니다. 확인하고 고친 뒤 저장하세요.
-      </p>
+    <form action={saveAction} className="flex flex-col gap-3" aria-label={type === "proposal" ? "일정 제안 미리보기" : "추출 결과 미리보기"}>
+      {type === "proposal" && (
+        <p className="rounded-xl bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-900 dark:text-amber-200">
+          AI가 추천한 일정이에요. 영업시간·휴무일·폐업 여부는 틀릴 수 있으니 확인해 주세요. 고른 항목만 저장됩니다.
+        </p>
+      )}
       <input type="hidden" name="count" value={items.length} />
-      {items.map((item, i) => (
-        <fieldset
-          key={i}
-          className="flex flex-col gap-4 rounded-2xl border border-line bg-background/40 p-4 transition has-[input[name$='.include']:not(:checked)]:opacity-40"
-        >
-          <legend className="sr-only">항목 {i + 1}</legend>
-          <label className="flex items-center justify-between text-sm font-semibold">
-            항목 {i + 1}
-            <span className="flex items-center gap-1 font-normal">
-              <input type="checkbox" name={`items.${i}.include`} defaultChecked className="size-4" />
-              넣기
-            </span>
-          </label>
-          <ItemFields days={choices} values={item} prefix={`items.${i}.`} />
-        </fieldset>
-      ))}
+      {items.map((item, i) => {
+        const reason = "reason" in item ? item.reason : "";
+        const notFound = "found" in item && item.found === false;
+        return (
+          <fieldset
+            key={i}
+            className={`flex flex-col gap-4 rounded-2xl border bg-background/40 p-4 transition has-[input[name$='.include']:not(:checked)]:opacity-40 ${
+              type === "proposal" ? "border-dashed border-amber-500/60" : "border-line"
+            }`}
+          >
+            <legend className="sr-only">항목 {i + 1}</legend>
+            <div className="flex flex-col gap-1">
+              <label className="flex items-center justify-between text-sm font-semibold">
+                <span className="flex items-center gap-2">
+                  항목 {i + 1}
+                  {type === "proposal" && (
+                    <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-800 dark:text-amber-300">AI 추천</span>
+                  )}
+                  {notFound && (
+                    <span className="rounded-full bg-rose-500/15 px-2 py-0.5 text-xs font-medium text-rose-700 dark:text-rose-300">지도에서 찾지 못함</span>
+                  )}
+                </span>
+                <span className="flex items-center gap-1 font-normal">
+                  <input type="checkbox" name={`items.${i}.include`} defaultChecked={!notFound} className="size-4" />
+                  넣기
+                </span>
+              </label>
+              {reason && <p className="text-xs leading-relaxed text-muted">{reason}</p>}
+            </div>
+            <ItemFields days={choices} values={item} prefix={`items.${i}.`} />
+          </fieldset>
+        );
+      })}
       {state.error && <p className="rounded-xl bg-rose-500/15 px-3 py-2 text-sm text-rose-700 dark:text-rose-300">{state.error}</p>}
-      <div className="sticky bottom-0 -mx-1 flex justify-end gap-2 rounded-2xl bg-surface/90 px-1 py-2 backdrop-blur-xl">
+      <div className="flex justify-end gap-2">
         <button type="button" onClick={onCancel} disabled={saving} className={GHOST}>
           취소
         </button>
@@ -155,3 +364,4 @@ function ExtractPreview({
     </form>
   );
 }
+
