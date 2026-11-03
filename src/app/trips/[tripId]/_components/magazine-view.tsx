@@ -21,6 +21,8 @@ import type { TripWeather } from "@/lib/weather/codes";
 import { ItemCard } from "./item-card";
 import { NoteComposer } from "./note-composer";
 import { PlaceCard } from "./place-card";
+import { SuggestionCard } from "./suggestion-card";
+import { useSuggestions, type PendingSuggestion } from "./suggestions";
 import { CostSection } from "./cost-section";
 import { TicketStrip } from "./ticket-strip";
 
@@ -187,6 +189,8 @@ function DayBlock({
   photos,
   dayOptions,
   readOnly,
+  tripId,
+  suggestions,
 }: {
   day: TripDay;
   places: Item[];
@@ -195,13 +199,21 @@ function DayBlock({
   photos: Record<string, string>;
   dayOptions: TripDay[];
   readOnly: boolean;
+  tripId: string;
+  suggestions: PendingSuggestion[]; // F18: 아직 저장 안 한 추천 일정
 }) {
   const [open, setOpen] = useState(false);
+  // F18: 추천이 새로 들어오면 서랍을 연다(렌더 중에 이전 개수와 비교).
+  const [seen, setSeen] = useState(suggestions.length);
+  if (seen !== suggestions.length) {
+    setSeen(suggestions.length);
+    if (suggestions.length > seen) setOpen(true);
+  }
   const drawerId = useId();
   const color = dayColor(day.day);
   const { areas, more } = dayAreas(places.map((p) => p.address), destination);
   const toggle = () => setOpen((v) => !v);
-  const empty = places.length === 0;
+  const empty = places.length === 0 && suggestions.length === 0;
 
   return (
     <li aria-label={`${day.day}일차`} className="relative grid gap-4 pb-12 pl-10 md:grid-cols-2 md:gap-x-16 md:pl-0">
@@ -221,7 +233,7 @@ function DayBlock({
               {more > 0 && <span className="text-white/55"> 외 {more}곳</span>}
             </p>
           )}
-          <p className={`mt-1 ${MUTED}`}>{empty ? "아직 장소가 없습니다" : `장소 ${places.length}곳 · ${open ? "접기 ↑" : "펼치기 ↓"}`}</p>
+          <p className={`mt-1 ${MUTED}`}>{empty ? "아직 장소가 없습니다" : `장소 ${places.length}곳${suggestions.length ? ` · 추천 ${suggestions.length}` : ""} · ${open ? "접기 ↑" : "펼치기 ↓"}`}</p>
         </button>
       </Reveal>
 
@@ -240,6 +252,11 @@ function DayBlock({
                       <PlaceCard key={item.updated_at} item={item} photoUrl={photos[item.id]} color={color} days={dayOptions} readOnly={readOnly} />
                     </Reveal>
                   ))}
+                  {suggestions.map((s) => (
+                    <li key={s.id}>
+                      <SuggestionCard tripId={tripId} suggestion={s} color={color} days={dayOptions} />
+                    </li>
+                  ))}
                 </ul>
               </div>
             </div>
@@ -257,6 +274,13 @@ export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = n
   const image = coverUrl ?? placeholderCover(hue);
   const heroRef = useRef<HTMLElement>(null);
   useCoverPage(background);
+  // F18: 추천 일정(이 브라우저에만 있음). 공유받은 사람에게는 보이지 않는다.
+  const stored = useSuggestions(trip.id);
+  const suggestions = readOnly ? [] : stored;
+  // 추천이 여행 기간 뒤 일차에 있으면 그 일차까지 늘려 보인다.
+  const days = [...grouped.days];
+  const lastSuggested = Math.max(0, ...suggestions.map((s) => s.item.day));
+  for (let d = days.length + 1; d <= lastSuggested; d++) days.push({ day: { day: d, date: null }, places: [] });
 
   return (
     <div className="flex flex-col gap-20 pb-16 text-white">
@@ -291,8 +315,19 @@ export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = n
         <Heading id="m-days">DAY BY DAY</Heading>
         <ol className="relative">
           <span aria-hidden className="absolute top-2 bottom-0 left-3 w-px bg-gradient-to-b from-white/50 via-white/25 to-transparent md:left-1/2" />
-          {grouped.days.map(({ day, places: dayPlaces }, index) => (
-            <DayBlock key={day.day} day={day} places={dayPlaces} destination={trip.destination} contentLeft={index % 2 === 0} photos={photos} dayOptions={dayOptions} readOnly={readOnly} />
+          {days.map(({ day, places: dayPlaces }, index) => (
+            <DayBlock
+              key={day.day}
+              day={day}
+              places={dayPlaces}
+              destination={trip.destination}
+              contentLeft={index % 2 === 0}
+              photos={photos}
+              dayOptions={dayOptions}
+              readOnly={readOnly}
+              tripId={trip.id}
+              suggestions={suggestions.filter((s) => s.item.day === day.day)}
+            />
           ))}
         </ol>
       </section>
