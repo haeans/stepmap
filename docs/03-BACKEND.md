@@ -1,6 +1,6 @@
 # 03-BACKEND
 
-API 경로, 로그인·권한 확인, 외부 API(Claude·Gemini·구글맵) 호출 방식을 정하는 문서입니다.
+API 경로, 로그인·권한 확인, 외부 API(Claude·Gemini·구글맵·Unsplash·Open-Meteo) 호출 방식을 정하는 문서입니다.
 
 > 작성: AI · 갱신: 사이클마다
 
@@ -11,9 +11,10 @@ API 경로, 로그인·권한 확인, 외부 API(Claude·Gemini·구글맵) 호�
 | `GET /auth/callback` | 라우트 핸들러 | 구글 로그인 코드를 세션으로 바꾸고 `next`로 보낸다. | v0.2 |
 | `signOut` | 서버 액션 | 로그아웃 후 `/login` | v0.2 |
 | `devLogin(role, next)` | 서버 액션 | 개발용 로그인. 개발 모드이면서 `DEV_LOGIN=true`일 때만 동작. 로컬 개발 전용으로 계속 둔다(B27). | v0.2 |
-| `createTrip` | 서버 액션 | 여행 만들기 후 `/trips/{id}`로 이동 | v0.3 |
+| `createTrip` | 서버 액션 | 여행 만들기 후 `/trips/{id}`로 이동. 목적지가 있고 `UNSPLASH_ACCESS_KEY`가 있으면 대표 이미지를 자동으로 넣는다(B47). | v0.3, C7 |
 | `renameTrip(tripId)` | 서버 액션 | 여행 이름 수정 | v0.3 |
-| `deleteTrip(tripId)` | 서버 액션 | 여행 삭제 | v0.3 |
+| `setUploadedCover(tripId)` | 서버 액션 | 브라우저가 Storage `trip-covers/<여행 id>/cover`에 올린 사진을 대표 이미지로 기록한다. 주소는 서버가 만들고 `?v=<시각>`을 붙인다(B51, B52). | C7 (F08) |
+| `deleteTrip(tripId)` | 서버 액션 | 여행 삭제. 올린 대표 이미지(`<여행 id>/cover`)도 지운다(실패해도 삭제 진행, B54). | v0.3, C7 |
 | `createItem(tripId)` | 서버 액션 | 항목 넣기. 좌표 찾기 후 저장 | v0.5 |
 | `updateItem(itemId, tripId)` | 서버 액션 | 항목 고치기. 이름·주소·종류가 바뀌었을 때만 좌표를 다시 찾는다. | v0.5 |
 | `deleteItem(itemId, tripId)` | 서버 액션 | 항목 지우기 | v0.5 |
@@ -33,6 +34,8 @@ API 경로, 로그인·권한 확인, 외부 API(Claude·Gemini·구글맵) 호�
 - 권한은 Supabase RLS로 DB에서 막는다. 규칙은 `04-DB.md`에 있다.
 - 앱의 데이터 읽기·쓰기는 로그인 사용자 권한으로 접속하는 Supabase 클라이언트로 한다.
 - Drizzle로 DB에 직접 접속하지 않는다. 관리자 권한이 되어 RLS가 적용되지 않을 수 있기 때문이다.
+- 대표 이미지 올리기(C7, F08)는 브라우저의 로그인 사용자 클라이언트가 Storage에 직접 올리고, Storage RLS가 소유자만 허용한다(`04-DB.md` Storage 절). 서버는 기록만 한다(`setUploadedCover`).
+- 여행 목록(C7, F09)은 카드 미리보기용으로 목록의 여행 항목을 한 번에 읽는다(서버 컴포넌트, 같은 RLS). 실패하면 미리보기 없이 목록만 보여 준다.
 
 ## 3. AI 추출 호출 (R-04)
 
@@ -104,3 +107,19 @@ API 경로, 로그인·권한 확인, 외부 API(Claude·Gemini·구글맵) 호�
 ## 6. 키 관리
 
 - API 키는 서버 쪽과 Vercel 환경 변수에만 둔다. 저장소에 올리지 않는다.
+
+## 7. 외부 서비스 호출 (C7)
+
+### 7-1. Unsplash (대표 이미지, F08)
+
+- 여행을 만들 때만 부른다: 목적지로 검색 1번(가로, 1장, `content_filter=high`) + 쓰기로 한 사진에 다운로드 알림 1번(B47). 기존 여행은 한꺼번에 받지 않는다.
+- 사진 파일은 복사하지 않고 주소(`urls.raw`)·대표 색·작가 이름·작가 링크만 저장한다(B48). 화면 크기는 주소 파라미터로 정한다(`coverSrc`, B49).
+- 키 `UNSPLASH_ACCESS_KEY`는 서버 전용이다. 없거나 호출이 실패·시간 초과하면 자동 이미지를 건너뛰고 여행은 그대로 만든다.
+- 파일: `src/lib/cover/unsplash.ts`, `src/lib/cover/cover.ts`
+
+### 7-2. Open-Meteo (날씨, F10)
+
+- 매거진 GO 카드 줄의 날씨 창. 키·비용 없음. 숙소(없으면 첫 장소) 좌표로 부르고 `unstable_cache`로 3시간 둔다.
+- 여행이 16일 안이면 예보, 더 멀면 작년 같은 날짜의 실제 날씨(아카이브)를 "작년 기준"으로 보여 준다(B74).
+- 좌표나 시작일이 없거나 실패하면 날씨를 비운다(서버 로그 `weather error`).
+- 파일: `src/lib/weather/open-meteo.ts`, `src/lib/weather/codes.ts`
