@@ -1,8 +1,8 @@
 "use client";
 
 // 매거진 DAY 장소 카드 (F10). 사진이 들어간 카드를 누르면 서랍처럼 아래로 펼쳐지며
-// 그 일정에 필요한 것(시간, 티켓·입장료와 예약 링크, 주소, 메모)을 보여 준다. 수정·삭제도 여기서 한다.
-// 지도로 가는 버튼은 카드 앞면, 펼침 버튼 바로 위에 있다(C8 F16).
+// 그 일정에 필요한 것(시간, 티켓·입장료와 예약 링크, 주소, 메모, 지도에서 보기)을 보여 준다. 수정·삭제도 여기서 한다.
+// 지도로 가는 버튼은 카드 앞면(펼침 버튼 바로 위)에도 있다(C8 F16).
 // 사진: 직접 넣은 사진(photoUrl). 없으면 일차 색 그라데이션. (장소 사진 API는 쓰지 않는다 — 출처 미정)
 
 import Link from "next/link";
@@ -131,6 +131,11 @@ export function PlaceCard({ item, photoUrl = null, color, days, readOnly }: Prop
             </dl>
 
             <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+              {onMap && (
+                <Link href={`/trips/${item.trip_id}?view=map&item=${item.id}`} className="rounded-full border border-white/25 px-3 py-1.5 transition hover:bg-white/15 active:scale-95">
+                  지도에서 보기
+                </Link>
+              )}
               {!readOnly && (
                 <span className="ml-auto flex gap-1">
                   <button type="button" onClick={() => dialogRef.current?.showModal()} className="rounded-full px-3 py-1.5 transition hover:bg-white/15 active:scale-95">

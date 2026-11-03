@@ -107,17 +107,21 @@ function GoDialog({ dialogRef, label, children, onClose }: { dialogRef: RefObjec
         if (e.target === e.currentTarget) e.currentTarget.close();
       }}
       // 웹(넓은 화면)에서는 창 전체를 글씨·간격까지 비율 그대로 키운다(zoom): md 1.25배, lg 1.4배
-      className="m-auto w-[min(23rem,calc(100vw-2rem))] overflow-visible bg-transparent p-0 text-zinc-900 backdrop:bg-black/55 backdrop:backdrop-blur-sm md:[zoom:1.25] lg:[zoom:1.4]"
+      // 창이 화면보다 길면(숙소 창 등) 창 안에서 위아래로 스크롤한다. 높이는 키운 비율만큼 나눠 화면 안에 들어오게 한다.
+      className="m-auto max-h-[calc(100dvh-2rem)] w-[min(23rem,calc(100vw-2rem))] overflow-y-auto overscroll-contain bg-transparent p-0 text-zinc-900 backdrop:bg-black/55 backdrop:backdrop-blur-sm md:max-h-[calc((100dvh-2rem)/1.25)] md:[zoom:1.25] lg:max-h-[calc((100dvh-2rem)/1.4)] lg:[zoom:1.4]"
     >
       <div className="relative transition duration-300 ease-out starting:translate-y-4 starting:scale-95 starting:opacity-0">
-        <button
-          type="button"
-          onClick={() => dialogRef.current?.close()}
-          aria-label="닫기"
-          className="absolute -top-11 right-0 flex size-9 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-md transition hover:rotate-90 hover:bg-white/25"
-        >
-          ✕
-        </button>
+        {/* 닫기 버튼은 창을 스크롤해도 위에 남는다 */}
+        <div className="pointer-events-none sticky top-0 z-10 flex justify-end pb-2">
+          <button
+            type="button"
+            onClick={() => dialogRef.current?.close()}
+            aria-label="닫기"
+            className="pointer-events-auto flex size-9 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-md transition hover:rotate-90 hover:bg-white/25"
+          >
+            ✕
+          </button>
+        </div>
         {children}
       </div>
     </dialog>
@@ -413,7 +417,6 @@ function PassCard({ item, days }: { item: Item; days: TripDay[] }) {
 // ───────── 5. 준비물 (이 브라우저에만 저장) ─────────
 
 type Check = { id: string; label: string; done: boolean };
-const DEFAULT_CHECKS = ["여권", "환전·현금", "충전기·어댑터", "접이식 우산", "상비약", "보조배터리"];
 const CHANGE = "stepmap:checklist-change";
 
 function checklistKey(tripId: string) {
@@ -447,7 +450,7 @@ function useChecklist(tripId: string) {
     } catch {
       // 깨진 값이면 기본 목록
     }
-    return DEFAULT_CHECKS.map((label, i) => ({ id: `d${i}`, label, done: false }));
+    return []; // 넣은 준비물이 없으면 비어 있다(F16). 하나 더할 때마다 한 줄씩 생긴다.
   }, [raw]);
   const save = useCallback(
     (next: Check[]) => {
@@ -473,8 +476,12 @@ function dDay(start: string | null): string | null {
 }
 
 // 매거진 BACK의 준비물 (F16). 공유받은 사람에게는 보이지 않는다(B76, 매거진에서 readOnly면 넣지 않음).
-export function Checklist({ tripId, startDate, weather }: { tripId: string; startDate: string | null; weather: TripWeather | null }) {
+// - 처음에는 비어 있고 제목 옆 "＋ 준비물 추가"로 하나씩 더한다. 하나라도 있으면 반투명 패널(BACK의 다른 칸과 같은 모양)이 생긴다.
+// - 패널은 서랍처럼 접힌다. 접으면 진행률 원과 개수만 보인다.
+export function Checklist({ tripId, startDate, weather, title, panelClassName }: { tripId: string; startDate: string | null; weather: TripWeather | null; title: ReactNode; panelClassName: string }) {
   const [checks, save] = useChecklist(tripId);
+  const [adding, setAdding] = useState(false);
+  const [open, setOpen] = useState(true);
   const [text, setText] = useState("");
   const done = checks.filter((c) => c.done).length;
   const pct = checks.length ? Math.round((done / checks.length) * 100) : 0;
@@ -482,65 +489,111 @@ export function Checklist({ tripId, startDate, weather }: { tripId: string; star
   const r = 22;
   const circ = 2 * Math.PI * r;
 
+  const form = (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        const label = text.trim();
+        if (!label) return;
+        save([...checks, { id: `u${Date.now()}`, label, done: false }]);
+        setText("");
+      }}
+      className="flex gap-2"
+    >
+      <input
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        maxLength={40}
+        autoFocus
+        placeholder="예: 여권, 보조배터리"
+        aria-label="준비물 더하기"
+        className="min-w-0 flex-1 rounded-full border border-white/20 bg-white/5 px-4 py-2 text-sm text-white placeholder:text-white/40 focus:border-white/50 focus:outline-none"
+      />
+      <button type="submit" className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-zinc-900 transition active:scale-95">
+        더하기
+      </button>
+    </form>
+  );
+
   return (
-    <div className="rounded-3xl bg-white p-5 shadow-2xl">
-      <div className="flex items-center gap-4 border-b border-zinc-200 pb-4">
-        <div className="relative size-14">
-          <svg viewBox="0 0 56 56" className="size-14 -rotate-90">
-            <circle cx="28" cy="28" r={r} fill="none" stroke="#efe9e1" strokeWidth="6" />
-            <circle cx="28" cy="28" r={r} fill="none" stroke="#d97706" strokeWidth="6" strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={circ * (1 - pct / 100)} className="transition-[stroke-dashoffset] duration-500" />
-          </svg>
-          <span className="absolute inset-0 flex items-center justify-center text-xs font-bold">{pct}%</span>
-        </div>
-        <div>
-          <p className="text-xl font-bold tracking-tight">
-            준비물 {done} / {checks.length}
-          </p>
-          <p className="text-sm text-zinc-500" suppressHydrationWarning>
-            {dDay(startDate) ?? "출발일을 넣으면 D-day가 나와요"}
-          </p>
-        </div>
-      </div>
-      <ul className="max-h-72 divide-y divide-zinc-100 overflow-y-auto">
-        {checks.map((c) => (
-          <li key={c.id} className="group flex items-center gap-3 py-2.5">
-            <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
-              <input
-                type="checkbox"
-                checked={c.done}
-                onChange={() => save(checks.map((x) => (x.id === c.id ? { ...x, done: !x.done } : x)))}
-                className="size-5 shrink-0 cursor-pointer accent-zinc-900"
-              />
-              <span className={`truncate ${c.done ? "text-zinc-400 line-through" : ""}`}>{c.label}</span>
-            </label>
-            {rainy && c.label.includes("우산") && <span className="shrink-0 text-xs font-semibold text-blue-600">{md(rainy.date).slice(0, 5)} 비 {weather?.source === "forecast" ? "예보" : "(작년)"}</span>}
-            <button
-              type="button"
-              onClick={() => save(checks.filter((x) => x.id !== c.id))}
-              aria-label={`${c.label} 빼기`}
-              className="shrink-0 rounded-full px-1.5 text-zinc-300 opacity-0 transition group-hover:opacity-100 hover:text-zinc-600 focus:opacity-100"
-            >
-              ✕
-            </button>
-          </li>
-        ))}
-      </ul>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          const label = text.trim();
-          if (!label) return;
-          save([...checks, { id: `u${Date.now()}`, label, done: false }]);
-          setText("");
-        }}
-        className="mt-3 flex gap-2"
-      >
-        <input value={text} onChange={(e) => setText(e.target.value)} maxLength={40} placeholder="준비물 더하기" aria-label="준비물 더하기" className="min-w-0 flex-1 rounded-full border border-zinc-200 px-4 py-2 text-sm focus:border-zinc-400 focus:outline-none" />
-        <button type="submit" className="rounded-full bg-zinc-900 px-4 py-2 text-sm font-semibold text-white transition active:scale-95">
-          더하기
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between gap-2">
+        {title}
+        <button
+          type="button"
+          onClick={() => {
+            setAdding((v) => !v);
+            setOpen(true);
+          }}
+          className="rounded-full border border-white/25 px-3 py-1 text-xs transition hover:bg-white/15 active:scale-95"
+        >
+          {adding ? "다 넣었어요" : "＋ 준비물 추가"}
         </button>
-      </form>
-      <p className="mt-2 text-[11px] text-zinc-400">준비물은 이 브라우저에만 저장돼요.</p>
+      </div>
+
+      {checks.length === 0 ? (
+        adding && <div className={`${panelClassName} p-4`}>{form}</div>
+      ) : (
+        <div className={`${panelClassName} p-4`}>
+          {/* 머리: 진행률 원 + 개수. 누르면 서랍이 접히고 펼쳐진다. */}
+          <button type="button" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="flex w-full items-center gap-4 text-left">
+            <span className="relative size-14 shrink-0">
+              <svg viewBox="0 0 56 56" className="size-14 -rotate-90">
+                <circle cx="28" cy="28" r={r} fill="none" stroke="currentColor" strokeOpacity={0.15} strokeWidth="6" />
+                <circle cx="28" cy="28" r={r} fill="none" stroke="#fbbf24" strokeWidth="6" strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={circ * (1 - pct / 100)} className="transition-[stroke-dashoffset] duration-500" />
+              </svg>
+              <span className="absolute inset-0 flex items-center justify-center text-xs font-bold">{pct}%</span>
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-semibold">
+                준비물 {done} / {checks.length}
+              </span>
+              <span className="block text-xs text-white/60" suppressHydrationWarning>
+                {dDay(startDate) ?? "출발일을 넣으면 D-day가 나와요"}
+              </span>
+            </span>
+            <span aria-hidden className={`flex size-8 shrink-0 items-center justify-center rounded-full bg-white/10 transition duration-300 ${open ? "rotate-180" : ""}`}>
+              <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </span>
+          </button>
+
+          {/* 서랍: 장소 카드와 같은 방식(grid 행 0fr → 1fr) */}
+          <div className={`grid transition-[grid-template-rows] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+            <div className="min-h-0 overflow-hidden">
+              <div className={`flex flex-col gap-3 pt-3 transition-opacity duration-300 ${open ? "opacity-100" : "opacity-0"}`} inert={!open}>
+                <ul className="max-h-72 divide-y divide-white/10 overflow-y-auto">
+                  {checks.map((c) => (
+                    <li key={c.id} className="group flex items-center gap-3 py-2.5">
+                      <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={c.done}
+                          onChange={() => save(checks.map((x) => (x.id === c.id ? { ...x, done: !x.done } : x)))}
+                          className="size-5 shrink-0 cursor-pointer accent-amber-400"
+                        />
+                        <span className={`truncate ${c.done ? "text-white/40 line-through" : ""}`}>{c.label}</span>
+                      </label>
+                      {rainy && c.label.includes("우산") && <span className="shrink-0 text-xs font-semibold text-sky-300">{md(rainy.date).slice(0, 5)} 비 {weather?.source === "forecast" ? "예보" : "(작년)"}</span>}
+                      <button
+                        type="button"
+                        onClick={() => save(checks.filter((x) => x.id !== c.id))}
+                        aria-label={`${c.label} 빼기`}
+                        className="shrink-0 rounded-full px-1.5 text-white/30 opacity-0 transition group-hover:opacity-100 hover:text-white focus:opacity-100"
+                      >
+                        ✕
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                {adding && form}
+                <p className="text-[11px] text-white/45">준비물은 이 브라우저에만 저장돼요.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -669,14 +722,15 @@ export function WeatherBadge({ weather }: { weather: TripWeather }) {
         type="button"
         onClick={d.open}
         aria-label={`날씨 자세히: ${weather.place} ${first.max}° ${weatherLabel(first.code)}`}
-        className="flex shrink-0 items-center gap-3 rounded-2xl border border-white/20 bg-white/10 px-4 py-2.5 text-left text-white shadow-lg shadow-black/20 backdrop-blur-md transition duration-300 ease-out hover:-translate-y-0.5 hover:border-white/40 hover:bg-white/20 active:scale-[0.98] motion-reduce:transition-none"
+        // 좁은 화면: 아이콘·기온만 작게(제목 오른쪽 위). sm 이상: 날씨 이름과 날짜까지.
+        className="flex shrink-0 items-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-3 py-2 text-left text-white shadow-lg shadow-black/20 backdrop-blur-md transition duration-300 ease-out hover:-translate-y-0.5 hover:border-white/40 hover:bg-white/20 active:scale-[0.98] motion-reduce:transition-none sm:gap-3 sm:px-4 sm:py-2.5"
       >
-        <WeatherIcon kind={weatherKind(first.code)} className="size-8" />
+        <WeatherIcon kind={weatherKind(first.code)} className="size-6 sm:size-8" />
         <span className="flex flex-col leading-tight">
-          <span className="text-xl font-semibold tabular-nums">
-            {first.max}° <span className="text-sm font-normal text-white/80">{weatherLabel(first.code)}</span>
+          <span className="text-lg font-semibold tabular-nums sm:text-xl">
+            {first.max}° <span className="hidden text-sm font-normal text-white/80 sm:inline">{weatherLabel(first.code)}</span>
           </span>
-          <span className="text-xs text-white/70">
+          <span className="hidden text-xs text-white/70 sm:block">
             {md(first.date)} · {weather.source === "forecast" ? "예보" : "작년 기준"}
           </span>
         </span>

@@ -268,8 +268,8 @@ export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = n
         aria-label={coverUrl ? "여행 개요 (대표 이미지)" : "여행 개요 (임시 대표 그림)"}
         className="flex min-h-[46svh] flex-col justify-end gap-6 pb-4 md:min-h-[58svh]"
       >
-        {/* 제목 오른쪽에 날씨 투명 패널(F16). 좁은 화면에서는 제목 아래로 내려간다. */}
-        <Reveal className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+        {/* 제목 오른쪽에 날씨 투명 패널(F16). 좁은 화면에서는 제목 오른쪽 위에 작게 붙는다. */}
+        <Reveal className="flex items-start justify-between gap-3 md:items-end md:gap-6">
           <div className="flex min-w-0 flex-col gap-3">
             {trip.destination && <p className="text-sm tracking-[0.3em] text-white/80 uppercase">{trip.destination}</p>}
             <h2 className="text-5xl font-bold tracking-tight break-keep text-white/95 drop-shadow-[0_4px_24px_rgba(0,0,0,0.45)] md:text-8xl">{trip.title}</h2>
@@ -316,9 +316,8 @@ export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = n
             </NoteComposer>
           )}
           {!readOnly && (
-            <Reveal className="flex flex-col gap-3">
-              <p className="font-medium text-white/80">준비물</p>
-              <Checklist tripId={trip.id} startDate={trip.start_date} weather={weather} />
+            <Reveal>
+              <Checklist tripId={trip.id} startDate={trip.start_date} weather={weather} title={<p className="font-medium text-white/80">준비물</p>} panelClassName={PANEL} />
             </Reveal>
           )}
         </div>
