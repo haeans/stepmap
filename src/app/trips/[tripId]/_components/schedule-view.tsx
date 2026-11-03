@@ -4,7 +4,10 @@ import type { GroupedItems } from "@/lib/items/group";
 import type { TripDay } from "@/lib/trips/days";
 import type { ScheduleFormat } from "@/lib/trips/schedule-format";
 import type { Trip } from "@/lib/trips/types";
-import { ScheduleA, ScheduleB } from "./schedule-sections";
+import type { TripWeather } from "@/lib/weather/codes";
+import { MagazineView } from "./magazine-view";
+import { ScheduleB } from "./schedule-sections";
+import { Segmented } from "./segmented";
 import { useScheduleFormat } from "./use-schedule-format";
 
 const FORMATS: { value: ScheduleFormat; label: string }[] = [
@@ -12,28 +15,29 @@ const FORMATS: { value: ScheduleFormat; label: string }[] = [
   { value: "b", label: "종이" },
 ];
 
-type Props = { trip: Trip; grouped: GroupedItems; count: number; dayOptions: TripDay[]; readOnly: boolean };
+// coverUrl: 대표 이미지 주소(F08). 없으면 매거진이 임시 그림을 쓴다.
+// photos: 매거진 장소 카드에 직접 넣은 사진 (항목 id별)
+type Props = {
+  trip: Trip;
+  grouped: GroupedItems;
+  count: number;
+  dayOptions: TripDay[];
+  readOnly: boolean;
+  coverUrl?: string | null;
+  photos?: Record<string, string>;
+  weather?: TripWeather | null;
+};
 
 export function ScheduleView(props: Props) {
   const [format, setFormat] = useScheduleFormat();
 
   return (
     <div className="flex flex-col gap-6">
-      <div role="radiogroup" aria-label="일정 형식" className="flex gap-1 self-end rounded-md bg-zinc-100 p-1 text-sm dark:bg-zinc-900">
-        {FORMATS.map((f) => (
-          <button
-            key={f.value}
-            type="button"
-            role="radio"
-            aria-checked={format === f.value}
-            onClick={() => setFormat(f.value)}
-            className={`rounded px-3 py-1 ${format === f.value ? "bg-white shadow-sm dark:bg-zinc-700" : "text-zinc-600 dark:text-zinc-400"}`}
-          >
-            {f.label}
-          </button>
-        ))}
+      {/* 넓은 화면(xl)에서는 머리글 줄의 매거진/지도 버튼 아래, 화면 오른쪽 끝에 붙인다. */}
+      <div className="self-end xl:absolute xl:top-[4.75rem] xl:right-8 xl:z-20">
+        <Segmented label="일정 형식" size="sm" value={format ?? ""} options={FORMATS} onChange={(v) => setFormat(v as ScheduleFormat)} />
       </div>
-      {format === "a" && <ScheduleA {...props} />}
+      {format === "a" && <MagazineView {...props} />}
       {format === "b" && <ScheduleB {...props} />}
     </div>
   );

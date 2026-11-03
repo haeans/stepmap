@@ -34,13 +34,13 @@ export function ShareButton({ tripId }: { tripId: string }) {
 
   return (
     <>
-      <button type="button" onClick={open} className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-900">
+      <button type="button" onClick={open} className="rounded-full border border-current/25 px-4 py-1.5 text-sm backdrop-blur-md transition hover:bg-current/10 active:scale-95">
         공유
       </button>
       <dialog
         ref={dialogRef}
         aria-label="공유"
-        className="m-auto w-[min(30rem,calc(100vw-2rem))] rounded-lg p-0 backdrop:bg-black/40 dark:bg-zinc-950 dark:text-zinc-100"
+        className="m-auto w-[min(30rem,calc(100vw-2rem))] rounded-lg bg-white p-0 text-zinc-900 backdrop:bg-black/40 dark:bg-zinc-950 dark:text-zinc-100"
       >
         <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
           <h2 className="font-semibold">공유 링크</h2>

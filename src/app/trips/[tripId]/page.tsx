@@ -2,11 +2,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppHeader } from "@/app/_components/app-header";
 import { requireUser } from "@/lib/auth/user";
+import { coverSrc } from "@/lib/cover/cover";
 import { groupItems } from "@/lib/items/group";
 import { ITEM_COLUMNS, type Item } from "@/lib/items/types";
 import { mapPlaces } from "@/lib/map/places";
 import { dayRoute } from "@/lib/map/routes";
 import { createClient } from "@/lib/supabase/server";
+import { tripWeather } from "@/lib/weather/open-meteo";
 import { dayChoices, tripDays } from "@/lib/trips/days";
 import { TRIP_COLUMNS, type Trip } from "@/lib/trips/types";
 import { InputPanel } from "./_components/input-panel";
@@ -36,28 +38,54 @@ export default async function TripPage({ params, searchParams }: PageProps<"/tri
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 p-6 pb-28">
-      <AppHeader email={user.email} />
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link href="/" className="text-sm text-zinc-600 hover:underline dark:text-zinc-400">
+      {/* 매거진 "크게"에서는 사진 위에 놓이므로 흰 글씨로 바뀐다(<html data-cover>, F10).
+          넓은 화면(xl)에서는 화면 폭 전체로 펼쳐 한 줄로 놓는다: 로고 · 여행 목록 …… 이메일 · 로그아웃 · 공유 · 매거진/지도 */}
+      <div className="flex flex-col gap-6 [html[data-cover]_&]:text-white xl:mx-[calc(50%-50vw)] xl:flex-row xl:items-center xl:gap-4 xl:px-8">
+      <AppHeader email={user.email} className="xl:contents" />
+      <div className="flex flex-wrap items-center justify-between gap-3 xl:contents">
+        <Link href="/" className="text-sm opacity-70 transition hover:underline hover:opacity-100 xl:order-2 xl:ml-2">
           ← 여행 목록
         </Link>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 xl:order-4">
           {readOnly ? (
             <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">공유받음 · 보기 전용</span>
           ) : (
             <ShareButton tripId={trip.id} />
           )}
+          {/* 넓은 화면(xl)에서는 머리글 줄 오른쪽 끝. 크게/종이 버튼은 그 아래(schedule-view). */}
           <ViewSwitch tripId={trip.id} current={view} />
         </div>
       </div>
+      </div>
       {view === "schedule" ? (
-        <ScheduleView trip={trip} grouped={grouped} count={items?.length ?? 0} dayOptions={choices} readOnly={readOnly} />
+        <ScheduleView
+          trip={trip}
+          grouped={grouped}
+          count={items?.length ?? 0}
+          dayOptions={choices}
+          readOnly={readOnly}
+          // GO 패널 날씨: 숙소(없으면 첫 장소) 좌표로 Open-Meteo에서 구한다 (3시간 캐시)
+          weather={await tripWeather({
+            place: trip.destination || trip.title,
+            ...weatherSpot(items ?? []),
+            start: trip.start_date,
+            end: trip.end_date,
+          })}
+          // 대표 이미지(F08). 없으면 매거진이 목적지 색의 임시 그림을 쓴다.
+          coverUrl={trip.cover_url ? coverSrc(trip.cover_url, 1920) : null}
+        />
       ) : (
         <TripMap items={items ?? []} days={grouped.days.map((d) => d.day.day)} itemId={typeof query.item === "string" ? query.item : null} />
       )}
       {!readOnly && <InputPanel tripId={trip.id} days={choices} />}
     </main>
   );
+}
+
+// 날씨를 볼 좌표: 숙소 → 첫 장소
+function weatherSpot(items: Item[]): { lat: number | null; lng: number | null } {
+  const spot = items.find((i) => i.kind === "lodging" && i.lat !== null) ?? items.find((i) => i.lat !== null);
+  return { lat: spot?.lat ?? null, lng: spot?.lng ?? null };
 }
 
 // 2화면(지도). 일차별 경로는 서버에서 구한다(캐시, B21).

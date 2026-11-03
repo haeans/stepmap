@@ -5,6 +5,7 @@ import type { ItemActionState } from "@/app/actions/items";
 import type { TripDay } from "@/lib/trips/days";
 import { formatTime, type Item } from "@/lib/items/types";
 import type { ItemInput } from "@/lib/items/validation";
+import { PRIMARY } from "./form-styles";
 import { ItemFields } from "./item-fields";
 
 type Props = {
@@ -44,14 +45,10 @@ export function ItemForm({ action, days, item, submitLabel, onSaved }: Props) {
   }, [state, item, onSaved]);
 
   return (
-    <form ref={formRef} action={formAction} className="flex flex-col gap-3">
+    <form ref={formRef} action={formAction} className="flex flex-col gap-4">
       <ItemFields days={days} values={item && toValues(item)} />
-      {state.error && <p className="text-sm text-red-600">{state.error}</p>}
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
-      >
+      {state.error && <p className="rounded-xl bg-rose-500/15 px-3 py-2 text-sm text-rose-500">{state.error}</p>}
+      <button type="submit" disabled={pending} className={`${PRIMARY} mt-1`}>
         {pending ? "저장 중…" : submitLabel}
       </button>
     </form>

@@ -2,8 +2,7 @@ import type { TripDay } from "@/lib/trips/days";
 import { CURRENCIES, ITEM_KIND_LABELS, ITEM_KINDS } from "@/lib/items/types";
 import type { ItemInput } from "@/lib/items/validation";
 
-const INPUT = "w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900";
-const LABEL = "flex flex-col gap-1 text-sm";
+import { CHIP, FIELD as INPUT, LABEL } from "./form-styles";
 
 type Props = {
   days: TripDay[];
@@ -18,13 +17,13 @@ export function ItemFields({ days, values, prefix = "" }: Props) {
   return (
     <>
       {/* 종류는 고른 것이 늘 보이도록 버튼 모양 라디오로 둔다. */}
-      <fieldset className="flex flex-col gap-1 text-sm">
-        <legend className="mb-1">종류</legend>
-        <div className="flex flex-wrap gap-1">
+      <fieldset className="flex flex-col gap-1.5">
+        <legend className="mb-1.5 text-xs font-medium tracking-wide opacity-90">종류</legend>
+        <div className="flex flex-wrap gap-1.5">
           {ITEM_KINDS.map((k) => (
             <label
               key={k}
-              className="cursor-pointer rounded-md border border-zinc-300 px-3 py-1.5 has-[:checked]:border-zinc-900 has-[:checked]:bg-zinc-900 has-[:checked]:text-white has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-zinc-400 dark:border-zinc-700 dark:has-[:checked]:border-zinc-100 dark:has-[:checked]:bg-zinc-100 dark:has-[:checked]:text-zinc-900"
+              className={CHIP}
             >
               <input type="radio" name={n("kind")} value={k} defaultChecked={(values?.kind ?? "sight") === k} className="sr-only" />
               {ITEM_KIND_LABELS[k]}
@@ -32,7 +31,7 @@ export function ItemFields({ days, values, prefix = "" }: Props) {
           ))}
         </div>
       </fieldset>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-3">
         <label className={LABEL}>
           일차
           <select name={n("day")} defaultValue={values?.day ?? 1} className={INPUT}>
@@ -65,7 +64,7 @@ export function ItemFields({ days, values, prefix = "" }: Props) {
         링크
         <input type="url" name={n("link")} maxLength={2000} defaultValue={values?.link} placeholder="https://" className={INPUT} />
       </label>
-      <div className="grid grid-cols-[1fr_7rem] gap-2">
+      <div className="grid grid-cols-[1fr_7rem] gap-3">
         <label className={LABEL}>
           비용
           <input
