@@ -1,11 +1,14 @@
 "use client";
 
-import { useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import { formatTime, ITEM_KIND_LABELS } from "@/lib/items/types";
+import { nearestPlaceId } from "@/lib/map/nearest";
 import { dayColor, formatDistance, type MapPlace } from "@/lib/map/places";
 import type { RouteLeg, RouteMode } from "@/lib/map/routes";
-import { RouteMap } from "./route-map";
+import { MapMenu } from "./map-menu";
+import { RouteMap, type MapPadding } from "./route-map";
 import { Segmented } from "./segmented";
+import { ViewSwitch } from "./view-switch";
 
 const MODE_LABELS: Record<RouteMode, string> = { drive: "자동차", transit: "대중교통", straight: "직선" };
 
@@ -15,23 +18,100 @@ type Props = {
   days: number[];
   missing: number;
   initialId: string | null;
+  trip: { id: string; startDate: string | null; endDate: string | null };
+  email: string;
+  readOnly: boolean;
 };
 
-// 2화면(지도). 왼쪽 장소 목록, 오른쪽 지도, 아래쪽 일차 탭과 장소 카드 (02-FRONTEND.md 3-3)
-// F11: 매거진처럼 큰 제목·둥근 카드·알약 버튼으로 꾸민다. 바탕색은 밝은 그대로.
-export function MapView({ places, routes, days, missing, initialId }: Props) {
+const GAP = 24; // 패널과 핀 사이 여유(px)
+const SWIPE = 40; // 모바일 손잡이를 이만큼(px) 넘게 밀면 펼치거나 접는다 (결정 11)
+
+// 2화면(지도). 머리글 없이 화면 전체가 지도이고, 일정과 버튼은 패널에 둔다: PC는 왼쪽, 모바일은 아래 시트 (F14)
+export function MapView({ places, routes, days, missing, initialId, trip, email, readOnly }: Props) {
   const initial = places.find((p) => p.id === initialId) ?? null;
   const [day, setDay] = useState<number | "all">(initial?.day ?? "all");
   const [selectedId, setSelectedId] = useState<string | null>(initial?.id ?? null);
+  const [expanded, setExpanded] = useState(false); // 모바일 시트에서 목록을 펼쳤는가
+  const [collapsed, setCollapsed] = useState(false); // PC 패널을 접었는가 (결정 10)
+  const [padding, setPadding] = useState<MapPadding>({ top: GAP, right: GAP, bottom: GAP, left: GAP });
+  const panelRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<number | null>(null); // 손잡이를 누르기 시작한 y
 
   const visible = useMemo(() => (day === "all" ? places : places.filter((p) => p.day === day)), [places, day]);
   const selectedIndex = visible.findIndex((p) => p.id === selectedId);
   const selected = selectedIndex >= 0 ? visible[selectedIndex] : null;
+  // 고른 일차, "전체"면 고른 장소의 일차를 강조한다 (결정 4, B23)
+  const focusDay = day === "all" ? (selected?.day ?? null) : day;
+
+  // 들어올 때 현재 시각에 가장 가까운 일정의 핀을 고른다. 기기 시각을 써야 해서 화면이 뜬 뒤 한 번 계산한다. (결정 3)
+  const startRef = useRef({ places, trip, initialId });
+  useEffect(() => {
+    const start = startRef.current;
+    if (start.initialId) return;
+    const id = nearestPlaceId(start.places, start.trip, new Date());
+    const place = start.places.find((p) => p.id === id);
+    if (!place) return;
+    setDay(place.day);
+    setSelectedId(place.id);
+  }, []);
+
+  // 패널에 가린 만큼 지도 여백을 둔다. PC는 왼쪽(접으면 여유만), 모바일은 아래. 위는 로고, 오른쪽은 확대 버튼 자리.
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) return;
+    const wide = window.matchMedia("(min-width: 768px)");
+    const measure = () => {
+      if (!wide.matches) setCollapsed(false); // 접기는 PC에만 있다
+      setPadding(
+        wide.matches
+          ? { top: GAP + 40, right: GAP + 48, bottom: GAP, left: collapsed ? GAP + 32 : panel.offsetLeft + panel.offsetWidth + GAP }
+          : { top: GAP + 48, right: GAP, bottom: panel.offsetHeight + GAP, left: GAP },
+      );
+    };
+    const observer = new ResizeObserver(measure); // 처음 관찰할 때도 한 번 부른다
+    observer.observe(panel);
+    wide.addEventListener("change", measure);
+    return () => {
+      observer.disconnect();
+      wide.removeEventListener("change", measure);
+    };
+  }, [collapsed]);
+
+  // 모바일 손잡이: 위·아래로 밀면 펼치고 접고, 그냥 누르면 바꾼다. 키보드(Enter·Space)는 onClick으로 받는다.
+  function handleDown(e: PointerEvent<HTMLButtonElement>) {
+    dragRef.current = e.clientY;
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  function handleUp(e: PointerEvent<HTMLButtonElement>) {
+    if (dragRef.current === null) return;
+    const dy = e.clientY - dragRef.current;
+    dragRef.current = null;
+    setExpanded((v) => (Math.abs(dy) > SWIPE ? dy < 0 : !v));
+  }
 
   function chooseDay(next: number | "all") {
     setDay(next);
     setSelectedId(null);
   }
+
+  // 목록에서 고르기: 모바일 시트는 펼친 채로 두고 지도만 옮긴다 (결정 11)
+  function choosePlace(id: string) {
+    setSelectedId(id);
+  }
+
+  // 지도에서 핀 고르기: 모바일은 세부가 목록 줄 아래에 있으므로 시트를 펼친다 (결정 11)
+  function choosePin(id: string) {
+    setSelectedId(id);
+    if (!window.matchMedia("(min-width: 768px)").matches) setExpanded(true);
+  }
+
+  // 고른 장소의 목록 줄이 보이게 목록을 스크롤한다. 목록이 숨어 있으면(모바일 접힘) 하지 않는다.
+  useEffect(() => {
+    if (!selectedId) return;
+    const row = panelRef.current?.querySelector<HTMLElement>(`[data-place="${CSS.escape(selectedId)}"]`);
+    if (row?.offsetParent) row.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [selectedId, expanded]);
 
   function step(delta: number) {
     if (visible.length === 0) return;
@@ -42,22 +122,97 @@ export function MapView({ places, routes, days, missing, initialId }: Props) {
   const shownDays = day === "all" ? days : [day];
 
   return (
-    <section aria-label="지도" className="flex flex-col gap-5">
-      {/* 매거진처럼 큰 제목 (F11). 바탕색은 따르지 않는다. */}
-      <div className="flex items-center gap-4">
-        <span aria-hidden className="h-px flex-1 bg-gradient-to-r from-transparent to-zinc-300 dark:to-zinc-700" />
-        <h2 className="text-3xl font-bold tracking-tight md:text-4xl">ROUTE</h2>
-        <span aria-hidden className="h-px flex-1 bg-gradient-to-l from-transparent to-zinc-300 dark:to-zinc-700" />
+    // 지도 탭에는 머리글이 없어 화면 전체를 덮는다 (결정 6)
+    <section aria-label="지도" className="fixed inset-0 z-0 overflow-hidden">
+      <div className="absolute inset-0">
+        <RouteMap
+          places={places}
+          framed={visible}
+          routes={routes}
+          focusDay={focusDay}
+          selectedId={selectedId}
+          onSelect={choosePin}
+          padding={padding}
+        />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-[20rem_1fr]">
-        <ol className="order-2 flex max-h-[32rem] flex-col gap-6 overflow-y-auto rounded-3xl border border-zinc-200 bg-white/80 p-4 shadow-sm backdrop-blur md:order-1 dark:border-zinc-800 dark:bg-zinc-950/80">
+      <MapMenu tripId={trip.id} email={email} readOnly={readOnly} />
+
+      {/* PC에서 패널을 접으면 왼쪽 끝에 다시 펴기 탭만 남는다. 전환 버튼은 패널을 펴야 보인다 (결정 7·10) */}
+      {collapsed && (
+        <button
+          type="button"
+          onClick={() => setCollapsed(false)}
+          aria-label="패널 펴기"
+          className="absolute top-1/2 left-0 z-10 hidden h-14 w-7 -translate-y-1/2 items-center justify-center rounded-r-xl border border-l-0 border-zinc-200 bg-white/90 text-lg shadow-lg backdrop-blur-xl transition hover:w-8 md:flex dark:border-zinc-800 dark:bg-zinc-950/90"
+        >
+          ›
+        </button>
+      )}
+
+      <div
+        ref={panelRef}
+        inert={collapsed}
+        className={`absolute inset-x-0 bottom-0 z-10 flex max-h-[75%] flex-col rounded-t-3xl border-t border-zinc-200 bg-white/90 shadow-2xl shadow-black/20 backdrop-blur-xl transition-transform duration-300 md:inset-y-4 md:right-auto md:left-4 md:max-h-none md:w-[22rem] md:rounded-3xl md:border dark:border-zinc-800 dark:bg-zinc-950/90 ${collapsed ? "md:-translate-x-[calc(100%+2rem)]" : ""}`}
+      >
+        {/* PC 여닫이 탭: 패널 오른쪽 가장자리 세로 가운데 (결정 10) */}
+        <button
+          type="button"
+          onClick={() => setCollapsed(true)}
+          aria-label="패널 접기"
+          className="absolute top-1/2 left-full hidden h-14 w-6 -translate-y-1/2 items-center justify-center rounded-r-xl border border-l-0 border-zinc-200 bg-white/90 text-lg shadow-md backdrop-blur-xl transition hover:w-7 md:flex dark:border-zinc-800 dark:bg-zinc-950/90"
+        >
+          ‹
+        </button>
+
+        {/* 모바일 손잡이: 누르거나 위·아래로 민다. 누르는 곳 128×44px, 가운데라 오른쪽 아래 "+ 입력"과 겹치지 않는다 (결정 2·11) */}
+        <button
+          type="button"
+          onPointerDown={handleDown}
+          onPointerUp={handleUp}
+          onPointerCancel={() => (dragRef.current = null)}
+          onClick={(e) => e.detail === 0 && setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          aria-label={expanded ? "목록 접기" : "목록 펼치기"}
+          className="mx-auto flex h-11 w-32 shrink-0 touch-none items-center justify-center md:hidden"
+        >
+          <span aria-hidden className="h-1.5 w-10 rounded-full bg-zinc-300 dark:bg-zinc-700" />
+        </button>
+
+        {/* 모바일은 시트를 펼쳤을 때만 제목 줄·전환 버튼·일차 고르기가 보인다. 접으면 손잡이만 남는다 (결정 7·11) */}
+        <div className={`flex flex-col gap-3 px-4 pt-0 pb-3 md:pt-3 ${expanded ? "" : "max-md:hidden"}`}>
+          {/* 맨 윗줄 오른쪽에 전환 버튼 (결정 7) */}
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl font-bold tracking-tight">ROUTE</h2>
+            <span className="text-xs text-zinc-500">장소 {visible.length}곳</span>
+            <div className="ml-auto">
+              <ViewSwitch tripId={trip.id} current="map" />
+            </div>
+          </div>
+          {/* 일차 고르기: 미끄러지는 알약 버튼. 일차가 많으면 옆으로 넘긴다. */}
+          <div className="-mx-1 overflow-x-auto px-1 py-1">
+            <div className="w-max">
+              <Segmented
+                label="일차"
+                size="sm"
+                value={String(day)}
+                options={(["all", ...days] as const).map((d) => ({ value: String(d), label: d === "all" ? "전체" : `DAY ${d}` }))}
+                onChange={(v) => chooseDay(v === "all" ? "all" : Number(v))}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* 모바일 펼침은 목록만 한 줄로 쭉, 끝에 "+ 입력" 버튼 자리를 둔다 (결정 2·11) */}
+        <ol
+          className={`${expanded ? "flex" : "hidden"} min-h-0 flex-1 flex-col gap-6 overflow-y-auto border-t border-zinc-200 px-3 py-4 md:flex dark:border-zinc-800 ${readOnly ? "" : "max-md:pb-24"}`}
+        >
           {shownDays.map((d) => {
             const dayPlaces = places.filter((p) => p.day === d);
             return (
               <li key={d} className="flex flex-col gap-1.5">
                 <div className="flex items-baseline gap-2 px-1">
-                  <p className="text-2xl font-bold tracking-tight" style={{ color: dayColor(d) }}>
+                  <p className="text-xl font-bold tracking-tight" style={{ color: dayColor(d) }}>
                     DAY {d}
                   </p>
                   <span className="text-xs text-zinc-500">장소 {dayPlaces.length}곳</span>
@@ -67,7 +222,7 @@ export function MapView({ places, routes, days, missing, initialId }: Props) {
                   const leg = i > 0 ? routes[d]?.[i - 1] : undefined;
                   const active = p.id === selectedId;
                   return (
-                    <div key={p.id} className="flex flex-col gap-1.5">
+                    <div key={p.id} data-place={p.id} className="flex flex-col gap-1.5">
                       {leg && (
                         <p className="ml-[1.35rem] flex items-center gap-2 border-l-2 border-dashed border-zinc-200 py-1 pl-4 text-[11px] text-zinc-500 dark:border-zinc-800">
                           <span className="rounded-full bg-zinc-100 px-2 py-0.5 dark:bg-zinc-900">
@@ -77,7 +232,7 @@ export function MapView({ places, routes, days, missing, initialId }: Props) {
                       )}
                       <button
                         type="button"
-                        onClick={() => setSelectedId(p.id)}
+                        onClick={() => choosePlace(p.id)}
                         aria-current={active ? "true" : undefined}
                         className={`group flex items-center gap-3 rounded-2xl p-2 text-left transition duration-200 hover:translate-x-0.5 hover:bg-zinc-100 active:scale-[0.98] dark:hover:bg-zinc-900 ${active ? "bg-zinc-100 shadow-sm ring-2 dark:bg-zinc-900" : ""}`}
                         style={active ? ({ "--tw-ring-color": dayColor(p.day) } as CSSProperties) : undefined}
@@ -95,6 +250,12 @@ export function MapView({ places, routes, days, missing, initialId }: Props) {
                           </span>
                         </span>
                       </button>
+                      {/* 모바일 핀 세부: 고른 줄 아래에 펼친다. PC는 아래 카드에 보인다 (결정 11) */}
+                      {active && hasExtras(p) && (
+                        <div className="ml-12 transition duration-300 starting:-translate-y-1 starting:opacity-0 md:hidden" aria-live="polite">
+                          <PlaceExtras place={p} />
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -103,58 +264,71 @@ export function MapView({ places, routes, days, missing, initialId }: Props) {
           })}
           {missing > 0 && <li className="rounded-2xl bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-950 dark:text-amber-300">위치를 찾지 못한 장소 {missing}개는 지도에 없습니다.</li>}
         </ol>
-        <div className="order-1 h-[22rem] overflow-hidden rounded-3xl shadow-xl ring-1 ring-black/5 md:order-2 md:h-[32rem] dark:ring-white/10">
-          <RouteMap places={visible} routes={routes} selectedId={selectedId} onSelect={setSelectedId} />
-        </div>
-      </div>
 
-      {/* 일차 고르기: 미끄러지는 알약 버튼. 일차가 많으면 옆으로 넘긴다. */}
-      <div className="-mx-1 overflow-x-auto px-1 py-1">
-        <div className="w-max">
-          <Segmented
-            label="일차"
-            value={String(day)}
-            options={(["all", ...days] as const).map((d) => ({ value: String(d), label: d === "all" ? "전체" : `DAY ${d}` }))}
-            onChange={(v) => chooseDay(v === "all" ? "all" : Number(v))}
-          />
+        {/* 핀 세부와 이전/다음. PC에만 있다 (결정 11) */}
+        <div className="hidden items-start gap-3 border-t border-zinc-200 p-4 md:flex dark:border-zinc-800">
+          <button
+            type="button"
+            onClick={() => step(-1)}
+            disabled={visible.length === 0}
+            aria-label="이전 장소"
+            className="flex size-9 shrink-0 items-center justify-center rounded-full border border-zinc-200 transition hover:-translate-x-0.5 hover:bg-zinc-100 active:scale-90 disabled:opacity-40 dark:border-zinc-800 dark:hover:bg-zinc-900"
+          >
+            ←
+          </button>
+          <div
+            key={selected?.id ?? "none"}
+            className="max-h-[40vh] min-w-0 flex-1 overflow-y-auto transition duration-300 starting:translate-y-1 starting:opacity-0"
+            aria-live="polite"
+          >
+            {selected ? <PlaceDetail place={selected} /> : <p className="py-2 text-sm text-zinc-500">{visible.length ? "핀이나 장소를 누르거나 화살표로 넘겨 보세요." : "지도에 올릴 장소가 없습니다."}</p>}
+          </div>
+          <button
+            type="button"
+            onClick={() => step(1)}
+            disabled={visible.length === 0}
+            aria-label="다음 장소"
+            className="flex size-9 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-white transition hover:translate-x-0.5 hover:bg-zinc-700 active:scale-90 disabled:opacity-40 dark:bg-white dark:text-zinc-900"
+          >
+            →
+          </button>
         </div>
-      </div>
-
-      <div className="flex items-center gap-3 rounded-3xl border border-zinc-200 bg-white p-4 shadow-lg shadow-black/5 dark:border-zinc-800 dark:bg-zinc-950">
-        <button
-          type="button"
-          onClick={() => step(-1)}
-          disabled={visible.length === 0}
-          aria-label="이전 장소"
-          className="flex size-10 shrink-0 items-center justify-center rounded-full border border-zinc-200 transition hover:-translate-x-0.5 hover:bg-zinc-100 active:scale-90 disabled:opacity-40 dark:border-zinc-800 dark:hover:bg-zinc-900"
-        >
-          ←
-        </button>
-        <div key={selected?.id ?? "none"} className="min-w-0 flex-1 transition duration-300 starting:translate-y-1 starting:opacity-0" aria-live="polite">
-          {selected ? (
-            <>
-              <p className="text-xs font-semibold tracking-wide" style={{ color: dayColor(selected.day) }}>
-                DAY {selected.day} · {selected.order}번째
-              </p>
-              <p className="text-xl leading-tight font-bold tracking-tight break-words">{selected.name}</p>
-              <p className="mt-0.5 text-xs break-words text-zinc-500">
-                {[ITEM_KIND_LABELS[selected.kind], formatTime(selected.time), selected.address].filter(Boolean).join(" · ")}
-              </p>
-            </>
-          ) : (
-            <p className="text-sm text-zinc-500">{visible.length ? "장소를 누르거나 화살표로 넘겨 보세요." : "지도에 올릴 장소가 없습니다."}</p>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={() => step(1)}
-          disabled={visible.length === 0}
-          aria-label="다음 장소"
-          className="flex size-10 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-white transition hover:translate-x-0.5 hover:bg-zinc-700 active:scale-90 disabled:opacity-40 dark:bg-white dark:text-zinc-900"
-        >
-          →
-        </button>
       </div>
     </section>
+  );
+}
+
+// 핀을 누르면 보이는 세부(PC 카드): 이름·종류·시각·주소·메모·비용·링크
+function PlaceDetail({ place }: { place: MapPlace }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <p className="text-xs font-semibold tracking-wide" style={{ color: dayColor(place.day) }}>
+        DAY {place.day} · {place.order}번째
+      </p>
+      <p className="text-lg leading-tight font-bold tracking-tight break-words">{place.name}</p>
+      <p className="text-xs break-words text-zinc-500">{[ITEM_KIND_LABELS[place.kind], formatTime(place.time), place.address].filter(Boolean).join(" · ")}</p>
+      <PlaceExtras place={place} />
+    </div>
+  );
+}
+
+const hasExtras = (place: MapPlace) => Boolean(place.memo || place.cost || place.link);
+
+// 세부 중 목록 줄에 없는 것: 메모·비용·링크 (PC 카드와 모바일 목록 줄 아래에서 함께 쓴다)
+function PlaceExtras({ place }: { place: MapPlace }) {
+  return (
+    <>
+      {place.memo && <p className="mt-1 text-sm break-words whitespace-pre-line">{place.memo}</p>}
+      {(place.cost || place.link) && (
+        <p className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+          {place.cost && <span className="rounded-full bg-zinc-100 px-2 py-0.5 dark:bg-zinc-900">{place.cost}</span>}
+          {place.link && (
+            <a href={place.link} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:opacity-70">
+              링크 열기 ↗
+            </a>
+          )}
+        </p>
+      )}
+    </>
   );
 }
