@@ -44,6 +44,11 @@ describe("mapPlaces", () => {
     expect(places.map((p) => p.id)).toEqual(["a"]);
     expect(missing).toBe(1);
   });
+
+  it("핀 세부에 쓸 메모·링크·비용을 함께 넘긴다", () => {
+    const { places } = mapPlaces([item({ memo: "야경", link: "https://a.b", cost_amount: "1200", cost_currency: "JPY" })]);
+    expect(places[0]).toMatchObject({ memo: "야경", link: "https://a.b", cost: "1,200 JPY" });
+  });
 });
 
 describe("거리와 색", () => {
