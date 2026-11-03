@@ -2,13 +2,15 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { extractItems, saveExtractedItems, type ExtractState, type SaveExtractedState } from "@/app/actions/extract";
-import { MAX_TEXT_LENGTH } from "@/lib/extract/normalize";
+import { MAX_TEXT_LENGTH, type ExtractedItem } from "@/lib/extract/normalize";
 import type { TripDay } from "@/lib/trips/days";
-import type { ItemInput } from "@/lib/items/validation";
 import { BUBBLE_IN, FIELD, GHOST, PRIMARY as BUTTON } from "./form-styles";
 import { ItemFields } from "./item-fields";
+import { addSuggestions } from "./suggestions";
 
 // R-04 붙여넣기 → 자동 추출 → 미리보기 → 저장 (02-FRONTEND.md 5-3절)
+// F18: 원문에 일차·시각이 없어 AI가 추천한 항목은 미리보기를 거치지 않고 바로 매거진 DAY에 "추천" 카드로 띄운다.
+// 카드에서 "넣기"를 눌러야 저장된다. 원문에 일차·시각이 다 있는 항목만 지금처럼 미리보기에서 확인하고 저장한다.
 export function PasteExtract({
   tripId,
   days,
@@ -19,13 +21,28 @@ export function PasteExtract({
   onSaved: (message: string) => void;
 }) {
   const [text, setText] = useState("");
-  const [state, extractAction, extracting] = useActionState(extractItems.bind(null, tripId), { error: null, items: null });
+
+  // 추출 결과를 나눈다: 추천 항목 → 추천 카드, 나머지 → 미리보기
+  async function extract(prev: ExtractState, form: FormData): Promise<ExtractState> {
+    const result = await extractItems(tripId, prev, form);
+    if (!result.items) return result;
+    const suggested = result.items.filter((i) => i.suggest);
+    const rest = result.items.filter((i) => !i.suggest);
+    if (suggested.length) {
+      addSuggestions(
+        tripId,
+        suggested.map(({ suggest, ...item }) => ({ item, suggest: suggest! })),
+      );
+      onSaved(`추천 ${suggested.length}개를 DAY BY DAY에 띄웠습니다. 카드에서 "넣기"를 눌러야 저장됩니다.`);
+    }
+    if (!rest.length) setText("");
+    return { error: null, items: rest.length ? rest : null };
+  }
+
+  const [state, extractAction, extracting] = useActionState(extract, { error: null, items: null });
   // 저장하거나 취소한 추출 결과. 같은 결과의 미리보기를 다시 열지 않는다.
   const [closed, setClosed] = useState<ExtractState | null>(null);
   const preview = state.items && closed !== state ? state.items : null;
-  // 같은 원문을 다시 보내지 않는다(호출 줄이기, B17). 실패했을 때만 다시 보낼 수 있다.
-  const [sentText, setSentText] = useState<string | null>(null);
-  const alreadySent = text.trim() === sentText && !state.error;
 
   if (preview) {
     return (
@@ -44,7 +61,7 @@ export function PasteExtract({
   }
 
   return (
-    <form action={extractAction} onSubmit={() => setSentText(text.trim())} className="mt-auto flex flex-col gap-2">
+    <form action={extractAction} className="flex flex-col gap-2">
       {extracting && (
         <p role="status" className={`${BUBBLE_IN} animate-pulse`}>
           일정을 추출하고 있습니다…
@@ -52,7 +69,7 @@ export function PasteExtract({
       )}
       <textarea
         name="text"
-        rows={8}
+        rows={5}
         value={text}
         onChange={(e) => setText(e.target.value)}
         maxLength={MAX_TEXT_LENGTH}
@@ -63,13 +80,12 @@ export function PasteExtract({
       <p className="text-xs leading-relaxed opacity-55">
         이름·예약번호 같은 개인정보는 지우고 붙여넣어 주세요. 이메일·전화번호·카드 번호는 보내기 전에 자동으로 가립니다.
       </p>
-      {state.error && !extracting && <p className="rounded-xl bg-rose-500/15 px-3 py-2 text-sm text-rose-300">{state.error}</p>}
-      {alreadySent && !extracting && <p className="text-xs opacity-55">이미 보낸 내용입니다. 고친 뒤에 다시 보낼 수 있습니다.</p>}
+      {state.error && !extracting && <p className="rounded-xl bg-rose-500/15 px-3 py-2 text-sm text-rose-700 dark:text-rose-300">{state.error}</p>}
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs opacity-55">
           {text.length.toLocaleString()} / {MAX_TEXT_LENGTH.toLocaleString()}자 · 원문은 저장하지 않습니다.
         </p>
-        <button type="submit" disabled={extracting || !text.trim() || alreadySent} className={BUTTON}>
+        <button type="submit" disabled={extracting || !text.trim()} className={BUTTON}>
           {extracting ? "추출 중…" : "보내기"}
         </button>
       </div>
@@ -86,7 +102,7 @@ function ExtractPreview({
 }: {
   tripId: string;
   days: TripDay[];
-  items: ItemInput[];
+  items: ExtractedItem[];
   onCancel: () => void;
   onDone: (count: number) => void;
 }) {
@@ -114,21 +130,21 @@ function ExtractPreview({
       {items.map((item, i) => (
         <fieldset
           key={i}
-          className="flex flex-col gap-4 rounded-2xl border border-white/15 bg-white/[0.04] p-4 transition has-[input[name$='.include']:not(:checked)]:opacity-40"
+          className="flex flex-col gap-4 rounded-2xl border border-line bg-background/40 p-4 transition has-[input[name$='.include']:not(:checked)]:opacity-40"
         >
           <legend className="sr-only">항목 {i + 1}</legend>
           <label className="flex items-center justify-between text-sm font-semibold">
             항목 {i + 1}
             <span className="flex items-center gap-1 font-normal">
-              <input type="checkbox" name={`items.${i}.include`} defaultChecked className="size-4 accent-white" />
+              <input type="checkbox" name={`items.${i}.include`} defaultChecked className="size-4" />
               넣기
             </span>
           </label>
           <ItemFields days={choices} values={item} prefix={`items.${i}.`} />
         </fieldset>
       ))}
-      {state.error && <p className="rounded-xl bg-rose-500/15 px-3 py-2 text-sm text-rose-300">{state.error}</p>}
-      <div className="sticky bottom-0 -mx-1 flex justify-end gap-2 rounded-2xl bg-zinc-950/80 px-1 py-2 backdrop-blur-xl">
+      {state.error && <p className="rounded-xl bg-rose-500/15 px-3 py-2 text-sm text-rose-700 dark:text-rose-300">{state.error}</p>}
+      <div className="sticky bottom-0 -mx-1 flex justify-end gap-2 rounded-2xl bg-surface/90 px-1 py-2 backdrop-blur-xl">
         <button type="button" onClick={onCancel} disabled={saving} className={GHOST}>
           취소
         </button>

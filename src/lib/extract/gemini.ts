@@ -3,7 +3,7 @@ import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 import { ITEM_KINDS } from "@/lib/items/types";
 import type { RawItem } from "./normalize";
-import { SYSTEM_PROMPT, userMessage, type TripContext } from "./prompt";
+import { SYSTEM_PROMPT, userMessage, type ExistingItem, type TripContext } from "./prompt";
 
 // AI 공급자를 부르는 곳은 이 파일 하나다. 공급자를 바꾸면 이 파일만 바꾼다. (B14)
 
@@ -32,6 +32,10 @@ const ExtractSchema = z.object({
       link: z.string(),
       cost_amount: z.number().nullable(),
       cost_currency: z.string().nullable(),
+      // F18 추천 칸
+      suggested_day: z.number().nullable(),
+      suggested_time: z.string().nullable(),
+      reason: z.string(),
     }),
   ),
 });
@@ -40,8 +44,8 @@ const JSON_SCHEMA = z.toJSONSchema(ExtractSchema);
 
 export type ExtractResult = { ok: true; items: RawItem[] } | { ok: false };
 
-// 같은 모델로 다시 시도하지 않는다. 첫 모델이 한도·과부하로 거절했을 때만 둘째 모델을 부른다. (B17, B19)
-export async function extractWithGemini(trip: TripContext, text: string): Promise<ExtractResult> {
+// 첫 모델이 한도·과부하로 거절했을 때만 둘째 모델을 부른다. (B19)
+export async function extractWithGemini(trip: TripContext, text: string, existing: ExistingItem[] = []): Promise<ExtractResult> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return { ok: false };
   const client = new GoogleGenAI({ apiKey });
@@ -52,7 +56,7 @@ export async function extractWithGemini(trip: TripContext, text: string): Promis
         {
           model,
           system_instruction: SYSTEM_PROMPT,
-          input: userMessage(trip, text),
+          input: userMessage(trip, text, existing),
           response_format: { type: "text", mime_type: "application/json", schema: JSON_SCHEMA },
           generation_config: { max_output_tokens: 8192, thinking_level: "low" },
           store: false,
