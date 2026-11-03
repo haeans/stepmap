@@ -35,14 +35,17 @@ export default async function Home() {
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-6">
       <AppHeader email={user.email} />
-      <h2 className="text-xl font-semibold">내 여행</h2>
+      <div className="flex flex-col gap-2 pt-4">
+        <h2 className="text-4xl md:text-5xl">내 여행</h2>
+        <p className="text-muted">{data?.length ? `여행 ${data.length}개` : "흩어진 여행 정보를 한 곳에"}</p>
+      </div>
       <NewTripForm />
       {error ? (
         <p className="text-red-600">여행 목록을 불러오지 못했습니다.</p>
       ) : data.length === 0 ? (
-        <p className="text-zinc-600 dark:text-zinc-400">아직 여행이 없습니다. 새 여행을 만들어 보세요.</p>
+        <p className="rounded-3xl border border-dashed border-zinc-300 p-10 text-center text-muted dark:border-zinc-700">아직 여행이 없습니다. 새 여행을 만들어 보세요.</p>
       ) : (
-        <ul className="flex flex-col gap-4">
+        <ul className="flex flex-col gap-5">
           {data.map((trip) => (
             <TripRow key={trip.id} trip={trip} shared={trip.owner_id !== user.id} preview={previews.get(trip.id) ?? []} />
           ))}

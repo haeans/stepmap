@@ -22,16 +22,27 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   }
 
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-6 p-8 text-center">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-semibold">stepmap</h1>
-        <p className="text-zinc-600 dark:text-zinc-400">
-          흩어진 여행 정보를 붙여넣으면 한 장의 여행 계획과 지도 위 동선이 됩니다.
-        </p>
+    <main className="relative flex flex-1 flex-col items-center justify-center overflow-hidden p-6">
+      {/* 은은한 빛 번짐 (F07 한지 톤) */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(50rem_28rem_at_50%_-8%,rgb(255_250_240/0.9),transparent_70%)] dark:opacity-10"
+      />
+      <div className="relative flex w-full max-w-sm flex-col items-center gap-8 rounded-[2rem] border border-line bg-surface/85 p-8 text-center shadow-xl backdrop-blur-md sm:p-10">
+        <div className="flex flex-col items-center gap-4">
+          {/* 낙관(도장) 모양 로고. 步 = 걸음 */}
+          <span aria-hidden className="flex size-16 -rotate-3 items-center justify-center rounded-xl bg-accent font-serif text-3xl leading-none text-[#fbf7ef] shadow-lg">
+            步
+          </span>
+          <h1 className="text-4xl font-bold tracking-tight">stepmap</h1>
+          <p className="text-balance leading-relaxed text-muted">
+            흩어진 여행 정보를 붙여넣으면 한 장의 여행 계획과 지도 위 동선이 됩니다.
+          </p>
+        </div>
+        <GoogleLoginButton next={next} />
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        {isDevLoginEnabled() && <DevLoginButtons next={next} />}
       </div>
-      <GoogleLoginButton next={next} />
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      {isDevLoginEnabled() && <DevLoginButtons next={next} />}
     </main>
   );
 }
