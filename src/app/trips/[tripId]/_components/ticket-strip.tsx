@@ -2,7 +2,7 @@
 
 // 매거진 맨 위(제목 아래)의 GO 패널 (F10, C8 F16). 카드를 누르면 레퍼런스("GO 패널을 누르면 뜨는 창") 모양의 창이 뜬다.
 // - 항공권(비행기 교통 항목), 승차권(기차·버스·배 교통 항목), 숙소 예약(숙소 항목), 교통 패스(이름에 패스·1일권 등이 든 교통 항목):
-//   종류마다 카드 하나로 묶고(F16), 창 위의 탭으로 예약을 하나씩 나눠 본다. 수정·삭제는 카드 아래(웹은 오른쪽 위). 카드와 탭은 날짜순.
+//   종류마다 카드 하나로 묶고(F16), 카드 아래 좌우 화살표로 예약을 하나씩 넘겨 본다. 닫기·수정·삭제는 아이콘 버튼(웹은 카드 오른쪽 세로). 카드와 넘기는 순서는 날짜순.
 // - 날씨(WeatherBadge): 여행 제목 오른쪽의 투명 패널. 누르면 날씨 창(F16).
 // - 준비물(Checklist): 매거진 BACK에 둔다. DB 칸이 없어 이 브라우저에만 저장한다(localStorage).
 
@@ -109,7 +109,15 @@ function WeatherIcon({ kind, className = "size-6" }: { kind: WeatherKind; classN
 
 // ───────── 창(팝업) 틀 ─────────
 
-function GoDialog({ dialogRef, label, children, onClose, actions = false }: { dialogRef: RefObject<HTMLDialogElement | null>; label: string; children: ReactNode; onClose?: () => void; actions?: boolean }) {
+// 웹(넓은 화면)에서는 창 전체를 글씨·간격까지 비율 그대로 키운다(zoom). 창이 화면에 다 들어오도록 화면 높이도 같이 본다.
+// - 폭 48rem 이상이고 높이 38rem 이상: 1.25배 / 폭 64rem 이상이고 높이 44rem 이상: 1.4배 (가장 긴 숙소 창이 들어가는 높이)
+// - 그보다 낮은 화면은 키우지 않는다. 그래도 넘치면(아주 낮은 화면) 창 안에서 스크롤한다.
+// 수정 화면은 원래 크기로 보이게 같은 조건에서 되돌린다(ZOOM_UNDO).
+const ZOOM_UP = "[@media(width>=48rem)_and_(height>=38rem)]:[zoom:1.25] [@media(width>=64rem)_and_(height>=44rem)]:[zoom:1.4]";
+const ZOOM_UNDO = "[@media(width>=48rem)_and_(height>=38rem)]:[zoom:0.8] [@media(width>=64rem)_and_(height>=44rem)]:[zoom:0.7143]";
+const MAX_H = "max-h-[calc(100dvh-2rem)] [@media(width>=48rem)_and_(height>=38rem)]:max-h-[calc((100dvh-2rem)/1.25)] [@media(width>=64rem)_and_(height>=44rem)]:max-h-[calc((100dvh-2rem)/1.4)]";
+
+function GoDialog({ dialogRef, label, children, onClose }: { dialogRef: RefObject<HTMLDialogElement | null>; label: string; children: ReactNode; onClose?: () => void }) {
   return (
     <dialog
       ref={dialogRef}
@@ -119,30 +127,110 @@ function GoDialog({ dialogRef, label, children, onClose, actions = false }: { di
         // 바깥(어두운 곳)을 누르면 닫는다
         if (e.target === e.currentTarget) e.currentTarget.close();
       }}
-      // 웹(넓은 화면)에서는 창 전체를 글씨·간격까지 비율 그대로 키운다(zoom): md 1.25배, lg 1.4배
-      // 창이 화면보다 길면(숙소 창 등) 창 안에서 위아래로 스크롤한다. 높이는 키운 비율만큼 나눠 화면 안에 들어오게 한다.
-      // 수정·삭제가 있는 창은 웹에서 오른쪽 세로 버튼 자리만큼 넓다
-      className={`m-auto max-h-[calc(100dvh-2rem)] w-[min(23rem,calc(100vw-2rem))] overflow-y-auto ${actions ? "md:w-[min(26.5rem,calc((100vw-2rem)/1.25))] lg:w-[min(26.5rem,calc((100vw-2rem)/1.4))]" : ""} overscroll-contain bg-transparent p-0 text-zinc-900 backdrop:bg-black/55 backdrop:backdrop-blur-sm md:max-h-[calc((100dvh-2rem)/1.25)] md:[zoom:1.25] lg:max-h-[calc((100dvh-2rem)/1.4)] lg:[zoom:1.4]`}
+      // 폭: 카드(23rem) + 웹에서는 오른쪽 아이콘 버튼 줄
+      className={`m-auto w-[min(23rem,calc(100vw-2rem))] overflow-y-auto overscroll-contain bg-transparent p-0 text-zinc-900 backdrop:bg-black/55 backdrop:backdrop-blur-sm md:w-[min(26rem,calc(100vw-2rem))] ${MAX_H} ${ZOOM_UP}`}
     >
-      <div className="relative transition duration-300 ease-out starting:translate-y-4 starting:scale-95 starting:opacity-0">
-        {/* 닫기 버튼은 창을 스크롤해도 위에 남는다 */}
-        <div className="pointer-events-none sticky top-0 z-10 flex justify-end pb-2">
-          <button
-            type="button"
-            onClick={() => dialogRef.current?.close()}
-            aria-label="닫기"
-            className="pointer-events-auto flex size-9 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-md transition hover:rotate-90 hover:bg-white/25"
-          >
-            ✕
-          </button>
-        </div>
-        {children}
-      </div>
+      <div className="transition duration-300 ease-out starting:translate-y-4 starting:scale-95 starting:opacity-0">{children}</div>
     </dialog>
   );
 }
 
-// 항공권·승차권·숙소·패스 창의 수정·삭제(좁은 화면은 카드 아래, 웹은 카드 오른쪽 위 세로). 수정을 누르면 카드 대신 흰 수정 폼.
+const CloseIcon = (p: { className?: string }) => (
+  <Svg {...p}>
+    <path d="M6 6l12 12M18 6 6 18" />
+  </Svg>
+);
+const EditIcon = (p: { className?: string }) => (
+  <Svg {...p}>
+    <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
+  </Svg>
+);
+const TrashIcon = (p: { className?: string }) => (
+  <Svg {...p}>
+    <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" />
+  </Svg>
+);
+
+// 창의 아이콘 버튼(닫기·수정·삭제). 글자는 마우스를 올리면(title) 나오고, 화면 읽기에는 aria-label로 읽힌다.
+function RailButton({ label, onClick, disabled, danger, className = "", children }: { label: string; onClick: () => void; disabled?: boolean; danger?: boolean; className?: string; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      title={label}
+      className={`flex size-10 items-center justify-center rounded-full bg-white/15 backdrop-blur-md transition hover:bg-white/30 active:scale-95 disabled:opacity-50 ${danger ? "text-rose-200 hover:bg-rose-500/40 hover:text-white" : "text-white"} ${className}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+// 창 안 배치: 카드 + 아이콘 버튼 줄. 웹(md 이상)은 카드 오른쪽 위에 세로(닫기 → 수정 → 삭제),
+// 좁은 화면은 카드 위 오른쪽에 가로(수정 · 삭제 · 닫기).
+function DialogFrame({ onClose, actions, children }: { onClose: () => void; actions?: ReactNode; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-2 md:flex-row-reverse md:items-start">
+      <div className="flex justify-end gap-2 md:flex-col">
+        <RailButton label="닫기" onClick={onClose} className="order-last hover:rotate-90 md:order-first">
+          <CloseIcon className="size-5" />
+        </RailButton>
+        {actions}
+      </div>
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
+  );
+}
+
+// 같은 종류의 예약이 여럿이면 카드 바로 아래 줄의 좌우 화살표로 넘겨 본다(키보드 ← →도 된다).
+// 화살표 사이에 몇 번째인지(점)와 지금 보는 예약 이름. 카드 내용을 가리지 않게 카드 위에 겹치지 않는다.
+function Pager({ index, labels, onPick, children }: { index: number; labels: string[]; onPick: (i: number) => void; children: ReactNode }) {
+  const count = labels.length;
+  if (count < 2) return <>{children}</>;
+  const arrow = (dir: -1 | 1) => {
+    const to = index + dir;
+    const off = to < 0 || to >= count;
+    return (
+      <button
+        type="button"
+        onClick={() => onPick(to)}
+        disabled={off}
+        aria-label={off ? (dir < 0 ? "이전 없음" : "다음 없음") : `${dir < 0 ? "이전" : "다음"}: ${labels[to]}`}
+        title={off ? undefined : labels[to]}
+        className="flex size-9 shrink-0 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-md transition hover:bg-white/30 active:scale-95 disabled:opacity-30 disabled:hover:bg-white/15"
+      >
+        <Svg className="size-5">
+          <path d={dir < 0 ? "m15 6-6 6 6 6" : "m9 6 6 6-6 6"} />
+        </Svg>
+      </button>
+    );
+  };
+  return (
+    <div
+      onKeyDown={(e) => {
+        if (e.key === "ArrowLeft" && index > 0) onPick(index - 1);
+        if (e.key === "ArrowRight" && index < count - 1) onPick(index + 1);
+      }}
+    >
+      {children}
+      <div className="mt-2.5 flex items-center gap-2">
+        {arrow(-1)}
+        <div className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
+          <span className="flex gap-1.5">
+            {labels.map((l, i) => (
+              <button key={i} type="button" onClick={() => onPick(i)} aria-label={l} aria-current={i === index} className={`h-1.5 rounded-full transition-all ${i === index ? "w-5 bg-white" : "w-1.5 bg-white/40 hover:bg-white/70"}`} />
+            ))}
+          </span>
+          <span className="max-w-full truncate text-xs text-white/85">{labels[index]}</span>
+        </div>
+        {arrow(1)}
+      </div>
+    </div>
+  );
+}
+
+// 항공권·승차권·숙소·패스 창의 수정·삭제(아이콘 버튼, DialogFrame). 수정을 누르면 카드 대신 흰 수정 폼.
 function useItemActions(item: Item, close: () => void) {
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -162,8 +250,8 @@ function ItemDialogBody({ item, days, readOnly, close, children }: { item: Item;
   const { editing, setEditing, error, deleting, onDelete } = useItemActions(item, close);
   if (editing) {
     return (
-      // 창은 웹에서 1.25·1.4배로 커지므로 수정 화면은 그만큼 되돌려 원래 크기로 보이게 한다
-      <div data-tone="dark" className={`${EDIT_PANEL} md:[zoom:0.8] lg:[zoom:0.7143]`}>
+      // 창은 웹에서 키워 보이므로 수정 화면은 그만큼 되돌려 원래 크기로 보이게 한다
+      <div data-tone="dark" className={`${EDIT_PANEL} ${ZOOM_UNDO}`}>
         <EditHeader title="항목 수정" sub={item.name} onClose={() => setEditing(false)} back />
         <div className="max-h-[70vh] overflow-y-auto px-5 pb-5">
           <ItemForm key={item.updated_at} action={updateItem.bind(null, item.id, item.trip_id)} days={days} item={item} submitLabel="고치기" onSaved={() => setEditing(false)} />
@@ -171,24 +259,21 @@ function ItemDialogBody({ item, days, readOnly, close, children }: { item: Item;
       </div>
     );
   }
-  return (
+  const actions = !readOnly && (
     <>
-      <div className="md:flex md:items-start md:gap-2">
-        <div className="min-w-0 md:flex-1">{children}</div>
-        {!readOnly && (
-          // 좁은 화면: 카드 아래 가로. 웹(md 이상): 카드 오른쪽 위에 세로(닫기 버튼 바로 아래), 스크롤해도 따라온다.
-          <div className="mt-3 flex justify-center gap-2 text-sm text-white md:sticky md:top-11 md:mt-0 md:w-14 md:shrink-0 md:flex-col md:text-xs">
-            <button type="button" onClick={() => setEditing(true)} className="rounded-full bg-white/15 px-4 py-1.5 backdrop-blur-md transition hover:bg-white/25 active:scale-95 md:px-0">
-              수정
-            </button>
-            <button type="button" onClick={onDelete} disabled={deleting} className="rounded-full bg-white/15 px-4 py-1.5 text-rose-200 backdrop-blur-md transition hover:bg-rose-500/30 active:scale-95 disabled:opacity-50 md:px-0">
-              {deleting ? "지우는 중…" : "삭제"}
-            </button>
-          </div>
-        )}
-      </div>
-      {error && <p className="mt-2 text-center text-sm text-rose-200">{error}</p>}
+      <RailButton label="수정" onClick={() => setEditing(true)}>
+        <EditIcon className="size-[1.15rem]" />
+      </RailButton>
+      <RailButton label={deleting ? "지우는 중…" : "삭제"} onClick={onDelete} disabled={deleting} danger>
+        <TrashIcon className="size-[1.15rem]" />
+      </RailButton>
     </>
+  );
+  return (
+    <DialogFrame onClose={close} actions={actions}>
+      {children}
+      {error && <p className="mt-2 text-center text-sm text-rose-200">{error}</p>}
+    </DialogFrame>
   );
 }
 
@@ -284,7 +369,7 @@ function StayCard({ item, lodgings, days, coverImage, companions }: { item: Item
   };
   return (
     <div className="overflow-hidden rounded-3xl bg-white shadow-2xl">
-      <div className="relative h-40 bg-cover bg-center md:h-52" style={{ backgroundImage: `url("${coverImage}")` }}>
+      <div className="relative h-36 bg-cover bg-center" style={{ backgroundImage: `url("${coverImage}")` }}>
         <span className="absolute top-3 left-3 rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white shadow">✓ 숙소</span>
       </div>
       <div className="flex flex-col gap-4 p-5">
@@ -315,10 +400,7 @@ function StayCard({ item, lodgings, days, coverImage, companions }: { item: Item
                 <span key={d.day} className={`h-1.5 flex-1 rounded-full ${mine(d.day) ? "bg-amber-600" : "bg-zinc-200"}`} />
               ))}
             </div>
-            <div className="mt-2 flex justify-between gap-2 text-xs">
-              <span className="font-semibold text-amber-700">지금 보는 숙소{item.address ? ` · ${item.address}` : ""}</span>
-              {stay.next && <span className="truncate text-zinc-500">다음 · {stay.next.name}</span>}
-            </div>
+            {stay.next && <p className="mt-2 truncate text-right text-xs text-zinc-500">다음 숙소 · {stay.next.name}</p>}
           </div>
         )}
         {(item.memo || item.link) && (
@@ -700,7 +782,7 @@ function useDialog() {
   return { ref, open: () => ref.current?.showModal(), close: () => ref.current?.close() };
 }
 
-// 종류마다 카드 하나 (F16). 같은 종류의 예약(항공권 여러 편, 숙소 여러 곳)은 이 카드 하나로 묶고, 창 위의 탭으로 나눠 본다.
+// 종류마다 카드 하나 (F16). 같은 종류의 예약(항공권 여러 편, 숙소 여러 곳)은 이 카드 하나로 묶고, 카드 아래 좌우 화살표로 넘겨 본다.
 type GoKind = "flight" | "ticket" | "lodging" | "pass";
 const KIND_LABEL: Record<GoKind, string> = { flight: "항공권", ticket: "승차권", lodging: "숙소", pass: "교통 패스" };
 const KIND_UNIT: Record<GoKind, string> = { flight: "편", ticket: "장", lodging: "곳", pass: "건" };
@@ -739,6 +821,7 @@ function GroupTile({ kind, group, items, days, readOnly, coverImage, companions 
   const index = Math.min(picked, group.length - 1); // 지워서 줄어들면 마지막 것을 보여 준다
   const item = group[index];
   const lodgings = items.filter((i) => i.kind === "lodging");
+  const labels = group.map((g) => `${dayLabel(days, g)} · ${kind === "flight" ? (parseFlight(g)?.flightNo ?? g.name) : kind === "ticket" ? parseRide(g.name)?.carrier || g.name : g.name}`);
   const icon =
     kind === "flight" ? <PlaneIcon className="size-4" />
     : kind === "ticket" ? (group.every((g) => parseRide(g.name)?.bus) ? <BusIcon className="size-4" /> : <TrainIcon className="size-4" />)
@@ -765,25 +848,11 @@ function GroupTile({ kind, group, items, days, readOnly, coverImage, companions 
   return (
     <>
       <Tile icon={icon} kind={KIND_LABEL[kind]} corner={corner} title={groupTitle(kind, group)} foot={groupFoot(kind, group, lodgings, days)} onOpen={d.open} />
-      <GoDialog dialogRef={d.ref} label={`${KIND_LABEL[kind]} 자세히`} actions={!readOnly}>
-        {group.length > 1 && (
-          <div role="tablist" aria-label={`${KIND_LABEL[kind]} 고르기`} className="mb-3 flex gap-2 overflow-x-auto pb-1">
-            {group.map((g, i) => (
-              <button
-                key={g.id}
-                type="button"
-                role="tab"
-                aria-selected={i === index}
-                onClick={() => setPicked(i)}
-                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold backdrop-blur-md transition active:scale-95 ${i === index ? "bg-white text-zinc-900" : "bg-white/15 text-white hover:bg-white/25"}`}
-              >
-                {dayLabel(days, g)} · {kind === "flight" ? (parseFlight(g)?.flightNo ?? g.name) : kind === "ticket" ? (parseRide(g.name)?.carrier || g.name) : g.name}
-              </button>
-            ))}
-          </div>
-        )}
+      <GoDialog dialogRef={d.ref} label={`${KIND_LABEL[kind]} 자세히`}>
         <ItemDialogBody key={`${item.id}:${item.updated_at}`} item={item} days={days} readOnly={readOnly} close={d.close}>
-          {body}
+          <Pager index={index} labels={labels} onPick={setPicked}>
+            {body}
+          </Pager>
         </ItemDialogBody>
       </GoDialog>
     </>
@@ -815,7 +884,9 @@ export function WeatherBadge({ weather }: { weather: TripWeather }) {
         </span>
       </button>
       <GoDialog dialogRef={d.ref} label="날씨">
-        <WeatherCard weather={weather} />
+        <DialogFrame onClose={d.close}>
+          <WeatherCard weather={weather} />
+        </DialogFrame>
       </GoDialog>
     </>
   );
