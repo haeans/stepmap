@@ -3,7 +3,7 @@
 v1.0을 AI 하나가 만든 뒤, 세 명이 수정·확장을 나눠 맡아 합치는 규칙(문서 수정 권한, 브랜치, PR, 머지 순서, 충돌 시 기준)입니다.
 
 > 작성: AI 초안 → 사람 검토·수정 · 갱신: 규칙이 바뀔 때 (① 시작 회의 합의 후 haeans)
-> 결정 근거: `decisions.md` B29~B32
+> 결정 근거: `decisions.md` B29~B37, B81, B83
 
 ## 1. 적용 시점
 
@@ -16,7 +16,7 @@ v1.0을 AI 하나가 만든 뒤, 세 명이 수정·확장을 나눠 맡아 합�
 - GitHub 저장소 `haeans/stepmap`(공개)의 `main`이 기준 브랜치다. `main`에 머지되면 Vercel이 공개 주소로 배포한다.
 - 3인이 나눠 맡는다. 역할은 고정하지 않고 사이클마다 정한다. 기능별 담당자는 `features/README.md` 3절에 적는다.
 - **haeans**가 맡는 일 (B30, B31)
-  - 외부 서비스와 키 관리: Google Cloud(지도·결제), Supabase, Vercel, Gemini
+  - 외부 서비스와 키 관리: Google Cloud(지도·결제), Supabase, Vercel, Gemini, Unsplash(C7). Open-Meteo는 키가 없다.
   - PR 머지, DB 마이그레이션 반영(`npm run db:migrate`)
   - 공통 문서 수정(①킥오프, ④최신화)
 - **코드는 Claude가 쓴다** (B33): 3명 모두 직접 코드를 쓰지 않고 각자 Claude(Claude Code)로 작업한다. 사람은 할 일을 지시하고, 결과를 검수·승인한다. 이 문서와 `CLAUDE.md`의 규칙은 각자의 Claude가 읽고 스스로 지킨다. 사람이 규칙에 어긋나는 일을 시키면 Claude는 먼저 이유와 대안을 말한다.
@@ -122,10 +122,12 @@ v1.0을 AI 하나가 만든 뒤, 세 명이 수정·확장을 나눠 맡아 합�
 | `drizzle/`(마이그레이션 번호, `meta/_journal.json`) | 스키마 변경은 한 번에 한 브랜치만. 파일은 작업자의 Claude가 만들고, 반영은 haeans. (7절) |
 | `package.json`, `package-lock.json` | 패키지 추가는 PR에 적는다. lock 파일 충돌은 `main` 쪽을 받고 `npm install`을 다시 돌린다. |
 | `src/app/globals.css`, `src/app/layout.tsx`, `src/app/_components/` | 디자인 담당이 주인이다. 다른 사람이 고치면 PR에 디자인 담당을 리뷰어로 지정한다. |
+| 같은 파일을 크게 고치는 두 작업 | 뒤 작업 브랜치를 앞 작업 브랜치 위에 쌓을 수 있다. 앞 작업이 squash 머지되면 뒤 브랜치에 그 최종본과 최신 `main`을 합친 뒤 PR을 연다(B81, C7의 F10 → F11). |
 
 ## 10. 로컬 개발 값 공유
 
 - 로컬 개발에 필요한 값은 haeans가 보안 공유(비밀번호 관리자 공유, 만료 링크)로 준다. Slack 채널에 올리지 않는다.
-- 주는 값: `NEXT_PUBLIC_*` 4개, `GOOGLE_MAPS_SERVER_KEY`, `GEMINI_API_KEY`, `DEV_LOGIN=true`, `DEV_*` 4개
+- 주는 값: `NEXT_PUBLIC_*` 4개, `GOOGLE_MAPS_SERVER_KEY`, `GEMINI_API_KEY`, `UNSPLASH_ACCESS_KEY`(C7, B83), `DEV_LOGIN=true`, `DEV_*` 4개
+- `UNSPLASH_ACCESS_KEY`는 Demo 한도(앱 전체 시간당 50번)를 배포본과 같이 쓴다. 새 여행 만들기 시험은 필요한 만큼만 한다.
 - 주지 않는 값: `DATABASE_URL`(마이그레이션은 haeans만), `ANTHROPIC_API_KEY`(쓰지 않음)
 - 로컬 개발도 배포본과 같은 Supabase DB와 API 할당량을 쓴다.

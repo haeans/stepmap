@@ -1,6 +1,6 @@
 # deploy
 
-외부 서비스(Vercel, Supabase, Google Cloud, Gemini)의 배포·운영 설정입니다. 처음부터 다시 만들거나 설정을 바꿀 때 봅니다.
+외부 서비스(Vercel, Supabase, Google Cloud, Gemini, Unsplash, Open-Meteo)의 배포·운영 설정입니다. 처음부터 다시 만들거나 설정을 바꿀 때 봅니다.
 
 > 작성: AI · 관리: haeans (B30) · 갱신: 설정이 바뀔 때 (① 킥오프 또는 ④ 최신화)
 > 공개 주소: https://stepmap-pi.vercel.app (B28)
@@ -32,6 +32,7 @@
 | `NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID` | Config | |
 | `GOOGLE_MAPS_SERVER_KEY` | Secret | |
 | `GEMINI_API_KEY` | Secret | |
+| `UNSPLASH_ACCESS_KEY` | Secret | 대표 이미지 자동 넣기(C7). 없으면 자동 이미지만 건너뛴다. |
 
 - `NEXT_PUBLIC_` 값은 브라우저에 공개되는 값이라 Secret으로 넣을 수 없다. 빌드에 들어가므로 바꾸면 다시 배포한다.
 - 넣지 않는 값: `DEV_*`(개발용 로그인, B27), `DATABASE_URL`(마이그레이션 전용), `ANTHROPIC_API_KEY`(쓰지 않음).
@@ -49,6 +50,7 @@
 - localhost 항목은 로컬 개발의 구글 로그인용이라 지우지 않는다.
 - 이메일 공급자는 로컬 개발용 로그인(B27)이 이메일·비밀번호 계정을 쓰기 때문에 켜 둔다. 화면에는 구글 로그인만 보인다. 구글 외 가입을 완전히 막는 것은 확장 단계에서 정한다.
 - DB 마이그레이션(`npm run db:migrate`)과 `DATABASE_URL`(Session pooler 주소, B9)은 haeans만 쓴다.
+- Storage 버킷 `trip-covers`(대표 이미지, C7)는 대시보드에서 만들지 않는다. 마이그레이션 0008이 버킷과 정책을 만든다(`04-DB.md`).
 
 ## 3. Google Cloud
 
@@ -82,9 +84,20 @@
 
 - 키는 `GEMINI_API_KEY` 하나다(무료 등급, B14). 서버에서만 쓴다.
 
-## 5. 배포 후 확인
+## 5. Unsplash (C7)
+
+- haeans가 Unsplash 개발자 앱을 만들고 Access Key를 `UNSPLASH_ACCESS_KEY`로 넣는다(서버 전용). 로컬 개발용으로도 보안 공유로 준다(B83).
+- Demo 앱 한도는 앱 전체 시간당 50번이다(배포본과 로컬이 같이 쓴다). 사용자가 늘면 Production을 신청한다(B47).
+- Production 신청에는 작가 표시·다운로드 알림·utm 링크 규칙(B50)을 지키는지 확인받는다.
+
+## 6. Open-Meteo (C7)
+
+- 날씨(B74). 키·계정·설정이 없다. 비상업 용도 무료 조건이다 [가정].
+
+## 7. 배포 후 확인
 
 - 로그인하지 않고 공개 주소를 열면 `/login`으로 가고, 구글 로그인 버튼만 보인다(개발용 버튼 없음).
 - 구글 로그인 후 공개 주소로 돌아와 여행 목록이 보인다.
 - 지도(바탕·핀·경로), 붙여넣기 추출, 공유 링크(다른 계정은 보기 전용)가 동작한다.
+- 목적지를 적고 새 여행을 만들면 목록 카드에 대표 이미지가 들어간다(C7).
 - 확인 결과는 `docs/regression.md`에 적는다.
