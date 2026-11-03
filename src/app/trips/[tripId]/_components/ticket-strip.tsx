@@ -1,12 +1,14 @@
 "use client";
 
-// 매거진 맨 위(제목 아래)의 GO 패널 (F10). 카드를 누르면 레퍼런스("GO 패널을 누르면 뜨는 창 5종") 모양의 창이 뜬다.
-// - 항공권(비행기 교통 항목), 숙소 예약(숙소 항목), 교통 패스(비행기가 아닌 교통 항목): 항목 칸으로 채우고, 창 아래에서 수정·삭제
-// - 날씨: 서버에서 받은 여행 날씨(Open-Meteo)
-// - 준비물: 체크리스트. DB 칸이 없어 이 브라우저에만 저장한다(localStorage).
+// 매거진 맨 위(제목 아래)의 GO 패널 (F10, C8 F16). 카드를 누르면 레퍼런스("GO 패널을 누르면 뜨는 창") 모양의 창이 뜬다.
+// - 항공권(비행기 교통 항목), 숙소 예약(숙소 항목), 교통 패스(비행기가 아닌 교통 항목): 종류마다 카드 하나로 묶고(F16),
+//   창 위의 탭으로 예약을 하나씩 나눠 본다. 창 아래에서 수정·삭제. 카드와 탭은 날짜순.
+// - 날씨(WeatherBadge): 여행 제목 오른쪽의 투명 패널. 누르면 날씨 창(F16).
+// - 준비물(Checklist): 매거진 BACK에 둔다. DB 칸이 없어 이 브라우저에만 저장한다(localStorage).
 
 import { useCallback, useMemo, useRef, useState, useSyncExternalStore, useTransition, type ReactNode, type RefObject } from "react";
 import { deleteItem, updateItem } from "@/app/actions/items";
+import { compareItems } from "@/lib/items/group";
 import { formatCost, formatTime, type Item } from "@/lib/items/types";
 import type { TripDay } from "@/lib/trips/days";
 import { isPass, parseFlight, passLines, returnFlight, stayRange } from "@/lib/trips/go-info";
@@ -15,14 +17,11 @@ import { EDIT_PANEL, EditHeader } from "./edit-sheet";
 import { ItemForm } from "./item-form";
 
 type Props = {
-  tripId: string;
   items: Item[]; // 교통·숙소 항목
   days: TripDay[];
   readOnly: boolean;
-  weather: TripWeather | null;
   coverImage: string;
   companions: number;
-  startDate: string | null;
 };
 
 const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
@@ -59,12 +58,6 @@ const TrainIcon = (p: { className?: string }) => (
   <Svg {...p}>
     <rect x="5" y="3" width="14" height="14" rx="3" />
     <path d="M5 11h14M9 21l-2-4M15 21l2-4M9 14h.01M15 14h.01" />
-  </Svg>
-);
-const CheckIcon = (p: { className?: string }) => (
-  <Svg {...p}>
-    <path d="M9 11l3 3L22 4" />
-    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
   </Svg>
 );
 
@@ -479,7 +472,8 @@ function dDay(start: string | null): string | null {
   return n > 0 ? `출발까지 D-${n}` : n === 0 ? "오늘 출발" : "여행 중이거나 다녀온 여행";
 }
 
-function ChecklistCard({ tripId, startDate, weather }: { tripId: string; startDate: string | null; weather: TripWeather | null }) {
+// 매거진 BACK의 준비물 (F16). 공유받은 사람에게는 보이지 않는다(B76, 매거진에서 readOnly면 넣지 않음).
+export function Checklist({ tripId, startDate, weather }: { tripId: string; startDate: string | null; weather: TripWeather | null }) {
   const [checks, save] = useChecklist(tripId);
   const [text, setText] = useState("");
   const done = checks.filter((c) => c.done).length;
@@ -584,29 +578,79 @@ function useDialog() {
   return { ref, open: () => ref.current?.showModal(), close: () => ref.current?.close() };
 }
 
-function ItemTile({ item, items, days, readOnly, coverImage, companions }: { item: Item; items: Item[]; days: TripDay[]; readOnly: boolean; coverImage: string; companions: number }) {
-  const d = useDialog();
-  const flight = parseFlight(item);
-  const date = md(dateOfDay(days, item.day));
-  const lodgings = items.filter((i) => i.kind === "lodging");
-  let tile: ReactNode;
-  let body: ReactNode;
-  if (item.kind === "lodging") {
-    const stay = stayRange(item, lodgings, days);
-    tile = <Tile icon={<BedIcon className="size-4" />} kind="숙소" corner={item.address} title={item.name} foot={[stay.nights ? `${stay.nights}박` : null, date || `DAY ${item.day}`].filter(Boolean).join(" · ")} onOpen={d.open} />;
-    body = <StayCard item={item} lodgings={lodgings} days={days} coverImage={coverImage} companions={companions} />;
-  } else if (flight) {
-    tile = <Tile icon={<PlaneIcon className="size-4" />} kind="항공권" corner={flight.flightNo ?? undefined} title={`${flight.from} → ${flight.to}`} foot={[date || `DAY ${item.day}`, formatTime(item.time)].filter(Boolean).join(" · ")} onOpen={d.open} />;
-    body = <BoardingPass item={item} transports={items.filter((i) => i.kind === "transport")} days={days} />;
-  } else {
-    tile = <Tile icon={<TrainIcon className="size-4" />} kind="교통 패스" title={item.name} foot={[date || `DAY ${item.day}`, formatCost(item.cost_amount, item.cost_currency)].filter(Boolean).join(" · ")} onOpen={d.open} />;
-    body = <PassCard item={item} days={days} />;
+// 종류마다 카드 하나 (F16). 같은 종류의 예약(항공권 여러 편, 숙소 여러 곳)은 이 카드 하나로 묶고, 창 위의 탭으로 나눠 본다.
+type GoKind = "flight" | "lodging" | "pass";
+const KIND_LABEL: Record<GoKind, string> = { flight: "항공권", lodging: "숙소", pass: "교통 패스" };
+
+function dayLabel(days: TripDay[], item: Item): string {
+  return md(dateOfDay(days, item.day)) || `DAY ${item.day}`;
+}
+
+// 카드 아래 줄: 하나면 "날짜 · 시각(또는 박 수·비용)", 여럿이면 "첫 날짜 – 마지막 날짜"
+function groupFoot(kind: GoKind, group: Item[], lodgings: Item[], days: TripDay[]): string {
+  const first = group[0];
+  if (group.length > 1) {
+    const last = group[group.length - 1];
+    const a = dayLabel(days, first);
+    const b = dayLabel(days, last);
+    return a === b ? a : `${a} – ${b}`;
   }
+  if (kind === "lodging") {
+    const stay = stayRange(first, lodgings, days);
+    return [stay.nights ? `${stay.nights}박` : null, dayLabel(days, first)].filter(Boolean).join(" · ");
+  }
+  if (kind === "flight") return [dayLabel(days, first), formatTime(first.time)].filter(Boolean).join(" · ");
+  return [dayLabel(days, first), formatCost(first.cost_amount, first.cost_currency)].filter(Boolean).join(" · ");
+}
+
+function groupTitle(kind: GoKind, group: Item[]): string {
+  const first = group[0];
+  const base = kind === "flight" ? (() => {
+    const f = parseFlight(first)!;
+    return `${f.from} → ${f.to}`;
+  })() : first.name;
+  return group.length > 1 ? `${base} 외 ${group.length - 1}${kind === "flight" ? "편" : kind === "lodging" ? "곳" : "건"}` : base;
+}
+
+function GroupTile({ kind, group, items, days, readOnly, coverImage, companions }: { kind: GoKind; group: Item[]; items: Item[]; days: TripDay[]; readOnly: boolean; coverImage: string; companions: number }) {
+  const d = useDialog();
+  const [picked, setPicked] = useState(0);
+  const index = Math.min(picked, group.length - 1); // 지워서 줄어들면 마지막 것을 보여 준다
+  const item = group[index];
+  const lodgings = items.filter((i) => i.kind === "lodging");
+  const icon = kind === "flight" ? <PlaneIcon className="size-4" /> : kind === "lodging" ? <BedIcon className="size-4" /> : <TrainIcon className="size-4" />;
+  const corner = group.length > 1 ? `${group.length}건` : kind === "flight" ? (parseFlight(item)?.flightNo ?? undefined) : kind === "lodging" ? item.address : undefined;
+
+  const body =
+    kind === "flight" ? (
+      <BoardingPass item={item} transports={items.filter((i) => i.kind === "transport")} days={days} />
+    ) : kind === "lodging" ? (
+      <StayCard item={item} lodgings={lodgings} days={days} coverImage={coverImage} companions={companions} />
+    ) : (
+      <PassCard item={item} days={days} />
+    );
+
   return (
     <>
-      {tile}
-      <GoDialog dialogRef={d.ref} label={`${item.name} 자세히`}>
-        <ItemDialogBody key={item.updated_at} item={item} days={days} readOnly={readOnly} close={d.close}>
+      <Tile icon={icon} kind={KIND_LABEL[kind]} corner={corner} title={groupTitle(kind, group)} foot={groupFoot(kind, group, lodgings, days)} onOpen={d.open} />
+      <GoDialog dialogRef={d.ref} label={`${KIND_LABEL[kind]} 자세히`}>
+        {group.length > 1 && (
+          <div role="tablist" aria-label={`${KIND_LABEL[kind]} 고르기`} className="mb-3 flex gap-2 overflow-x-auto pb-1">
+            {group.map((g, i) => (
+              <button
+                key={g.id}
+                type="button"
+                role="tab"
+                aria-selected={i === index}
+                onClick={() => setPicked(i)}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold backdrop-blur-md transition active:scale-95 ${i === index ? "bg-white text-zinc-900" : "bg-white/15 text-white hover:bg-white/25"}`}
+              >
+                {dayLabel(days, g)} · {kind === "flight" ? (parseFlight(g)?.flightNo ?? g.name) : g.name}
+              </button>
+            ))}
+          </div>
+        )}
+        <ItemDialogBody key={`${item.id}:${item.updated_at}`} item={item} days={days} readOnly={readOnly} close={d.close}>
           {body}
         </ItemDialogBody>
       </GoDialog>
@@ -614,44 +658,55 @@ function ItemTile({ item, items, days, readOnly, coverImage, companions }: { ite
   );
 }
 
-export function TicketStrip({ tripId, items, days, readOnly, weather, coverImage, companions, startDate }: Props) {
-  const weatherDialog = useDialog();
-  const checkDialog = useDialog();
-  const [checks] = useChecklist(tripId);
-  const done = checks.filter((c) => c.done).length;
-  // 항공권 → 숙소 → 교통 패스 순서
-  const ordered = [...items.filter((i) => parseFlight(i)), ...items.filter((i) => i.kind === "lodging"), ...items.filter(isPass)];
-  const first = weather?.days[0];
+// 여행 제목 오른쪽의 투명 날씨 패널 (F16). 누르면 원래의 날씨 창을 그대로 연다.
+export function WeatherBadge({ weather }: { weather: TripWeather }) {
+  const d = useDialog();
+  const first = weather.days[0];
+  if (!first) return null;
+  return (
+    <>
+      <button
+        type="button"
+        onClick={d.open}
+        aria-label={`날씨 자세히: ${weather.place} ${first.max}° ${weatherLabel(first.code)}`}
+        className="flex shrink-0 items-center gap-3 rounded-2xl border border-white/20 bg-white/10 px-4 py-2.5 text-left text-white shadow-lg shadow-black/20 backdrop-blur-md transition duration-300 ease-out hover:-translate-y-0.5 hover:border-white/40 hover:bg-white/20 active:scale-[0.98] motion-reduce:transition-none"
+      >
+        <WeatherIcon kind={weatherKind(first.code)} className="size-8" />
+        <span className="flex flex-col leading-tight">
+          <span className="text-xl font-semibold tabular-nums">
+            {first.max}° <span className="text-sm font-normal text-white/80">{weatherLabel(first.code)}</span>
+          </span>
+          <span className="text-xs text-white/70">
+            {md(first.date)} · {weather.source === "forecast" ? "예보" : "작년 기준"}
+          </span>
+        </span>
+      </button>
+      <GoDialog dialogRef={d.ref} label="날씨">
+        <WeatherCard weather={weather} />
+      </GoDialog>
+    </>
+  );
+}
+
+export function TicketStrip({ items, days, readOnly, coverImage, companions }: Props) {
+  // 종류별로 묶고(각 묶음 안은 날짜순, groupItems가 이미 정렬함), 묶음은 가장 이른 예약 날짜순
+  const groups = (
+    [
+      ["flight", items.filter((i) => parseFlight(i))],
+      ["lodging", items.filter((i) => i.kind === "lodging")],
+      ["pass", items.filter(isPass)],
+    ] as [GoKind, Item[]][]
+  )
+    .map(([kind, group]) => [kind, [...group].sort(compareItems)] as [GoKind, Item[]])
+    .filter(([, group]) => group.length > 0)
+    .sort((a, b) => compareItems(a[1][0], b[1][0]));
 
   return (
-    <ul aria-label="GO: 교통·숙소·날씨·준비물" className="-mx-1 flex snap-x gap-3 overflow-x-auto px-1 pt-2 pb-4">
-      {ordered.map((item) => (
-        <ItemTile key={item.id} item={item} items={items} days={days} readOnly={readOnly} coverImage={coverImage} companions={companions} />
+    <ul aria-label="GO: 교통·숙소" className="-mx-1 flex snap-x gap-3 overflow-x-auto px-1 pt-2 pb-4">
+      {groups.map(([kind, group]) => (
+        <GroupTile key={kind} kind={kind} group={group} items={items} days={days} readOnly={readOnly} coverImage={coverImage} companions={companions} />
       ))}
-      {weather && first && (
-        <>
-          <Tile
-            icon={<WeatherIcon kind={weatherKind(first.code)} className="size-4" />}
-            kind="날씨"
-            corner={weather.source === "forecast" ? "예보" : "작년 기준"}
-            title={`${first.max}° ${weatherLabel(first.code)}`}
-            foot={`${weather.place} · ${md(first.date)}`}
-            onOpen={weatherDialog.open}
-          />
-          <GoDialog dialogRef={weatherDialog.ref} label="날씨">
-            <WeatherCard weather={weather} />
-          </GoDialog>
-        </>
-      )}
-      {!readOnly && (
-        <>
-          <Tile icon={<CheckIcon className="size-4" />} kind="준비물" title={`${done} / ${checks.length} 챙김`} foot={dDay(startDate) ?? "체크리스트"} onOpen={checkDialog.open} />
-          <GoDialog dialogRef={checkDialog.ref} label="준비물">
-            <ChecklistCard tripId={tripId} startDate={startDate} weather={weather} />
-          </GoDialog>
-        </>
-      )}
-      {ordered.length === 0 && <li className="self-center px-2 text-sm text-white/70">비행기 표·숙소를 넣으면 여기에 카드로 나와요.</li>}
+      {groups.length === 0 && <li className="self-center px-2 text-sm text-white/70">비행기 표·숙소를 넣으면 여기에 카드로 나와요.</li>}
     </ul>
   );
 }
