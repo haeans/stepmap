@@ -3,16 +3,19 @@
 // 매거진 DAY 장소 카드 (F10). 사진이 들어간 카드를 누르면 서랍처럼 아래로 펼쳐지며
 // 그 일정에 필요한 것(시간, 티켓·입장료와 예약 링크, 주소, 메모, 지도에서 보기)을 보여 준다. 수정·삭제도 여기서 한다.
 // 지도로 가는 버튼은 카드 앞면(펼침 버튼 바로 위)에도 있다(C8 F16).
-// 사진: 직접 넣은 사진(photoUrl). 없으면 일차 색 그라데이션. (장소 사진 API는 쓰지 않는다 — 출처 미정)
+// 사진: 직접 넣은 사진(photoUrl) → 장소 사진(C8 F22: 관광지는 Wikimedia Commons 먼저, 그 밖은 Google Places) → 일차 색 그라데이션.
+// 장소 사진은 출처(작가·라이선스, Google Maps)를 사진 위에 같이 보인다.
 
 import Link from "next/link";
 import { useId, useRef, useState, useTransition, type ReactNode } from "react";
 import { deleteItem, updateItem } from "@/app/actions/items";
-import { formatCost, formatTime, ITEM_KIND_LABELS, type Item } from "@/lib/items/types";
+import { formatCost, formatTime, GEOCODED_KINDS, ITEM_KIND_LABELS, type Item } from "@/lib/items/types";
+import type { CardPhoto } from "@/lib/places/types";
 import type { TripDay } from "@/lib/trips/days";
 import { BookingInfo } from "./booking-info";
 import { EDIT_DIALOG, EditHeader } from "./edit-sheet";
 import { ItemForm } from "./item-form";
+import { usePlacePhoto } from "./use-place-photo";
 
 type Props = { item: Item; photoUrl?: string | null; color: string; days: TripDay[]; readOnly: boolean };
 
@@ -32,11 +35,12 @@ export function PlaceCard({ item, photoUrl = null, color, days, readOnly }: Prop
   const dialogRef = useRef<HTMLDialogElement>(null);
   const drawerId = useId();
 
-  const photo = photoUrl;
   const cost = formatCost(item.cost_amount, item.cost_currency);
   const date = days.find((d) => d.day === item.day)?.date;
   const time = formatTime(item.time);
   const onMap = item.lat !== null;
+  const { ref: photoRef, photo: placePhoto, onError: onPhotoError } = usePlacePhoto(item.trip_id, item.id, item.updated_at, !photoUrl && onMap && GEOCODED_KINDS.includes(item.kind));
+  const photo = photoUrl ?? placePhoto?.url ?? null;
 
   function onDelete() {
     if (!window.confirm(`"${item.name}" 항목을 지울까요?`)) return;
@@ -48,6 +52,7 @@ export function PlaceCard({ item, photoUrl = null, color, days, readOnly }: Prop
 
   return (
     <article
+      ref={photoRef}
       className={`overflow-hidden rounded-2xl border bg-white/[0.07] text-white shadow-lg shadow-black/30 backdrop-blur-xl transition duration-300 ease-out motion-reduce:transition-none ${
         open ? "border-white/35 bg-white/[0.12] shadow-2xl" : "border-white/15 hover:-translate-y-1 hover:border-white/35 hover:bg-white/[0.12] hover:shadow-2xl motion-reduce:hover:translate-y-0"
       }`}
@@ -70,11 +75,14 @@ export function PlaceCard({ item, photoUrl = null, color, days, readOnly }: Prop
         <button type="button" aria-expanded={open} aria-controls={drawerId} onClick={() => setOpen((v) => !v)} className="group block w-full text-left">
           <div className="relative h-36 overflow-hidden sm:h-40">
             {photo ? (
-              <div
-                role="img"
-                aria-label={`${item.name} 사진`}
-                className="absolute inset-0 bg-cover bg-center transition duration-700 ease-out group-hover:scale-105 motion-reduce:transition-none"
-                style={{ backgroundImage: `url("${photo}")` }}
+              // eslint-disable-next-line @next/next/no-img-element -- 외부 사진 주소를 그대로 쓴다(이미지 최적화를 쓰지 않음, B49)
+              <img
+                src={photo}
+                alt={`${item.name} 사진`}
+                loading="lazy"
+                referrerPolicy="no-referrer"
+                onError={photoUrl ? undefined : onPhotoError}
+                className="absolute inset-0 size-full object-cover transition duration-700 ease-out group-hover:scale-105 motion-reduce:transition-none"
               />
             ) : (
               <div aria-hidden className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${color}aa, ${color}33 60%, transparent)` }} />
@@ -100,6 +108,7 @@ export function PlaceCard({ item, photoUrl = null, color, days, readOnly }: Prop
             </div>
           </div>
         </button>
+        {!photoUrl && placePhoto && <PhotoCredit photo={placePhoto} />}
       </div>
 
       {/* 서랍: grid 행 높이 0fr → 1fr 로 부드럽게 열고 닫는다 */}
@@ -180,5 +189,42 @@ export function PlaceCard({ item, photoUrl = null, color, days, readOnly }: Prop
         </dialog>
       )}
     </article>
+  );
+}
+
+// 장소 사진 출처 (C8 F22). 사진과 같은 카드 안, 오른쪽 위.
+// Google: 작가 이름(링크)과 "Google Maps"(번역하지 않음, 원본 사진 링크). Wikimedia: 작가 · 라이선스 · Wikimedia Commons(파일 페이지 링크).
+function PhotoCredit({ photo }: { photo: CardPhoto }) {
+  const link = "underline-offset-2 hover:underline";
+  const brand = photo.source === "google" ? "Google Maps" : "Wikimedia Commons";
+  return (
+    <p className="absolute top-3 right-3 z-10 flex max-w-[65%] items-center gap-1 rounded-full bg-black/55 px-2.5 py-1 text-xs text-white backdrop-blur-md">
+      <span className="truncate">
+        사진{" "}
+        {photo.authors.map((a, i) => (
+          <span key={i}>
+            {i > 0 && ", "}
+            {a.uri ? (
+              <a href={a.uri} target="_blank" rel="noopener noreferrer" className={link}>
+                {a.name}
+              </a>
+            ) : (
+              a.name
+            )}
+          </span>
+        ))}
+        {photo.license && ` · ${photo.license}`}
+      </span>
+      <span aria-hidden>·</span>
+      {photo.link ? (
+        <a href={photo.link} target="_blank" rel="noopener noreferrer" translate="no" className={`shrink-0 ${link}`}>
+          {brand}
+        </a>
+      ) : (
+        <span translate="no" className="shrink-0">
+          {brand}
+        </span>
+      )}
+    </p>
   );
 }

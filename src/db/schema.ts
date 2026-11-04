@@ -1,6 +1,6 @@
 // Drizzle 테이블 정의와 RLS 정책 정의만 둔다. (decisions.md S2)
 // 앱의 데이터 읽기·쓰기는 여기서 하지 않고 src/lib/supabase의 클라이언트로 한다.
-// 테이블은 사이클마다 추가한다: trips(v0.3), items(v0.5), share_links·trip_members(v0.9), trips 대표 이미지 칸(F08), item_secrets(C8 F20)
+// 테이블은 사이클마다 추가한다: trips(v0.3), items(v0.5), share_links·trip_members(v0.9), trips 대표 이미지 칸(F08), item_secrets(C8 F20), items.place_id(C8 F22)
 // 대표 이미지 Storage 버킷과 정책은 drizzle/ 아래 직접 쓴 마이그레이션에 있다. (F08)
 // 테이블 권한(GRANT)과 트리거는 drizzle/ 아래 직접 쓴 마이그레이션에 있다. (decisions.md B6)
 
@@ -117,11 +117,21 @@ export const items = pgTable(
     costAmount: numeric("cost_amount", { precision: 14, scale: 2 }),
     costCurrency: text("cost_currency"),
     source: itemSource("source").notNull().default("manual"),
+    // 장소 사진 (C8 F22). 관광지는 Wikimedia Commons 사진을 먼저 찾아 주소·출처를 저장하고(무료, 저장 가능),
+    // 없거나 식당·숙소면 Google Places 사진을 보여 줄 때마다 가져온다(장소 ID만 저장 가능, 사진 이름·주소는 저장하지 않음).
+    placeId: text("place_id"),
+    photoUrl: text("photo_url"), // null: 아직 찾지 않음, '': 찾았지만 없음, 주소: Wikimedia 사진
+    photoCredit: text("photo_credit"), // 작가 · 라이선스
+    photoPage: text("photo_page"), // Wikimedia Commons 파일 페이지 (출처 링크)
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     index("items_trip_order_idx").on(t.tripId, t.day, t.time, t.position),
+    check("items_place_id_length", sql`char_length(${t.placeId}) <= 300`),
+    check("items_photo_url", sql`${t.photoUrl} = '' or (${t.photoUrl} ~ '^https://(upload|thumb)\\.wikimedia\\.org/' and char_length(${t.photoUrl}) <= 2000)`),
+    check("items_photo_credit_length", sql`char_length(${t.photoCredit}) <= 300`),
+    check("items_photo_page", sql`${t.photoPage} ~ '^https://commons\\.wikimedia\\.org/' and char_length(${t.photoPage}) <= 2000`),
     check("items_day_range", sql`${t.day} between 1 and 60`),
     check("items_name_length", sql`char_length(${t.name}) between 1 and 200`),
     check("items_address_length", sql`char_length(${t.address}) <= 300`),

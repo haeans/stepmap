@@ -3,7 +3,8 @@
 
 import { GEOCODED_KINDS, type ItemKind } from "./types";
 
-export type GeocodeResult = { lat: number; lng: number; address: string };
+// placeId: Google Places 장소 ID (C8 F22, 장소 사진). Text Search에 places.id를 더 받아도 요금 단계는 그대로다.
+export type GeocodeResult = { lat: number; lng: number; address: string; placeId: string | null };
 
 type PlaceFields = Pick<ItemFieldsForGeocode, "kind" | "name" | "address">;
 export type ItemFieldsForGeocode = {
@@ -61,7 +62,7 @@ export async function searchPlace(query: string): Promise<GeocodeResult | null> 
     headers: {
       "Content-Type": "application/json",
       "X-Goog-Api-Key": key,
-      "X-Goog-FieldMask": "places.formattedAddress,places.location,places.types",
+      "X-Goog-FieldMask": "places.id,places.formattedAddress,places.location,places.types",
     },
     body: JSON.stringify({ textQuery: query, languageCode: "ko", pageSize: 1 }),
     signal: AbortSignal.timeout(5000),
@@ -69,9 +70,9 @@ export async function searchPlace(query: string): Promise<GeocodeResult | null> 
   });
   if (!res.ok) throw new Error(`geocode ${res.status}`);
   const data = (await res.json()) as {
-    places?: { formattedAddress?: string; location?: { latitude: number; longitude: number }; types?: string[] }[];
+    places?: { id?: string; formattedAddress?: string; location?: { latitude: number; longitude: number }; types?: string[] }[];
   };
   const place = data.places?.[0];
   if (!place?.location || isAreaResult(place.types)) return null;
-  return { lat: place.location.latitude, lng: place.location.longitude, address: place.formattedAddress ?? "" };
+  return { lat: place.location.latitude, lng: place.location.longitude, address: place.formattedAddress ?? "", placeId: place.id ?? null };
 }
