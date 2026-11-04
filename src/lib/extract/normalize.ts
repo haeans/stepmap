@@ -46,7 +46,7 @@ function daysBetween(from: string, to: string): number {
   return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
 }
 
-function clampDay(day: number, max = MAX_DAYS): number {
+export function clampDay(day: number, max = MAX_DAYS): number {
   return Math.min(Math.max(Math.trunc(day), 1), max);
 }
 

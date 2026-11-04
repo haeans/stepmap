@@ -31,7 +31,12 @@ export function InputPanel({ tripId, days, defaultOpen = false }: { tripId: stri
   // 열리면(또는 탭을 바꾸면) 고른 탭의 첫 입력칸으로, 닫히면 곰발바닥 버튼으로 포커스를 옮긴다.
   useEffect(() => {
     if (open) {
-      panelRef.current?.querySelector<HTMLElement>(`[data-tab="${tab}"] :is(textarea, input:not([type=hidden]):not([type=radio]))`)?.focus();
+      // F19: 붙여넣기 탭은 대화 아래의 입력칸(data-autofocus)으로. 미리보기 안의 칸으로 가지 않게 먼저 찾는다.
+      const panel = panelRef.current;
+      (
+        panel?.querySelector<HTMLElement>(`[data-tab="${tab}"] [data-autofocus]`) ??
+        panel?.querySelector<HTMLElement>(`[data-tab="${tab}"] :is(textarea, input:not([type=hidden]):not([type=radio]))`)
+      )?.focus();
     } else if (wasOpen.current) {
       toggleRef.current?.focus();
     }
@@ -138,12 +143,15 @@ function SectionHead({ hint, messages }: { hint: string; messages: string[] }) {
   );
 }
 
+// F19: 붙여넣기 탭은 대화창이다. 알림도 대화 안에 쌓이므로 따로 알림 목록을 두지 않는다.
 function PasteSection({ tripId, days }: { tripId: string; days: TripDay[] }) {
-  const [messages, push] = useMessages();
   return (
     <section className="flex flex-col gap-3">
-      <SectionHead hint="티켓, 예약 메일, 메모를 붙여넣으세요. 뽑은 항목은 미리보기에서 확인하고 저장합니다." messages={messages} />
-      <PasteExtract tripId={tripId} days={days} onSaved={push} />
+      <p className={BUBBLE_IN}>
+        티켓·예약 메일·메모를 붙여넣으면 일정을 뽑아 드려요. &ldquo;둘째 날 일정 짜 줘&rdquo;처럼 말을 걸면 새 일정을 함께 짜요. 무엇이든 확인하고 저장하기
+        전에는 넣지 않아요.
+      </p>
+      <PasteExtract tripId={tripId} days={days} />
     </section>
   );
 }

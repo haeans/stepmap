@@ -6,18 +6,14 @@ import { extractWithGemini } from "@/lib/extract/gemini";
 import { maskPersonal } from "@/lib/extract/mask";
 import { hideForAi } from "@/lib/extract/vault";
 import { MAX_ITEMS, MAX_TEXT_LENGTH, normalizeItems, type ExtractedItem } from "@/lib/extract/normalize";
-import type { ExistingItem } from "@/lib/extract/prompt";
+import { loadTripContext } from "@/lib/assistant/context";
 import { nextPosition, resolvePlace, saveSecret, toRow } from "@/lib/items/store";
 import { parseItemForm, toSecretRow, type ItemInput } from "@/lib/items/validation";
 import { createClient } from "@/lib/supabase/server";
-import { dayChoices, tripDays } from "@/lib/trips/days";
 
 // R-04 붙여넣기 → 자동 추출. 원문은 저장하지 않고 추출 결과만 미리보기로 돌려준다. (B15)
 // F18: 원문에 일차·시각이 없는 항목은 AI 추천값을 채우고 suggest로 표시한다.
 // F20: 링크·예약번호는 자리표시로 바꿔 보내고(hideForAi) 결과에서 되돌린다. 저장 금지 정보는 maskPersonal이 가린다.
-
-// AI에 함께 보내는 기존 일정 수 상한(입력 토큰을 묶어 둔다)
-const MAX_EXISTING = 150;
 
 // unassigned: AI가 어느 항목에도 붙이지 않은 예약번호(F20). 미리보기에서 사용자가 직접 넣는다.
 export type ExtractState = { error: string | null; items: ExtractedItem[] | null; unassigned?: string[] };
@@ -31,40 +27,21 @@ export async function extractItems(tripId: string, _prev: ExtractState, form: Fo
   if (text.length > MAX_TEXT_LENGTH) return { error: `원문은 ${MAX_TEXT_LENGTH.toLocaleString()}자까지 넣을 수 있습니다.`, items: null };
 
   // 추출은 비용이 드는 호출이라 소유자만 할 수 있게 먼저 확인한다. 저장 권한은 RLS가 따로 막는다.
-  const supabase = await createClient();
-  const { data: trip } = await supabase
-    .from("trips")
-    .select("owner_id, destination, start_date, end_date")
-    .eq("id", tripId)
-    .maybeSingle();
-  if (!trip || trip.owner_id !== user.id) return { error: "여행을 찾을 수 없습니다.", items: null };
-
   // F18: 추천할 때 빈 날·같은 지역을 보려고 이미 있는 일정의 종류·일차·시각·이름·주소만 함께 보낸다(메모·링크·비용은 빼고).
-  const { data: existing } = await supabase
-    .from("items")
-    .select("kind, day, time, name, address")
-    .eq("trip_id", tripId)
-    .order("day")
-    .order("time", { nullsFirst: false })
-    .limit(MAX_EXISTING)
-    .returns<ExistingItem[]>();
-  const known = existing ?? [];
-  const days = tripDays(trip.start_date, trip.end_date);
-  const maxDay = Math.max(0, ...known.map((i) => i.day));
-  // 날짜가 없는 여행은 직접 입력과 같은 범위(최소 10일)에서 고른다.
-  const dayCount = Math.max(dayChoices(days, trip.start_date !== null).length, maxDay);
-  const busy: Record<number, number> = {};
-  for (const i of known) busy[i.day] = (busy[i.day] ?? 0) + 1;
+  const supabase = await createClient();
+  const trip = await loadTripContext(supabase, tripId, user.id);
+  if (!trip) return { error: "여행을 찾을 수 없습니다.", items: null };
+  const { dayCount, busy } = trip;
 
   const hidden = hideForAi(text);
   const result = await extractWithGemini(
-    { destination: trip.destination, startDate: trip.start_date, endDate: trip.end_date, dayCount },
+    { destination: trip.destination, startDate: trip.startDate, endDate: trip.endDate, dayCount },
     maskPersonal(hidden.text),
-    known.map((i) => ({ ...i, name: maskPersonal(i.name), address: maskPersonal(i.address) })),
+    trip.existing.map((i) => ({ ...i, name: maskPersonal(i.name), address: maskPersonal(i.address) })),
   );
   if (!result.ok) return { error: "추출하지 못했습니다. 잠시 뒤 다시 시도하거나 직접 입력을 써 주세요.", items: null };
 
-  const items = normalizeItems(result.items, { startDate: trip.start_date, dayCount, busy, vault: hidden.vault });
+  const items = normalizeItems(result.items, { startDate: trip.startDate, dayCount, busy, vault: hidden.vault });
   if (!items.length) return { error: "찾은 항목이 없습니다.", items: null };
   const used = new Set(items.map((i) => i.booking?.no).filter(Boolean));
   const unassigned = [...new Set(hidden.vault.bookings)].filter((b) => !used.has(b));
