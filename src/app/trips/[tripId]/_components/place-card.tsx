@@ -15,7 +15,7 @@ import type { TripDay } from "@/lib/trips/days";
 import { BookingInfo } from "./booking-info";
 import { EDIT_DIALOG, EditHeader } from "./edit-sheet";
 import { ItemForm } from "./item-form";
-import { usePlacePhoto } from "./use-place-photo";
+import { photoVersion, usePlacePhoto } from "./use-place-photo";
 
 type Props = { item: Item; photoUrl?: string | null; color: string; days: TripDay[]; readOnly: boolean };
 
@@ -39,7 +39,7 @@ export function PlaceCard({ item, photoUrl = null, color, days, readOnly }: Prop
   const date = days.find((d) => d.day === item.day)?.date;
   const time = formatTime(item.time);
   const onMap = item.lat !== null;
-  const { ref: photoRef, photo: placePhoto, onError: onPhotoError } = usePlacePhoto(item.trip_id, item.id, item.updated_at, !photoUrl && onMap && GEOCODED_KINDS.includes(item.kind));
+  const { ref: photoRef, photo: placePhoto, onError: onPhotoError } = usePlacePhoto(item.trip_id, item.id, photoVersion(item.kind, item.name, item.address), !photoUrl && onMap && GEOCODED_KINDS.includes(item.kind));
   const photo = photoUrl ?? placePhoto?.url ?? null;
 
   function onDelete() {
