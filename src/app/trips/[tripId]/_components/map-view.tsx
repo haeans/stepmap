@@ -171,7 +171,7 @@ export function MapView({ places, routes, days, missing, initialId, trip, email,
           ‹
         </button>
 
-        {/* 모바일 손잡이: 누르거나 위·아래로 민다. 누르는 곳 128×44px, 가운데라 오른쪽 아래 "+ 입력"과 겹치지 않는다 (결정 2·11) */}
+        {/* 모바일 손잡이: 누르거나 위·아래로 민다. 누르는 곳 128×44px (결정 2·11) */}
         <button
           type="button"
           onPointerDown={handleDown}
@@ -209,9 +209,9 @@ export function MapView({ places, routes, days, missing, initialId, trip, email,
           </div>
         </div>
 
-        {/* 모바일 펼침은 목록만 한 줄로 쭉, 끝에 "+ 입력" 버튼 자리를 둔다 (결정 2·11) */}
+        {/* 모바일 펼침은 목록만 한 줄로 쭉 (결정 11). 지도 탭에는 "+ 입력" 버튼이 없다 (F25) */}
         <ol
-          className={`${expanded ? "flex" : "hidden"} min-h-0 flex-1 flex-col gap-6 overflow-y-auto border-t border-zinc-200 px-3 py-4 md:flex dark:border-zinc-800 ${readOnly ? "" : "max-md:pb-24"}`}
+          className={`${expanded ? "flex" : "hidden"} min-h-0 flex-1 flex-col gap-6 overflow-y-auto border-t border-zinc-200 px-3 py-4 md:flex dark:border-zinc-800`}
         >
           {shownDays.map((d) => {
             const dayPlaces = places.filter((p) => p.day === d);

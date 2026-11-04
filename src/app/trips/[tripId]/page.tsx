@@ -92,7 +92,8 @@ export default async function TripPage({ params, searchParams }: PageProps<"/tri
           readOnly={readOnly}
         />
       )}
-      {!readOnly && <InputPanel tripId={trip.id} days={choices} />}
+      {/* 곰발바닥(입력창) 버튼은 매거진 탭에만 둔다 (F25) */}
+      {!readOnly && view === "schedule" && <InputPanel tripId={trip.id} days={choices} />}
     </main>
   );
 }
