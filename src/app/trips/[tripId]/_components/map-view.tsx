@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerE
 import { formatTime, ITEM_KIND_LABELS } from "@/lib/items/types";
 import { nearestPlaceId } from "@/lib/map/nearest";
 import { dayColor, hubLabel, type MapPlace } from "@/lib/map/places";
-import type { DayPath } from "@/lib/map/routes";
 import { MapMenu } from "./map-menu";
 import { RouteMap, type MapPadding } from "./route-map";
 import { Segmented } from "./segmented";
@@ -12,7 +11,6 @@ import { ViewSwitch } from "./view-switch";
 
 type Props = {
   places: MapPlace[];
-  routes: Record<number, DayPath>;
   days: number[];
   missing: number;
   initialId: string | null;
@@ -25,7 +23,7 @@ const GAP = 24; // 패널과 핀 사이 여유(px)
 const SWIPE = 40; // 모바일 손잡이를 이만큼(px) 넘게 밀면 펼치거나 접는다 (결정 11)
 
 // 2화면(지도). 머리글 없이 화면 전체가 지도이고, 일정과 버튼은 패널에 둔다: PC는 왼쪽, 모바일은 아래 시트 (F14)
-export function MapView({ places, routes, days, missing, initialId, trip, email, readOnly }: Props) {
+export function MapView({ places, days, missing, initialId, trip, email, readOnly }: Props) {
   // ?item=은 일정 항목 id다. 같은 숙소 핀이 둘이면 앞 일차 핀을 고른다 (F25)
   const initial = places.find((p) => p.itemId === initialId) ?? null;
   const [day, setDay] = useState<number | "all">(initial?.day ?? "all");
@@ -126,7 +124,6 @@ export function MapView({ places, routes, days, missing, initialId, trip, email,
         <RouteMap
           places={places}
           framed={framed}
-          routes={routes}
           focusDay={focusDay}
           selectedId={selectedId}
           onSelect={choosePin}

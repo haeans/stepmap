@@ -3,7 +3,6 @@
 import { AdvancedMarker, APIProvider, ControlPosition, Map, Pin, useMap } from "@vis.gl/react-google-maps";
 import { useEffect } from "react";
 import { dayColor, type LatLng, type MapPlace } from "@/lib/map/places";
-import type { DayPath } from "@/lib/map/routes";
 
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
 const MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || "DEMO_MAP_ID";
@@ -13,15 +12,14 @@ export type MapPadding = { top: number; right: number; bottom: number; left: num
 
 type Props = {
   places: MapPlace[]; // 모든 장소. 강조하지 않는 일차는 흐리게 그린다.
-  framed: LatLng[]; // 지도 범위를 맞출 점 (고른 일차 또는 전체의 장소와 거점, F15 결정 2)
-  routes: Record<number, DayPath>;
+  framed: LatLng[]; // 지도 범위를 맞출 점 (고른 일차 또는 전체의 핀, F25)
   focusDay: number | null; // 강조할 일차 (F14 결정 4)
   selectedId: string | null;
   onSelect: (id: string) => void;
   padding: MapPadding;
 };
 
-// 2화면의 구글맵. 일차별 색 번호 핀을 그린다. 동선 선은 F25에서 뺐다. (R-06)
+// 2화면의 구글맵. 일차별 색 번호 핀만 그린다. 동선 선과 ✈ 공항 표시는 F25에서 뺐다(공항은 번호 핀). (R-06)
 export function RouteMap(props: Props) {
   if (!API_KEY) {
     return <div className="flex h-full items-center justify-center text-sm text-zinc-500">지도 키가 없어 지도를 표시할 수 없습니다.</div>;
@@ -35,7 +33,7 @@ export function RouteMap(props: Props) {
         gestureHandling="greedy"
         disableDefaultUI
         zoomControl
-        // 오른쪽 위는 로고 메뉴, 오른쪽 아래는 "+ 입력" 버튼과 모바일 시트 자리다 (F14 결정 9)
+        // 오른쪽 위는 로고 메뉴, 아래는 모바일 시트 자리다 (F14 결정 9)
         zoomControlOptions={{ position: ControlPosition.RIGHT_CENTER }}
         className="h-full w-full"
       >
@@ -59,24 +57,6 @@ export function RouteMap(props: Props) {
                 scale={selected ? 1.3 : 1}
               />
             </AdvancedMarker>
-          );
-        })}
-        {Object.entries(props.routes).flatMap(([key, path]) => {
-          const day = Number(key);
-          const dimmed = props.focusDay !== null && day !== props.focusDay;
-          return path.stops.map((s, i) =>
-            s.mark === "airport" ? (
-              // 공항 거점에만 ✈ 표시. 역·터미널·전날 숙소는 선의 점으로만 쓰고, 누르는 기능은 없다 (F15 결정 5)
-              <AdvancedMarker key={`${day}-${i}`} position={s} title={s.name} zIndex={dimmed ? 0 : 50} style={{ opacity: dimmed ? 0.35 : 1, transition: "opacity 200ms", pointerEvents: "none" }}>
-                <span
-                  aria-hidden
-                  className="flex size-6 items-center justify-center rounded-full border-2 bg-white text-xs shadow-md"
-                  style={{ borderColor: dayColor(day) }}
-                >
-                  ✈
-                </span>
-              </AdvancedMarker>
-            ) : null,
           );
         })}
         <CameraControl points={props.framed} selected={props.places.find((p) => p.id === props.selectedId) ?? null} padding={props.padding} />
