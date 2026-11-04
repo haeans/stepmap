@@ -104,17 +104,15 @@ export function MapView({ places, days, missing, initialId, trip, email, readOnl
     setPopupOpen(false);
   }
 
-  // 지도에서 핀 고르기: 모바일은 시트를 펼쳐 고른 목록 줄을 보인다 (F14 결정 11).
-  // PC는 접힌 패널을 펼친다 (F15 결정 7)
+  // 지도에서 핀 고르기: 핀 위 팝업을 연다. 모바일 시트와 PC 패널은 그대로 둔다 (F25).
+  // 전에는 패널 세부를 보이려고 펼쳤지만(F14 결정 11, F15 결정 7) 세부를 없앴고, 펼친 모바일 시트는 팝업을 가린다.
   function choosePin(id: string) {
     setSelectedId(id);
     setPopupOpen(true);
-    if (window.matchMedia("(min-width: 768px)").matches) setCollapsed(false);
-    else setExpanded(true);
   }
 
   // 고른 장소의 목록 줄이 보이게 목록을 스크롤한다. 목록이 숨어 있으면(모바일 접힘) 하지 않는다.
-  // 이미 고른 핀을 접힌 채로 다시 눌러 펼칠 때도 스크롤하도록 collapsed를 본다.
+  // 핀을 고른 뒤 접힌 시트·패널을 펼칠 때도 스크롤하도록 expanded·collapsed를 본다.
   useEffect(() => {
     if (!selectedId) return;
     const row = panelRef.current?.querySelector<HTMLElement>(`[data-place="${CSS.escape(selectedId)}"]`);
