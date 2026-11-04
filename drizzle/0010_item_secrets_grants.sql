@@ -8,8 +8,8 @@ REVOKE TRUNCATE, REFERENCES, TRIGGER ON TABLE "public"."item_secrets" FROM "auth
 CREATE TRIGGER "item_secrets_set_updated_at" BEFORE UPDATE ON "public"."item_secrets"
 FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
 --> statement-breakpoint
--- 이미 저장된 교통·숙소·식당의 예약 링크를 소유자만 보는 곳으로 옮기고 items.link는 비운다.
--- (공유받은 사람이 지금까지 받던 예약 링크를 더 받지 않게. 관광지 링크는 공개로 그대로 둔다.)
+-- 이미 저장된 교통·숙소·식당의 예약 링크를 소유자만 보는 곳으로 복사한다. 관광지 링크는 공개로 그대로 둔다.
+-- items.link를 비우는 것은 F20 머지 뒤 따로 한다(추가형 유지: 반영해도 지금 배포본이 그대로 동작하게).
 -- 단계는 src/lib/items/sensitive.ts classifyLink와 같은 규칙: 토큰·키 이름이나 20자 넘는 무작위 문자열이 있으면 secret.
 INSERT INTO "public"."item_secrets" ("item_id", "trip_id", "booking_link", "level")
 SELECT
@@ -25,6 +25,3 @@ SELECT
 FROM "public"."items" i
 WHERE i."kind" IN ('transport', 'lodging', 'food') AND i."link" ~* '^https?://'
 ON CONFLICT ("item_id") DO NOTHING;
---> statement-breakpoint
-UPDATE "public"."items" SET "link" = ''
-WHERE "kind" IN ('transport', 'lodging', 'food') AND "link" ~* '^https?://';
