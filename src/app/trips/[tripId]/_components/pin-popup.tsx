@@ -1,13 +1,14 @@
 "use client";
 
 import { InfoWindow } from "@vis.gl/react-google-maps";
+import { useEffect } from "react";
 import { formatTime } from "@/lib/items/types";
 import { hubLabel, type MapPlace } from "@/lib/map/places";
 
-// 핀 위 팝업 (C9 F25, R-06 b안): 이름·일정 시간·주소·메모(없으면 칸도 숨김)와 구글맵으로 가는 버튼.
+// 핀 위 팝업 (C9 F25, R-06 b안): 이름과 "시간: / 주소: / 메모:" 줄(값이 없으면 줄을 숨김), 오른쪽 아래 구글맵 아이콘.
 // 예약번호·예약 링크는 넣지 않는다. 공항·역·터미널 거점은 주소·메모가 없어 이름, "공항 · 도착", 시간만 보인다.
 // 마지막 날 아침 숙소의 시각은 핀 목록(schedulePins)에서 이미 비어 온다.
-// 닫기: X 버튼·Esc(InfoWindow 기본)는 onClose로, 지도 빈 곳 누르기는 route-map.tsx가 처리한다.
+// 닫기: 작은 X 버튼·Esc는 여기서, 지도 빈 곳 누르기는 route-map.tsx가 처리한다.
 
 type Props = {
   place: MapPlace;
@@ -15,34 +16,86 @@ type Props = {
   onClose: () => void;
 };
 
+// 팝업 폭: 최소 15rem·최대 20rem, 좁은 화면에서는 화면 폭 - 4rem을 넘지 않는다
+const WIDTH = "min-w-[min(15rem,calc(100vw-4rem))] max-w-[min(20rem,calc(100vw-4rem))]";
+
 // 구글맵은 좌표로 연다. 구글 장소 id를 저장하지 않아 이름으로 찾으면 다른 곳이 나올 수 있다.
 export function googleMapsUrl(place: Pick<MapPlace, "lat" | "lng">): string {
   return `https://www.google.com/maps/search/?api=1&query=${place.lat},${place.lng}`;
 }
 
 export function PinPopup({ place, anchor, onClose }: Props) {
-  const time = formatTime(place.time);
+  // Esc로 닫기. 구글 기본 머리글을 꺼서(headerDisabled) 직접 받는다. 구글이 함께 닫아도 onClose가 두 번 불릴 뿐이다.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const rows = [
+    { label: "시간", value: formatTime(place.time) },
+    { label: "주소", value: place.address },
+    { label: "메모", value: place.memo },
+  ].filter((r) => r.value);
+
   return (
-    <InfoWindow
-      anchor={anchor}
-      onClose={onClose}
-      maxWidth={280}
-      headerContent={<p className="pr-1 text-base leading-snug font-bold break-words text-zinc-900">{place.name}</p>}
-    >
-      <div className="flex flex-col gap-1 pb-1 text-zinc-700">
-        {place.hub && <p className="text-xs font-semibold text-zinc-500">{hubLabel(place.hub)}</p>}
-        {time && <p className="font-mono text-xs">{time}</p>}
-        {place.address && <p className="text-xs break-words">{place.address}</p>}
-        {place.memo && <p className="mt-1 text-sm break-words whitespace-pre-line text-zinc-900">{place.memo}</p>}
-        <a
-          href={googleMapsUrl(place)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-2 self-start rounded-full bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-zinc-700 active:scale-95"
-        >
-          구글맵에서 보기 ↗
-        </a>
+    // 구글 X 버튼은 크기를 바꿀 수 없어 머리글을 끄고 제목·X를 직접 그린다
+    <InfoWindow anchor={anchor} onClose={onClose} headerDisabled maxWidth={320}>
+      <div className={`flex flex-col gap-2 text-sm text-zinc-900 ${WIDTH}`}>
+        <div className="flex items-start gap-2">
+          <div className="min-w-0 flex-1">
+            <p className="text-base leading-snug font-bold break-words">{place.name}</p>
+            {place.hub && <p className="text-zinc-500">{hubLabel(place.hub)}</p>}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="닫기"
+            title="닫기"
+            className="-mt-0.5 -mr-1 flex size-6 shrink-0 items-center justify-center rounded-full text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700"
+          >
+            <svg aria-hidden viewBox="0 0 12 12" className="size-3" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+              <path d="M2 2l8 8M10 2l-8 8" />
+            </svg>
+          </button>
+        </div>
+
+        {rows.length > 0 && (
+          <dl className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 leading-snug">
+            {rows.map((r) => (
+              <div key={r.label} className="contents">
+                <dt className="text-zinc-500">{r.label}:</dt>
+                <dd className="min-w-0 break-words whitespace-pre-line">{r.value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+
+        <div className="flex justify-end">
+          <a
+            href={googleMapsUrl(place)}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="구글맵에서 보기"
+            title="구글맵에서 보기"
+            className="flex size-8 items-center justify-center rounded-full border border-zinc-200 text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-900 active:scale-95"
+          >
+            <GlobeArrowIcon />
+          </a>
+        </div>
       </div>
     </InfoWindow>
+  );
+}
+
+// 지구본(왼쪽 아래)에 바깥으로 나가는 화살표(오른쪽 위)를 겹친 아이콘
+function GlobeArrowIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 24 24" className="size-[18px]" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="10" cy="14" r="7.5" />
+      <ellipse cx="10" cy="14" rx="3.2" ry="7.5" />
+      <path d="M2.5 14h15" />
+      <path d="M15 3h6v6M21 3l-7 7" />
+    </svg>
   );
 }
