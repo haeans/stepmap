@@ -119,12 +119,6 @@ export function MapView({ places, routes, days, missing, initialId, trip, email,
     if (row?.offsetParent) row.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [selectedId, expanded, collapsed]);
 
-  function step(delta: number) {
-    if (visible.length === 0) return;
-    const next = selectedIndex < 0 ? 0 : (selectedIndex + delta + visible.length) % visible.length;
-    setSelectedId(visible[next].id);
-  }
-
   const shownDays = day === "all" ? days : [day];
 
   return (
@@ -256,29 +250,6 @@ export function MapView({ places, routes, days, missing, initialId, trip, email,
           })}
           {missing > 0 && <li className="rounded-2xl bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-950 dark:text-amber-300">위치를 찾지 못한 장소 {missing}개는 지도에 없습니다.</li>}
         </ol>
-
-        {/* 이전/다음. PC에만 있다 (결정 11). 핀 세부 카드는 F25에서 뺐다 */}
-        <div className="hidden items-center gap-3 border-t border-zinc-200 p-4 md:flex dark:border-zinc-800">
-          <button
-            type="button"
-            onClick={() => step(-1)}
-            disabled={visible.length === 0}
-            aria-label="이전 장소"
-            className="flex size-9 shrink-0 items-center justify-center rounded-full border border-zinc-200 transition hover:-translate-x-0.5 hover:bg-zinc-100 active:scale-90 disabled:opacity-40 dark:border-zinc-800 dark:hover:bg-zinc-900"
-          >
-            ←
-          </button>
-          <p className="min-w-0 flex-1 text-center text-sm text-zinc-500">{visible.length ? "핀이나 장소를 누르거나 화살표로 넘겨 보세요." : "지도에 올릴 장소가 없습니다."}</p>
-          <button
-            type="button"
-            onClick={() => step(1)}
-            disabled={visible.length === 0}
-            aria-label="다음 장소"
-            className="flex size-9 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-white transition hover:translate-x-0.5 hover:bg-zinc-700 active:scale-90 disabled:opacity-40 dark:bg-white dark:text-zinc-900"
-          >
-            →
-          </button>
-        </div>
       </div>
     </section>
   );
