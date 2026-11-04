@@ -13,7 +13,7 @@ import { deleteItem, updateItem } from "@/app/actions/items";
 import { formatCost, formatTime, GEOCODED_KINDS, ITEM_KIND_LABELS, type Item } from "@/lib/items/types";
 import type { CardPhoto } from "@/lib/places/types";
 import type { TripDay } from "@/lib/trips/days";
-import { BookingInfo } from "./booking-info";
+import { BookingInfo, BookingLinkButton } from "./booking-info";
 import { EDIT_DIALOG, EditHeader } from "./edit-sheet";
 import { LogoPhoto } from "./hub-card";
 import { ItemForm } from "./item-form";
@@ -43,6 +43,7 @@ export function PlaceCard({ item, photoUrl = null, color, days, readOnly, role }
   const date = days.find((d) => d.day === item.day)?.date;
   const time = formatTime(item.time);
   const onMap = item.lat !== null;
+  const lodging = item.kind === "lodging";
   const { ref: photoRef, photo: placePhoto, onError: onPhotoError } = usePlacePhoto(item.trip_id, item.id, photoVersion(item.kind, item.name, item.address), !photoUrl && onMap && GEOCODED_KINDS.includes(item.kind));
   const photo = photoUrl ?? placePhoto?.url ?? null;
 
@@ -125,7 +126,13 @@ export function PlaceCard({ item, photoUrl = null, color, days, readOnly, role }
         <div className="min-h-0 overflow-hidden">
           <div className={`px-4 pt-1 pb-4 transition-opacity duration-300 ${open ? "opacity-100 delay-150" : "opacity-0"}`} inert={!open}>
             <dl className="divide-y divide-white/10">
-              <Row label="시간">{[`DAY ${item.day}`, date, time || "시각 미정"].filter(Boolean).join(" · ")}</Row>
+              {/* 숙소는 "체크인" 줄 오른쪽에 예약 링크 버튼 (C9 F26 결정 4) */}
+              <Row label={lodging ? "체크인" : "시간"}>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span>{[`DAY ${item.day}`, date, time || "시각 미정"].filter(Boolean).join(" · ")}</span>
+                  {lodging && <BookingLinkButton secret={item.secret} tone="dark" />}
+                </div>
+              </Row>
               <Row label="티켓·입장">
                 <div className="flex flex-wrap items-center gap-2">
                   <span>{cost || "비용 정보 없음"}</span>
@@ -144,9 +151,9 @@ export function PlaceCard({ item, photoUrl = null, color, days, readOnly, role }
               {item.address && <Row label="주소">{item.address}</Row>}
               {item.memo && <Row label="메모"><p className="whitespace-pre-wrap">{item.memo}</p></Row>}
               {/* 예약번호·예약 링크: 소유자에게만(F20) */}
-              {item.secret && (item.secret.booking_no || item.secret.booking_link) && (
+              {item.secret && (item.secret.booking_no || (!lodging && item.secret.booking_link)) && (
                 <Row label="예약">
-                  <BookingInfo secret={item.secret} tone="dark" />
+                  <BookingInfo secret={item.secret} tone="dark" hideLink={lodging} />
                 </Row>
               )}
               {!onMap && <Row label="위치"><span className="text-amber-300">위치 없음: 지도에 표시되지 않습니다. 주소를 넣어 다시 저장해 보세요.</span></Row>}
