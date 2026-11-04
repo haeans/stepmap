@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import { formatTime, ITEM_KIND_LABELS } from "@/lib/items/types";
 import { nearestPlaceId } from "@/lib/map/nearest";
-import { dayColor, type LatLng, type MapPlace } from "@/lib/map/places";
+import { dayColor, hubLabel, type MapPlace } from "@/lib/map/places";
 import type { DayPath } from "@/lib/map/routes";
 import { MapMenu } from "./map-menu";
 import { RouteMap, type MapPadding } from "./route-map";
@@ -26,7 +26,8 @@ const SWIPE = 40; // 모바일 손잡이를 이만큼(px) 넘게 밀면 펼치�
 
 // 2화면(지도). 머리글 없이 화면 전체가 지도이고, 일정과 버튼은 패널에 둔다: PC는 왼쪽, 모바일은 아래 시트 (F14)
 export function MapView({ places, routes, days, missing, initialId, trip, email, readOnly }: Props) {
-  const initial = places.find((p) => p.id === initialId) ?? null;
+  // ?item=은 일정 항목 id다. 같은 숙소 핀이 둘이면 앞 일차 핀을 고른다 (F25)
+  const initial = places.find((p) => p.itemId === initialId) ?? null;
   const [day, setDay] = useState<number | "all">(initial?.day ?? "all");
   const [selectedId, setSelectedId] = useState<string | null>(initial?.id ?? null);
   const [expanded, setExpanded] = useState(false); // 모바일 시트에서 목록을 펼쳤는가
@@ -40,11 +41,8 @@ export function MapView({ places, routes, days, missing, initialId, trip, email,
   const selected = selectedIndex >= 0 ? visible[selectedIndex] : null;
   // 고른 일차, "전체"면 고른 장소의 일차를 강조한다 (결정 4, B23)
   const focusDay = day === "all" ? (selected?.day ?? null) : day;
-  // 지도 범위: 보이는 장소와 그 일차의 거점·숙소. 멀리 떨어진 반대편 공항은 뺀다 (F15 결정 2)
-  const framed = useMemo<LatLng[]>(() => {
-    const shown = day === "all" ? Object.values(routes) : routes[day] ? [routes[day]] : [];
-    return [...visible, ...shown.flatMap((path) => path.stops.filter((s) => s.mark && s.frame))];
-  }, [visible, routes, day]);
+  // 지도 범위: 보이는 핀. 첫날·마지막 날의 거점·숙소도 핀이라 따로 더하지 않는다 (F25)
+  const framed = visible;
 
   // 들어올 때 현재 시각에 가장 가까운 일정의 핀을 고른다. 기기 시각을 써야 해서 화면이 뜬 뒤 한 번 계산한다. (결정 3)
   const startRef = useRef({ places, trip, initialId });
@@ -238,7 +236,7 @@ export function MapView({ places, routes, days, missing, initialId, trip, email,
                         <span className="min-w-0">
                           <span className="block font-semibold break-words">{p.name}</span>
                           <span className="block truncate text-xs text-zinc-500">
-                            {[ITEM_KIND_LABELS[p.kind], formatTime(p.time), p.address].filter(Boolean).join(" · ")}
+                            {[p.hub ? hubLabel(p.hub) : ITEM_KIND_LABELS[p.kind], formatTime(p.time), p.address].filter(Boolean).join(" · ")}
                           </span>
                         </span>
                       </button>

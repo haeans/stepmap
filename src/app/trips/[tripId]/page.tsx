@@ -7,7 +7,7 @@ import { groupItems } from "@/lib/items/group";
 import { attachSecrets } from "@/lib/items/store";
 import { ITEM_COLUMNS, type Item } from "@/lib/items/types";
 import { findHubs } from "@/lib/map/hub-lookup";
-import { mapPlaces } from "@/lib/map/places";
+import { mapPlaces, scheduleHubItems, schedulePins } from "@/lib/map/places";
 import { planDay } from "@/lib/map/route-plan";
 import { planRoute } from "@/lib/map/routes";
 import { createClient } from "@/lib/supabase/server";
@@ -115,12 +115,14 @@ type TripMapProps = {
 };
 
 async function TripMap({ items, days, itemId, trip, email, readOnly }: TripMapProps) {
-  const { places, missing } = mapPlaces(items);
+  // 핀은 하루 일정 규칙(F26 daySchedule)대로. 거점 좌표는 시작·끝 교통만 찾는다 (F25)
+  const { places, missing } = schedulePins(days, items, await findHubs(scheduleHubItems(days, items)));
+  const routePlaces = mapPlaces(items).places;
   const hubs = await findHubs(items);
   const routes = Object.fromEntries(
     await Promise.all(
       days.map(async (day) => {
-        const plan = planDay(day, items, places, hubs);
+        const plan = planDay(day, items, routePlaces, hubs);
         return [day, { stops: plan.stops, legs: await planRoute(plan) }] as const;
       }),
     ),
