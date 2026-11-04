@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { TripDay } from "@/lib/trips/days";
-import { CURRENCIES, ITEM_KIND_LABELS, ITEM_KINDS, type ItemKind } from "@/lib/items/types";
+import { BOOKING_LINK_KINDS, BOOKING_NO_KINDS, CURRENCIES, ITEM_KIND_LABELS, ITEM_KINDS, type ItemKind } from "@/lib/items/types";
+import { LINK_LEVEL_LABELS, LINK_LEVELS } from "@/lib/items/sensitive";
 import type { ItemInput } from "@/lib/items/validation";
 import { joinRoute, splitRoute } from "@/lib/items/route-name";
 
@@ -15,7 +16,7 @@ type Props = {
   prefix?: string;
 };
 
-// F17: 종류마다 받는 칸이 다르다. DB 칸(이름·주소·일차·시각·메모·링크·비용)은 그대로이고,
+// F17: 종류마다 받는 칸이 다르다. DB 칸(이름·주소·일차·시각·메모·링크·비용, F20 예약 칸)은 그대로이고,
 // 그 종류에 없는 칸은 원래 값을 숨은 칸으로 그대로 보낸다(수정할 때 값이 지워지지 않게).
 type Spec = {
   name: { label: string; placeholder: string };
@@ -179,13 +180,22 @@ export function ItemFields({ days, values, prefix = "" }: Props) {
         </>
       )}
 
-      {spec.link ? (
-        <label className={LABEL}>
-          {spec.link}
-          <input type="url" name={n("link")} maxLength={2000} defaultValue={values?.link} placeholder="https://" className={INPUT} />
-        </label>
+      {/* 예약 칸(F20): 이 폼은 예약 칸을 늘 보낸다(booking=1). 예약번호·예약 링크는 소유자만 보는 곳에 따로 저장한다. */}
+      <input type="hidden" name={n("booking")} value="1" />
+      {BOOKING_LINK_KINDS.includes(kind) ? (
+        <BookingFields key={`booking-${kind}-${resets}`} n={n} linkLabel={spec.link ?? "예약 링크"} values={values?.booking} />
       ) : (
-        <input type="hidden" name={n("link")} value={values?.link ?? ""} />
+        <>
+          {spec.link ? (
+            <label className={LABEL}>
+              {spec.link}
+              <input type="url" name={n("link")} maxLength={2000} defaultValue={values?.link} placeholder="https://" className={INPUT} />
+            </label>
+          ) : (
+            <input type="hidden" name={n("link")} value={values?.link ?? ""} />
+          )}
+          {BOOKING_NO_KINDS.includes(kind) && <BookingNo n={n} value={values?.booking?.no} />}
+        </>
       )}
 
       <label className={LABEL}>
@@ -193,6 +203,45 @@ export function ItemFields({ days, values, prefix = "" }: Props) {
         <textarea name={n("memo")} rows={spec.memo.rows} maxLength={2000} defaultValue={values?.memo} placeholder={spec.memo.placeholder} className={`${INPUT} resize-none`} />
       </label>
     </>
+  );
+}
+
+// ───────── 예약 칸 (C8 F20) ─────────
+
+function BookingNo({ n, value }: { n: (name: string) => string; value?: string }) {
+  return (
+    <label className={LABEL}>
+      <span>
+        예약번호 <span className="font-normal opacity-60">· 나만 보기</span>
+      </span>
+      <input name={n("bookingNo")} maxLength={100} defaultValue={value} autoComplete="off" placeholder="예: K7Q2XM" className={INPUT} />
+    </label>
+  );
+}
+
+// 교통·숙소·식당: 예약번호, 예약 링크, 링크 공개 범위. 기본은 "자동"(토큰이 든 링크는 주소를 숨기고, 나머지는 나만 보기).
+function BookingFields({ n, linkLabel, values }: { n: (name: string) => string; linkLabel: string; values?: ItemInput["booking"] }) {
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl border border-current/15 p-3">
+      <BookingNo n={n} value={values?.no} />
+      <label className={LABEL}>
+        {linkLabel}
+        <input type="url" name={n("bookingLink")} maxLength={2000} defaultValue={values?.link} autoComplete="off" placeholder="https://" className={INPUT} />
+      </label>
+      <label className={LABEL}>
+        링크 공개 범위
+        <select name={n("linkLevel")} defaultValue={values?.level ?? "auto"} className={INPUT}>
+          {LINK_LEVELS.map((l) => (
+            <option key={l} value={l}>
+              {LINK_LEVEL_LABELS[l]}
+            </option>
+          ))}
+        </select>
+      </label>
+      <p className="text-xs leading-relaxed opacity-60">
+        예약번호와 예약 링크는 나에게만 가려서 보이고, 공유받은 사람과 AI에는 보내지 않습니다. 카드번호·주민번호·여권번호·비밀번호는 저장할 수 없습니다.
+      </p>
+    </div>
   );
 }
 

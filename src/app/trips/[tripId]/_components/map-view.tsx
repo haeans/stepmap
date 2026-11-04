@@ -5,6 +5,7 @@ import { formatTime, ITEM_KIND_LABELS } from "@/lib/items/types";
 import { nearestPlaceId } from "@/lib/map/nearest";
 import { dayColor, formatDistance, type MapPlace } from "@/lib/map/places";
 import type { RouteLeg, RouteMode } from "@/lib/map/routes";
+import { BookingInfo } from "./booking-info";
 import { MapMenu } from "./map-menu";
 import { RouteMap, type MapPadding } from "./route-map";
 import { Segmented } from "./segmented";
@@ -312,7 +313,7 @@ function PlaceDetail({ place }: { place: MapPlace }) {
   );
 }
 
-const hasExtras = (place: MapPlace) => Boolean(place.memo || place.cost || place.link);
+const hasExtras = (place: MapPlace) => Boolean(place.memo || place.cost || place.link || place.secret);
 
 // 세부 중 목록 줄에 없는 것: 메모·비용·링크 (PC 카드와 모바일 목록 줄 아래에서 함께 쓴다)
 function PlaceExtras({ place }: { place: MapPlace }) {
@@ -329,6 +330,8 @@ function PlaceExtras({ place }: { place: MapPlace }) {
           )}
         </p>
       )}
+      {/* 예약번호·예약 링크: 소유자에게만(F20) */}
+      <BookingInfo secret={place.secret} tone="current" className="mt-2" />
     </>
   );
 }

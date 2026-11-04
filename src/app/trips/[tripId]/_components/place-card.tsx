@@ -10,6 +10,7 @@ import { useId, useRef, useState, useTransition, type ReactNode } from "react";
 import { deleteItem, updateItem } from "@/app/actions/items";
 import { formatCost, formatTime, ITEM_KIND_LABELS, type Item } from "@/lib/items/types";
 import type { TripDay } from "@/lib/trips/days";
+import { BookingInfo } from "./booking-info";
 import { EDIT_DIALOG, EditHeader } from "./edit-sheet";
 import { ItemForm } from "./item-form";
 
@@ -127,6 +128,12 @@ export function PlaceCard({ item, photoUrl = null, color, days, readOnly }: Prop
               </Row>
               {item.address && <Row label="주소">{item.address}</Row>}
               {item.memo && <Row label="메모"><p className="whitespace-pre-wrap">{item.memo}</p></Row>}
+              {/* 예약번호·예약 링크: 소유자에게만(F20) */}
+              {item.secret && (item.secret.booking_no || item.secret.booking_link) && (
+                <Row label="예약">
+                  <BookingInfo secret={item.secret} tone="dark" />
+                </Row>
+              )}
               {!onMap && <Row label="위치"><span className="text-amber-300">위치 없음: 지도에 표시되지 않습니다. 주소를 넣어 다시 저장해 보세요.</span></Row>}
             </dl>
 

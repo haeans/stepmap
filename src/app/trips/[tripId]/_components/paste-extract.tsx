@@ -36,7 +36,7 @@ export function PasteExtract({
       onSaved(`추천 ${suggested.length}개를 DAY BY DAY에 띄웠습니다. 카드에서 "넣기"를 눌러야 저장됩니다.`);
     }
     if (!rest.length) setText("");
-    return { error: null, items: rest.length ? rest : null };
+    return { error: null, items: rest.length ? rest : null, unassigned: result.unassigned };
   }
 
   const [state, extractAction, extracting] = useActionState(extract, { error: null, items: null });
@@ -50,6 +50,7 @@ export function PasteExtract({
         tripId={tripId}
         days={days}
         items={preview}
+        unassigned={state.unassigned ?? []}
         onCancel={() => setClosed(state)}
         onDone={(count) => {
           setClosed(state);
@@ -78,7 +79,7 @@ export function PasteExtract({
         className={`${FIELD} resize-none leading-relaxed`}
       />
       <p className="text-xs leading-relaxed opacity-55">
-        이름·예약번호 같은 개인정보는 지우고 붙여넣어 주세요. 이메일·전화번호·카드 번호는 보내기 전에 자동으로 가립니다.
+        링크와 “예약번호: …”처럼 적힌 예약번호는 AI에 보내지 않고 나만 보는 곳에 저장합니다. 카드번호·주민번호·여권번호·비밀번호는 가려서 보내고 저장하지 않습니다. 사람 이름은 지우고 붙여넣어 주세요.
       </p>
       {state.error && !extracting && <p className="rounded-xl bg-rose-500/15 px-3 py-2 text-sm text-rose-700 dark:text-rose-300">{state.error}</p>}
       <div className="flex items-center justify-between gap-2">
@@ -97,12 +98,14 @@ function ExtractPreview({
   tripId,
   days,
   items,
+  unassigned,
   onCancel,
   onDone,
 }: {
   tripId: string;
   days: TripDay[];
   items: ExtractedItem[];
+  unassigned: string[];
   onCancel: () => void;
   onDone: (count: number) => void;
 }) {
@@ -126,6 +129,12 @@ function ExtractPreview({
       <p className={BUBBLE_IN}>
         항목 {items.length}개를 찾았습니다. 확인하고 고친 뒤 저장하세요.
       </p>
+      {/* F20: AI가 어느 항목에도 붙이지 않은 예약번호. 맞는 항목의 예약번호 칸에 직접 넣는다. */}
+      {unassigned.length > 0 && (
+        <p className="rounded-xl bg-amber-500/15 px-3 py-2 text-sm">
+          어느 항목인지 못 정한 예약번호: <span className="font-mono">{unassigned.join(", ")}</span> · 맞는 항목의 예약번호 칸에 넣어 주세요.
+        </p>
+      )}
       <input type="hidden" name="count" value={items.length} />
       {items.map((item, i) => (
         <fieldset

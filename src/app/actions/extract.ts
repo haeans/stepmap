@@ -4,20 +4,23 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/user";
 import { extractWithGemini } from "@/lib/extract/gemini";
 import { maskPersonal } from "@/lib/extract/mask";
+import { hideForAi } from "@/lib/extract/vault";
 import { MAX_ITEMS, MAX_TEXT_LENGTH, normalizeItems, type ExtractedItem } from "@/lib/extract/normalize";
 import type { ExistingItem } from "@/lib/extract/prompt";
-import { nextPosition, resolvePlace, toRow } from "@/lib/items/store";
-import { parseItemForm, type ItemInput } from "@/lib/items/validation";
+import { nextPosition, resolvePlace, saveSecret, toRow } from "@/lib/items/store";
+import { parseItemForm, toSecretRow, type ItemInput } from "@/lib/items/validation";
 import { createClient } from "@/lib/supabase/server";
 import { dayChoices, tripDays } from "@/lib/trips/days";
 
 // R-04 붙여넣기 → 자동 추출. 원문은 저장하지 않고 추출 결과만 미리보기로 돌려준다. (B15)
 // F18: 원문에 일차·시각이 없는 항목은 AI 추천값을 채우고 suggest로 표시한다.
+// F20: 링크·예약번호는 자리표시로 바꿔 보내고(hideForAi) 결과에서 되돌린다. 저장 금지 정보는 maskPersonal이 가린다.
 
 // AI에 함께 보내는 기존 일정 수 상한(입력 토큰을 묶어 둔다)
 const MAX_EXISTING = 150;
 
-export type ExtractState = { error: string | null; items: ExtractedItem[] | null };
+// unassigned: AI가 어느 항목에도 붙이지 않은 예약번호(F20). 미리보기에서 사용자가 직접 넣는다.
+export type ExtractState = { error: string | null; items: ExtractedItem[] | null; unassigned?: string[] };
 export type SaveExtractedState = { error: string | null; saved: number | null };
 
 export async function extractItems(tripId: string, _prev: ExtractState, form: FormData): Promise<ExtractState> {
@@ -53,16 +56,19 @@ export async function extractItems(tripId: string, _prev: ExtractState, form: Fo
   const busy: Record<number, number> = {};
   for (const i of known) busy[i.day] = (busy[i.day] ?? 0) + 1;
 
+  const hidden = hideForAi(text);
   const result = await extractWithGemini(
     { destination: trip.destination, startDate: trip.start_date, endDate: trip.end_date, dayCount },
-    maskPersonal(text),
+    maskPersonal(hidden.text),
     known.map((i) => ({ ...i, name: maskPersonal(i.name), address: maskPersonal(i.address) })),
   );
   if (!result.ok) return { error: "추출하지 못했습니다. 잠시 뒤 다시 시도하거나 직접 입력을 써 주세요.", items: null };
 
-  const items = normalizeItems(result.items, { startDate: trip.start_date, dayCount, busy });
+  const items = normalizeItems(result.items, { startDate: trip.start_date, dayCount, busy, vault: hidden.vault });
   if (!items.length) return { error: "찾은 항목이 없습니다.", items: null };
-  return { error: null, items };
+  const used = new Set(items.map((i) => i.booking?.no).filter(Boolean));
+  const unassigned = [...new Set(hidden.vault.bookings)].filter((b) => !used.has(b));
+  return { error: null, items, unassigned };
 }
 
 export async function saveExtractedItems(
@@ -101,6 +107,11 @@ export async function saveExtractedItems(
   const { data, error } = await supabase.from("items").insert(rows).select("id");
   if (error || data?.length !== rows.length) return { error: "항목을 저장하지 못했습니다.", saved: null };
 
+  // F20: 예약 정보는 item_secrets에 따로. 여러 행 insert의 결과는 넣은 순서와 같다.
+  const secrets = inputs.map((input, i) => ({ id: data[i].id, row: toSecretRow(input) })).filter((s) => s.row);
+  const ok = await Promise.all(secrets.map((s) => saveSecret(supabase, s.id, tripId, s.row!)));
+
   revalidatePath(`/trips/${tripId}`);
+  if (ok.includes(false)) return { error: "항목은 저장했지만 예약 정보 일부를 저장하지 못했습니다. 항목을 고쳐 다시 넣어 주세요.", saved: rows.length };
   return { error: null, saved: rows.length };
 }
