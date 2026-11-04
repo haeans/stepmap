@@ -3,7 +3,7 @@ import { nearestPlaceId } from "./nearest";
 import type { MapPlace } from "./places";
 
 function place(id: string, day: number, time: string | null): MapPlace {
-  return { id, day, time, order: 1, kind: "sight", name: id, address: "", memo: "", link: "", cost: "", lat: 0, lng: 0 };
+  return { id, itemId: id, hub: null, day, time, order: 1, kind: "sight", name: id, address: "", memo: "", link: "", cost: "", lat: 0, lng: 0 };
 }
 
 // 기기 시각대 기준 시각 (nearest.ts와 같은 방식이라 시간대와 상관없이 맞는다)
