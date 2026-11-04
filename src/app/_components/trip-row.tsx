@@ -129,11 +129,11 @@ export function TripRow({ trip, shared, preview }: { trip: Trip; shared: boolean
           </div>
         )}
 
-        {/* 미리보기: DAY마다 첫 관광지(없으면 첫 일정) 하나, 더 있으면 "…" (C9 F24). ⋯ 메뉴가 열려 있으면 숨긴다. */}
+        {/* 미리보기: DAY마다 첫 관광지(없으면 첫 일정) 하나, 더 있으면 가운데 점 "•••" (C9 F24). PC는 오른쪽 2/5. ⋯ 메뉴가 열려 있으면 숨긴다. */}
         {!editing && !menuOpen && (
           <div
             className={`pointer-events-none absolute z-10 flex-col gap-2 overflow-hidden bg-black/70 p-5 pt-14 text-sm backdrop-blur-md ${
-              pressed ? "inset-0 flex" : "inset-y-0 right-0 hidden w-1/2 group-hover:flex"
+              pressed ? "inset-0 flex" : "inset-y-0 right-0 hidden w-2/5 group-hover:flex"
             }`}
           >
             <p className="text-xs font-semibold tracking-wider text-white/60">미리보기</p>
@@ -142,10 +142,11 @@ export function TripRow({ trip, shared, preview }: { trip: Trip; shared: boolean
             ) : (
               <ul className="flex flex-col gap-1.5">
                 {preview.map((d) => (
-                  <li key={d.day} className="truncate">
-                    <span className="mr-2 font-semibold">DAY {d.day}</span>
-                    {d.name}
-                    {d.more && <span className="ml-1 text-white/60">…</span>}
+                  <li key={d.day} className="flex min-w-0 items-center">
+                    <span className="mr-2 shrink-0 font-semibold">DAY {d.day}</span>
+                    <span className="truncate">{d.name}</span>
+                    {/* 이름이 길어 잘려도 점은 보이게 따로 둔다 */}
+                    {d.more && <span aria-hidden className="ml-1.5 shrink-0 text-[0.6rem] tracking-[0.15em] text-white/60">•••</span>}
                   </li>
                 ))}
               </ul>

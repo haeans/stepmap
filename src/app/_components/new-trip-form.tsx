@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { createTrip, type ActionState } from "@/app/actions/trips";
+import { destinationProblem } from "@/lib/trips/validation";
 
 const INPUT = "rounded-xl border border-line bg-surface px-3.5 py-2.5 placeholder:text-zinc-400";
 const LABEL = "flex flex-col gap-1.5 text-sm font-medium text-muted";
@@ -35,7 +36,14 @@ export function NewTripForm() {
       </label>
       <label className={LABEL}>
         목적지
-        <input name="destination" required maxLength={100} placeholder="예: 홍콩" className={INPUT} />
+        <input
+          name="destination"
+          required
+          maxLength={100}
+          placeholder="예: 홍콩"
+          className={INPUT}
+          onChange={(e) => e.currentTarget.setCustomValidity(e.currentTarget.value ? (destinationProblem(e.currentTarget.value) ?? "") : "")}
+        />
       </label>
       <div className="grid grid-cols-2 gap-3">
         <label className={LABEL}>

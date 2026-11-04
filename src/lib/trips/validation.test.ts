@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseTitle, parseTripForm } from "./validation";
+import { destinationProblem, parseTitle, parseTripForm } from "./validation";
 
 function form(values: Record<string, string>) {
   const f = new FormData();
@@ -21,6 +21,14 @@ describe("parseTitle", () => {
   });
 });
 
+describe("destinationProblem", () => {
+  it("글자가 있는 목적지는 통과 (한글·영문·일본어, 숫자가 섞여도)", () => {
+    for (const destination of ["홍콩", "일본 교토 오사카", "Kyoto", "東京", "제주 2026"]) {
+      expect(destinationProblem(destination)).toBeNull();
+    }
+  });
+});
+
 describe("parseTripForm", () => {
   it("이름·목적지·기간을 읽는다 (동행 인원은 받지 않는다)", () => {
     expect(parseTripForm(form({ ...FULL, companions: "3" }))).toEqual({ ok: true, value: FULL });
@@ -28,6 +36,12 @@ describe("parseTripForm", () => {
 
   it("목적지가 비면 실패", () => {
     expect(parseTripForm(form({ ...FULL, destination: "  " })).ok).toBe(false);
+  });
+
+  it("목적지가 숫자·기호·자음/모음뿐이면 실패", () => {
+    for (const destination of ["123", "!!", "ㅁㄴㅇㄹ", "ㅏㅏ 12"]) {
+      expect(parseTripForm(form({ ...FULL, destination })).ok).toBe(false);
+    }
   });
 
   it("시작일이나 종료일이 비면 실패", () => {

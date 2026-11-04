@@ -20,6 +20,12 @@ function compareInDay(a: PreviewItem, b: PreviewItem): number {
   return a.position - b.position;
 }
 
+// 이름의 괄호 부분은 뺀다: "유니버설 스튜디오 재팬 (USJ)" → "유니버설 스튜디오 재팬". 괄호뿐인 이름은 그대로. (결정 7)
+export function shortName(name: string): string {
+  const short = name.replace(/\s*[(（][^()（）]*[)）]/g, "").replace(/\s+/g, " ").trim();
+  return short || name.trim();
+}
+
 // 일정이 없는 DAY(메모만 있는 날)는 빠진다. 결과가 비면 화면은 PREVIEW_EMPTY_TEXT를 보여 준다.
 export function pickPreviewDays(items: PreviewItem[]): PreviewDay[] {
   const byDay = new Map<number, PreviewItem[]>();
@@ -33,6 +39,6 @@ export function pickPreviewDays(items: PreviewItem[]): PreviewDay[] {
     .map((day) => {
       const dayItems = (byDay.get(day) ?? []).sort(compareInDay);
       const first = dayItems.find((i) => i.kind === "sight") ?? dayItems[0];
-      return { day, name: first.name, more: dayItems.length > 1 };
+      return { day, name: shortName(first.name), more: dayItems.length > 1 };
     });
 }

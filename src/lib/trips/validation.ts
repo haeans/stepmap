@@ -25,13 +25,26 @@ export function parseTitle(raw: string): ParseResult<string> {
   return { ok: true, value: title };
 }
 
+// 목적지는 대표 사진 검색어가 된다. 숫자·기호·한글 자음/모음만으로는 장소가 아니므로 막는다(`123`, `ㅁㄴㅇㄹ`).
+// 글자는 맞지만 장소가 아닌 값(`asdf`)은 여기서 막지 않고, 만들 때 장소로 확인되지 않으면 사진을 넣지 않는다(cover/destination.ts).
+// 화면(new-trip-form)도 같은 함수로 먼저 알려 준다. ([haeans-f24-trip-list] 결정 5)
+const JAMO = /[ᄀ-ᇿ㄰-㆏]/g;
+
+export function destinationProblem(raw: string): string | null {
+  const destination = raw.trim();
+  if (destination.length === 0) return "목적지를 입력해 주세요.";
+  if (destination.length > 100) return "목적지는 100자까지 쓸 수 있습니다.";
+  if (!/\p{L}/u.test(destination.replace(JAMO, ""))) return "목적지는 도시나 나라 이름으로 적어 주세요.";
+  return null;
+}
+
 export function parseTripForm(form: FormData): ParseResult<TripInput> {
   const title = parseTitle(text(form, "title"));
   if (!title.ok) return title;
 
   const destination = text(form, "destination");
-  if (destination.length === 0) return { ok: false, error: "목적지를 입력해 주세요." };
-  if (destination.length > 100) return { ok: false, error: "목적지는 100자까지 쓸 수 있습니다." };
+  const problem = destinationProblem(destination);
+  if (problem) return { ok: false, error: problem };
 
   const startDate = text(form, "startDate");
   const endDate = text(form, "endDate");

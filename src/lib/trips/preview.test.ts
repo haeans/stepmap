@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ItemKind } from "@/lib/items/types";
-import { pickPreviewDays, type PreviewItem } from "./preview";
+import { pickPreviewDays, shortName, type PreviewItem } from "./preview";
 
 function item(day: number, kind: ItemKind, name: string, time: string | null = null, position = 0): PreviewItem {
   return { day, kind, name, time, position };
@@ -38,6 +38,14 @@ describe("pickPreviewDays", () => {
       item(1, "sight", "10시 a", "10:00:00", 0),
     ];
     expect(pickPreviewDays(items)[0].name).toBe("10시 a");
+  });
+
+  it("이름의 괄호 부분은 뺀다", () => {
+    expect(shortName("유니버설 스튜디오 재팬 (USJ)")).toBe("유니버설 스튜디오 재팬");
+    expect(shortName("유니버설 스튜디오 재팬(USJ)")).toBe("유니버설 스튜디오 재팬");
+    expect(shortName("기요미즈데라（清水寺） 본당")).toBe("기요미즈데라 본당");
+    expect(shortName("(USJ)")).toBe("(USJ)");
+    expect(pickPreviewDays([item(1, "sight", "유니버설 스튜디오 재팬 (USJ)")])[0].name).toBe("유니버설 스튜디오 재팬");
   });
 
   it("DAY는 오름차순", () => {
