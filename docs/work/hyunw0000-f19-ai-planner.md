@@ -176,4 +176,4 @@ PRD 4절 C8 F19 ("v1.0 이후 후보"의 "AI 일정 도우미"). F17(#45)·F18(#
   - 고치기(`applyChange`)는 `booking=1`을 보내지 않으므로 `item_secrets`를 건드리지 않는다. 지우기는 cascade로 예약 정보도 지워진다. 저장 금지 정보는 `parseItemForm`이 거절하고 카드에 오류로 보인다.
   - 대화 기록(localStorage)의 추출 결과에 들어 있던 예약 정보는 미리보기를 저장하거나 닫으면 지운다.
   - 입력창 개인정보 안내 문구를 F20 문구로 바꿨다.
-- 자체검수: `npm run lint` 통과, `tsc --noEmit` 통과(로컬 전용 파일 제외), `npm test` 27개 파일 196개 통과. `npm run build`·화면 확인은 아직.
+- 자체검수: `npm run lint` 통과, `npm run typecheck` 통과(로컬 전용 파일 `src/app/preview`·`local-mock.ts` 제외), `npm test` 27개 파일 196개 통과, `npm run build` 통과(같은 조건). 화면 확인은 담당자가 PR 검수 중에 한다.
