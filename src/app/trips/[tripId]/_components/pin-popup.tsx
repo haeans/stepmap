@@ -16,8 +16,13 @@ type Props = {
   onClose: () => void;
 };
 
-// 팝업 폭: 최소 15rem·최대 20rem, 좁은 화면에서는 화면 폭 - 4rem을 넘지 않는다
+// 팝업 폭: 최소 15rem·최대 20rem, 좁은 화면에서는 화면 폭 - 4rem을 넘지 않는다.
+// 여백까지 포함한 폭이다(border-box). InfoWindow maxWidth(320)를 넘으면 구글 틀 안에서 가로로 잘린다.
 const WIDTH = "min-w-[min(15rem,calc(100vw-4rem))] max-w-[min(20rem,calc(100vw-4rem))]";
+
+// 안쪽 여백: 네 방향 모두 약 16px. 구글 틀이 위·왼쪽에는 약 12px를 이미 넣고 오른쪽·아래는 0이라
+// 위·왼쪽은 4px만, 오른쪽·아래는 16px를 둔다. 구글 여백 값이 다르면 이 줄만 고친다.
+const PAD = "pt-1 pl-1 pr-4 pb-4";
 
 // 구글맵은 좌표로 연다. 구글 장소 id를 저장하지 않아 이름으로 찾으면 다른 곳이 나올 수 있다.
 export function googleMapsUrl(place: Pick<MapPlace, "lat" | "lng">): string {
@@ -41,7 +46,8 @@ export function PinPopup({ place, anchor, onClose }: Props) {
   return (
     // 구글 X 버튼은 크기를 바꿀 수 없어 머리글을 끄고 제목·X를 직접 그린다
     <InfoWindow anchor={anchor} onClose={onClose} headerDisabled maxWidth={320}>
-      <div className={`flex flex-col gap-2 text-sm text-zinc-900 ${WIDTH}`}>
+      {/* 감싸는 div 하나에 여백을 두고, X·표 구분선·구글맵 아이콘을 모두 그 안쪽에 그린다 */}
+      <div className={`box-border flex flex-col gap-2 text-sm text-zinc-900 ${PAD} ${WIDTH}`}>
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
             <p className="text-base leading-snug font-bold break-words">{place.name}</p>
@@ -52,7 +58,7 @@ export function PinPopup({ place, anchor, onClose }: Props) {
             onClick={onClose}
             aria-label="닫기"
             title="닫기"
-            className="-mt-0.5 -mr-1 flex size-6 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-600 transition hover:bg-zinc-200 hover:text-zinc-900"
+            className="flex size-6 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-600 transition hover:bg-zinc-200 hover:text-zinc-900"
           >
             <svg aria-hidden viewBox="0 0 12 12" className="size-3" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
               <path d="M2 2l8 8M10 2l-8 8" />
