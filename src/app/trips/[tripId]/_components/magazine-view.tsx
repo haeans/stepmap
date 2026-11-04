@@ -24,7 +24,7 @@ import { PlaceCard } from "./place-card";
 import { SuggestionCard } from "./suggestion-card";
 import { useSuggestions, type PendingSuggestion } from "./suggestions";
 import { CostSection } from "./cost-section";
-import { TicketStrip } from "./ticket-strip";
+import { Checklist, TicketStrip, WeatherBadge } from "./ticket-strip";
 
 type Props = {
   trip: Trip;
@@ -292,21 +292,16 @@ export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = n
         aria-label={coverUrl ? "여행 개요 (대표 이미지)" : "여행 개요 (임시 대표 그림)"}
         className="flex min-h-[46svh] flex-col justify-end gap-6 pb-4 md:min-h-[58svh]"
       >
-        <Reveal className="flex flex-col gap-3">
-          {trip.destination && <p className="text-sm tracking-[0.3em] text-white/80 uppercase">{trip.destination}</p>}
-          <h2 className="text-5xl font-bold tracking-tight break-keep text-white/95 drop-shadow-[0_4px_24px_rgba(0,0,0,0.45)] md:text-8xl">{trip.title}</h2>
+        {/* 제목 오른쪽에 날씨 투명 패널(F16). 좁은 화면에서는 제목 오른쪽 위에 작게 붙는다. */}
+        <Reveal className="flex items-start justify-between gap-3 md:items-end md:gap-6">
+          <div className="flex min-w-0 flex-col gap-3">
+            {trip.destination && <p className="text-sm tracking-[0.3em] text-white/80 uppercase">{trip.destination}</p>}
+            <h2 className="text-5xl font-bold tracking-tight break-keep text-white/95 drop-shadow-[0_4px_24px_rgba(0,0,0,0.45)] md:text-8xl">{trip.title}</h2>
+          </div>
+          {weather && <WeatherBadge weather={weather} />}
         </Reveal>
         <Reveal delay={150}>
-          <TicketStrip
-            tripId={trip.id}
-            items={[...grouped.transport, ...grouped.lodging]}
-            days={dayOptions}
-            readOnly={readOnly}
-            weather={weather}
-            coverImage={image}
-            companions={trip.companions}
-            startDate={trip.start_date}
-          />
+          <TicketStrip items={[...grouped.transport, ...grouped.lodging]} days={dayOptions} readOnly={readOnly} coverImage={image} companions={trip.companions} />
         </Reveal>
       </section>
 
@@ -332,7 +327,7 @@ export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = n
         </ol>
       </section>
 
-      {/* BACK: 쓴 돈, 쪽지 */}
+      {/* BACK: 쓴 돈, 쪽지, 준비물(F16, 소유자만) */}
       <section aria-labelledby="m-back" className="flex flex-col gap-6">
         <Heading id="m-back">BACK</Heading>
         <div className="grid gap-6 sm:grid-cols-2">
@@ -354,6 +349,11 @@ export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = n
             <NoteComposer tripId={trip.id} title={<p className="font-medium text-white/80">쪽지</p>}>
               <Cards items={grouped.memos} empty="메모가 없습니다." days={dayOptions} readOnly={readOnly} />
             </NoteComposer>
+          )}
+          {!readOnly && (
+            <Reveal>
+              <Checklist tripId={trip.id} startDate={trip.start_date} weather={weather} title={<p className="font-medium text-white/80">준비물</p>} panelClassName={PANEL} />
+            </Reveal>
           )}
         </div>
       </section>
