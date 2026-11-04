@@ -3,20 +3,14 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import { formatTime, ITEM_KIND_LABELS } from "@/lib/items/types";
 import { nearestPlaceId } from "@/lib/map/nearest";
-import { dayColor, formatDistance, type LatLng, type MapPlace } from "@/lib/map/places";
-import { legsByPlace } from "@/lib/map/route-plan";
-import type { DayPath, RouteLeg, RouteMode } from "@/lib/map/routes";
-import { BookingInfo } from "./booking-info";
+import { dayColor, hubLabel, type MapPlace } from "@/lib/map/places";
 import { MapMenu } from "./map-menu";
 import { RouteMap, type MapPadding } from "./route-map";
 import { Segmented } from "./segmented";
 import { ViewSwitch } from "./view-switch";
 
-const MODE_LABELS: Record<RouteMode, string> = { drive: "자동차", transit: "대중교통", straight: "직선", flight: "비행기", transport: "교통" };
-
 type Props = {
   places: MapPlace[];
-  routes: Record<number, DayPath>;
   days: number[];
   missing: number;
   initialId: string | null;
@@ -29,10 +23,13 @@ const GAP = 24; // 패널과 핀 사이 여유(px)
 const SWIPE = 40; // 모바일 손잡이를 이만큼(px) 넘게 밀면 펼치거나 접는다 (결정 11)
 
 // 2화면(지도). 머리글 없이 화면 전체가 지도이고, 일정과 버튼은 패널에 둔다: PC는 왼쪽, 모바일은 아래 시트 (F14)
-export function MapView({ places, routes, days, missing, initialId, trip, email, readOnly }: Props) {
-  const initial = places.find((p) => p.id === initialId) ?? null;
+export function MapView({ places, days, missing, initialId, trip, email, readOnly }: Props) {
+  // ?item=은 일정 항목 id다. 같은 숙소 핀이 둘이면 앞 일차 핀을 고른다 (F25)
+  const initial = places.find((p) => p.itemId === initialId) ?? null;
   const [day, setDay] = useState<number | "all">(initial?.day ?? "all");
   const [selectedId, setSelectedId] = useState<string | null>(initial?.id ?? null);
+  // 핀 위 팝업 (F25). 핀을 누르거나 ?item= 링크로 들어오면 연다. 목록 줄·자동 고르기로는 열지 않는다.
+  const [popupOpen, setPopupOpen] = useState(initial !== null);
   const [expanded, setExpanded] = useState(false); // 모바일 시트에서 목록을 펼쳤는가
   const [collapsed, setCollapsed] = useState(false); // PC 패널을 접었는가 (결정 10)
   const [padding, setPadding] = useState<MapPadding>({ top: GAP, right: GAP, bottom: GAP, left: GAP });
@@ -44,11 +41,8 @@ export function MapView({ places, routes, days, missing, initialId, trip, email,
   const selected = selectedIndex >= 0 ? visible[selectedIndex] : null;
   // 고른 일차, "전체"면 고른 장소의 일차를 강조한다 (결정 4, B23)
   const focusDay = day === "all" ? (selected?.day ?? null) : day;
-  // 지도 범위: 보이는 장소와 그 일차의 거점·숙소. 멀리 떨어진 반대편 공항은 뺀다 (F15 결정 2)
-  const framed = useMemo<LatLng[]>(() => {
-    const shown = day === "all" ? Object.values(routes) : routes[day] ? [routes[day]] : [];
-    return [...visible, ...shown.flatMap((path) => path.stops.filter((s) => s.mark && s.frame))];
-  }, [visible, routes, day]);
+  // 지도 범위: 보이는 핀. 첫날·마지막 날의 거점·숙소도 핀이라 따로 더하지 않는다 (F25)
+  const framed = visible;
 
   // 들어올 때 현재 시각에 가장 가까운 일정의 핀을 고른다. 기기 시각을 써야 해서 화면이 뜬 뒤 한 번 계산한다. (결정 3)
   const startRef = useRef({ places, trip, initialId });
@@ -100,34 +94,30 @@ export function MapView({ places, routes, days, missing, initialId, trip, email,
   function chooseDay(next: number | "all") {
     setDay(next);
     setSelectedId(null);
+    setPopupOpen(false);
   }
 
-  // 목록에서 고르기: 모바일 시트는 펼친 채로 두고 지도만 옮긴다 (결정 11)
+  // 목록에서 고르기: 모바일 시트는 펼친 채로 두고 지도만 옮긴다 (결정 11).
+  // 팝업은 열지 않는다. 모바일에서 시트를 펼친 채 열면 위에 남은 좁은 지도에서 팝업이 잘린다 (F25)
   function choosePlace(id: string) {
     setSelectedId(id);
+    setPopupOpen(false);
   }
 
-  // 지도에서 핀 고르기: 모바일은 세부가 목록 줄 아래에 있으므로 시트를 펼친다 (F14 결정 11).
-  // PC는 접힌 패널을 펼쳐 세부가 보이게 한다 (F15 결정 7)
+  // 지도에서 핀 고르기: 핀 위 팝업을 연다. 모바일 시트와 PC 패널은 그대로 둔다 (F25).
+  // 전에는 패널 세부를 보이려고 펼쳤지만(F14 결정 11, F15 결정 7) 세부를 없앴고, 펼친 모바일 시트는 팝업을 가린다.
   function choosePin(id: string) {
     setSelectedId(id);
-    if (window.matchMedia("(min-width: 768px)").matches) setCollapsed(false);
-    else setExpanded(true);
+    setPopupOpen(true);
   }
 
   // 고른 장소의 목록 줄이 보이게 목록을 스크롤한다. 목록이 숨어 있으면(모바일 접힘) 하지 않는다.
-  // 이미 고른 핀을 접힌 채로 다시 눌러 펼칠 때도 스크롤하도록 collapsed를 본다.
+  // 핀을 고른 뒤 접힌 시트·패널을 펼칠 때도 스크롤하도록 expanded·collapsed를 본다.
   useEffect(() => {
     if (!selectedId) return;
     const row = panelRef.current?.querySelector<HTMLElement>(`[data-place="${CSS.escape(selectedId)}"]`);
     if (row?.offsetParent) row.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [selectedId, expanded, collapsed]);
-
-  function step(delta: number) {
-    if (visible.length === 0) return;
-    const next = selectedIndex < 0 ? 0 : (selectedIndex + delta + visible.length) % visible.length;
-    setSelectedId(visible[next].id);
-  }
 
   const shownDays = day === "all" ? days : [day];
 
@@ -138,10 +128,11 @@ export function MapView({ places, routes, days, missing, initialId, trip, email,
         <RouteMap
           places={places}
           framed={framed}
-          routes={routes}
           focusDay={focusDay}
           selectedId={selectedId}
           onSelect={choosePin}
+          popupId={popupOpen ? (selected?.id ?? null) : null}
+          onClosePopup={() => setPopupOpen(false)}
           padding={padding}
         />
       </div>
@@ -175,7 +166,7 @@ export function MapView({ places, routes, days, missing, initialId, trip, email,
           ‹
         </button>
 
-        {/* 모바일 손잡이: 누르거나 위·아래로 민다. 누르는 곳 128×44px, 가운데라 오른쪽 아래 "+ 입력"과 겹치지 않는다 (결정 2·11) */}
+        {/* 모바일 손잡이: 누르거나 위·아래로 민다. 누르는 곳 128×44px (결정 2·11) */}
         <button
           type="button"
           onPointerDown={handleDown}
@@ -213,15 +204,12 @@ export function MapView({ places, routes, days, missing, initialId, trip, email,
           </div>
         </div>
 
-        {/* 모바일 펼침은 목록만 한 줄로 쭉, 끝에 "+ 입력" 버튼 자리를 둔다 (결정 2·11) */}
+        {/* 모바일 펼침은 목록만 한 줄로 쭉 (결정 11). 지도 탭에는 "+ 입력" 버튼이 없다 (F25) */}
         <ol
-          className={`${expanded ? "flex" : "hidden"} min-h-0 flex-1 flex-col gap-6 overflow-y-auto border-t border-zinc-200 px-3 py-4 md:flex dark:border-zinc-800 ${readOnly ? "" : "max-md:pb-24"}`}
+          className={`${expanded ? "flex" : "hidden"} min-h-0 flex-1 flex-col gap-6 overflow-y-auto border-t border-zinc-200 px-3 py-4 md:flex dark:border-zinc-800`}
         >
           {shownDays.map((d) => {
             const dayPlaces = places.filter((p) => p.day === d);
-            // 장소 줄 앞에 그 장소까지의 구간, 마지막 장소 뒤에 숙소·출발 거점까지의 구간 (F15)
-            const path = routes[d];
-            const { before, after } = path ? legsByPlace(path.stops, path.legs) : { before: new Map<string, RouteLeg[]>(), after: [] };
             return (
               <li key={d} className="flex flex-col gap-1.5">
                 <div className="flex items-baseline gap-2 px-1">
@@ -235,7 +223,6 @@ export function MapView({ places, routes, days, missing, initialId, trip, email,
                   const active = p.id === selectedId;
                   return (
                     <div key={p.id} data-place={p.id} className="flex flex-col gap-1.5">
-                      <LegChips legs={before.get(p.id) ?? []} />
                       <button
                         type="button"
                         onClick={() => choosePlace(p.id)}
@@ -252,106 +239,19 @@ export function MapView({ places, routes, days, missing, initialId, trip, email,
                         <span className="min-w-0">
                           <span className="block font-semibold break-words">{p.name}</span>
                           <span className="block truncate text-xs text-zinc-500">
-                            {[ITEM_KIND_LABELS[p.kind], formatTime(p.time), p.address].filter(Boolean).join(" · ")}
+                            {[p.hub ? hubLabel(p.hub) : ITEM_KIND_LABELS[p.kind], formatTime(p.time), p.address].filter(Boolean).join(" · ")}
                           </span>
                         </span>
                       </button>
-                      {/* 모바일 핀 세부: 고른 줄 아래에 펼친다. PC는 아래 카드에 보인다 (결정 11) */}
-                      {active && hasExtras(p) && (
-                        <div className="ml-12 transition duration-300 starting:-translate-y-1 starting:opacity-0 md:hidden" aria-live="polite">
-                          <PlaceExtras place={p} />
-                        </div>
-                      )}
                     </div>
                   );
                 })}
-                <LegChips legs={after} />
               </li>
             );
           })}
           {missing > 0 && <li className="rounded-2xl bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-950 dark:text-amber-300">위치를 찾지 못한 장소 {missing}개는 지도에 없습니다.</li>}
         </ol>
-
-        {/* 핀 세부와 이전/다음. PC에만 있다 (결정 11) */}
-        <div className="hidden items-start gap-3 border-t border-zinc-200 p-4 md:flex dark:border-zinc-800">
-          <button
-            type="button"
-            onClick={() => step(-1)}
-            disabled={visible.length === 0}
-            aria-label="이전 장소"
-            className="flex size-9 shrink-0 items-center justify-center rounded-full border border-zinc-200 transition hover:-translate-x-0.5 hover:bg-zinc-100 active:scale-90 disabled:opacity-40 dark:border-zinc-800 dark:hover:bg-zinc-900"
-          >
-            ←
-          </button>
-          <div
-            key={selected?.id ?? "none"}
-            className="max-h-[40vh] min-w-0 flex-1 overflow-y-auto transition duration-300 starting:translate-y-1 starting:opacity-0"
-            aria-live="polite"
-          >
-            {selected ? <PlaceDetail place={selected} /> : <p className="py-2 text-sm text-zinc-500">{visible.length ? "핀이나 장소를 누르거나 화살표로 넘겨 보세요." : "지도에 올릴 장소가 없습니다."}</p>}
-          </div>
-          <button
-            type="button"
-            onClick={() => step(1)}
-            disabled={visible.length === 0}
-            aria-label="다음 장소"
-            className="flex size-9 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-white transition hover:translate-x-0.5 hover:bg-zinc-700 active:scale-90 disabled:opacity-40 dark:bg-white dark:text-zinc-900"
-          >
-            →
-          </button>
-        </div>
       </div>
     </section>
-  );
-}
-
-// 핀을 누르면 보이는 세부(PC 카드): 이름·종류·시각·주소·메모·비용·링크
-function PlaceDetail({ place }: { place: MapPlace }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <p className="text-xs font-semibold tracking-wide" style={{ color: dayColor(place.day) }}>
-        DAY {place.day} · {place.order}번째
-      </p>
-      <p className="text-lg leading-tight font-bold tracking-tight break-words">{place.name}</p>
-      <p className="text-xs break-words text-zinc-500">{[ITEM_KIND_LABELS[place.kind], formatTime(place.time), place.address].filter(Boolean).join(" · ")}</p>
-      <PlaceExtras place={place} />
-    </div>
-  );
-}
-
-const hasExtras = (place: MapPlace) => Boolean(place.memo || place.cost || place.link || place.secret);
-
-// 구간 거리·이동 수단. 장소 사이에 거점이 끼면 구간이 여러 개다 (예: 자동차 → 교통 → 자동차)
-function LegChips({ legs }: { legs: RouteLeg[] }) {
-  if (legs.length === 0) return null;
-  return (
-    <p className="ml-[1.35rem] flex flex-wrap items-center gap-1.5 border-l-2 border-dashed border-zinc-200 py-1 pl-4 text-[11px] text-zinc-500 dark:border-zinc-800">
-      {legs.map((leg, i) => (
-        <span key={i} className="rounded-full bg-zinc-100 px-2 py-0.5 dark:bg-zinc-900">
-          {formatDistance(leg.meters)} · {MODE_LABELS[leg.mode]}
-        </span>
-      ))}
-    </p>
-  );
-}
-
-// 세부 중 목록 줄에 없는 것: 메모·비용·링크 (PC 카드와 모바일 목록 줄 아래에서 함께 쓴다)
-function PlaceExtras({ place }: { place: MapPlace }) {
-  return (
-    <>
-      {place.memo && <p className="mt-1 text-sm break-words whitespace-pre-line">{place.memo}</p>}
-      {(place.cost || place.link) && (
-        <p className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-          {place.cost && <span className="rounded-full bg-zinc-100 px-2 py-0.5 dark:bg-zinc-900">{place.cost}</span>}
-          {place.link && (
-            <a href={place.link} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:opacity-70">
-              링크 열기 ↗
-            </a>
-          )}
-        </p>
-      )}
-      {/* 예약번호·예약 링크: 소유자에게만(F20) */}
-      <BookingInfo secret={place.secret} tone="current" className="mt-2" />
-    </>
   );
 }
