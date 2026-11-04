@@ -64,6 +64,20 @@
       "when": 1793619317317,
       "tag": "0008_trip_covers_storage",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793753026222,
+      "tag": "0009_item_secrets",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793753034811,
+      "tag": "0010_item_secrets_grants",
+      "breakpoints": true
     }
   ]
 }

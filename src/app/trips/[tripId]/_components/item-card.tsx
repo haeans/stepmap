@@ -5,6 +5,7 @@ import { useRef, useState, useTransition } from "react";
 import { deleteItem, updateItem } from "@/app/actions/items";
 import { GEOCODED_KINDS, formatCost, formatTime, ITEM_KIND_LABELS, type Item } from "@/lib/items/types";
 import type { TripDay } from "@/lib/trips/days";
+import { BookingInfo } from "./booking-info";
 import { EDIT_DIALOG, EditHeader } from "./edit-sheet";
 import { ItemForm } from "./item-form";
 
@@ -68,7 +69,8 @@ export function ItemCard({ item, days, compact = false, readOnly = false }: Prop
           {item.link}
         </a>
       )}
-      {error && <p className="text-xs text-rose-500">{error}</p>}
+      <BookingInfo secret={item.secret} tone="current" />
+      {error &&<p className="text-xs text-rose-500">{error}</p>}
 
       {!readOnly && (
         <dialog

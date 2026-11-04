@@ -13,6 +13,7 @@ import { formatCost, formatTime, type Item } from "@/lib/items/types";
 import type { TripDay } from "@/lib/trips/days";
 import { isPass, isTicket, parseFlight, parseRide, passLines, returnFlight, stayRange } from "@/lib/trips/go-info";
 import { clothingTip, isRainy, weatherKind, weatherLabel, type TripWeather, type WeatherKind } from "@/lib/weather/codes";
+import { BookingInfo } from "./booking-info";
 import { EDIT_PANEL, EditHeader } from "./edit-sheet";
 import { ItemForm } from "./item-form";
 
@@ -360,6 +361,7 @@ function BoardingPass({ item, transports, days }: { item: Item; transports: Item
           {cell("일차", `DAY ${item.day}`)}
         </div>
         {item.memo && <p className="rounded-xl bg-black/5 px-3 py-2 text-sm whitespace-pre-wrap">{item.memo}</p>}
+        <BookingInfo secret={item.secret} />
       </div>
       <div className="relative mx-5 border-t-2 border-dashed border-zinc-300">
         <span className="absolute -top-3 -left-8 size-6 rounded-full bg-black/55" />
@@ -384,7 +386,6 @@ function BoardingPass({ item, transports, days }: { item: Item; transports: Item
 
 function StayCard({ item, lodgings, days, coverImage, companions }: { item: Item; lodgings: Item[]; days: TripDay[]; coverImage: string; companions: number }) {
   const stay = stayRange(item, lodgings, days);
-  const [showMemo, setShowMemo] = useState(false);
   // 여행 기간 막대: 이 숙소에 묵는 밤은 주황, 나머지는 회색
   const nights = days.slice(0, -1);
   const mine = (d: number) => {
@@ -427,19 +428,14 @@ function StayCard({ item, lodgings, days, coverImage, companions }: { item: Item
             {stay.next && <p className="mt-2 truncate text-right text-xs text-zinc-500">다음 숙소 · {stay.next.name}</p>}
           </div>
         )}
+        {/* 예약번호·예약 링크는 소유자에게만(F20). 메모는 메모로만 보인다(예약번호를 메모에 두지 않는다). */}
+        <BookingInfo secret={item.secret} className="border-t border-zinc-200 pt-3" />
         {(item.memo || item.link) && (
           <div className="flex items-center justify-between gap-3 border-t border-zinc-200 pt-3 text-sm">
-            {item.memo ? (
-              <button type="button" onClick={() => setShowMemo((v) => !v)} className="min-w-0 text-left text-zinc-600">
-                <span className="text-zinc-500">메모 · 예약번호 </span>
-                <span className="font-mono">{showMemo ? item.memo : "••••••"}</span>
-              </button>
-            ) : (
-              <span />
-            )}
+            {item.memo ? <p className="min-w-0 whitespace-pre-wrap text-zinc-600">{item.memo}</p> : <span />}
             {item.link && (
               <a href={item.link} target="_blank" rel="noopener noreferrer" className="shrink-0 rounded-full bg-zinc-900 px-3 py-1 text-xs font-semibold text-white">
-                예약 보기 ↗
+                링크 ↗
               </a>
             )}
           </div>
@@ -536,7 +532,8 @@ function RideTicket({ item, days }: { item: Item; days: TripDay[] }) {
           </div>
         )}
         {item.memo && <p className="rounded-xl bg-black/5 px-3 py-2 text-sm whitespace-pre-wrap">{item.memo}</p>}
-        {!ride && <p className="text-xs text-zinc-400">이름을 “KTX 101 서울→부산”처럼 쓰면 출발·도착이 크게 나와요.</p>}
+        <BookingInfo secret={item.secret} />
+        {!ride &&<p className="text-xs text-zinc-400">이름을 “KTX 101 서울→부산”처럼 쓰면 출발·도착이 크게 나와요.</p>}
       </div>
     </div>
   );
@@ -585,6 +582,7 @@ function PassCard({ item, days }: { item: Item; days: TripDay[] }) {
         </>
       )}
       {lines.length === 0 && <p className="mt-3 text-xs text-zinc-400">메모에 노선을 쉼표로 적으면 여기에 나와요. 예: JR 교토선, 한큐 교토선</p>}
+      <BookingInfo secret={item.secret} className="mt-4" />
     </div>
   );
 }

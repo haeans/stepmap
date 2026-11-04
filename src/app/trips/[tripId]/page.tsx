@@ -4,6 +4,7 @@ import { AppHeader } from "@/app/_components/app-header";
 import { requireUser } from "@/lib/auth/user";
 import { coverSrc } from "@/lib/cover/cover";
 import { groupItems } from "@/lib/items/group";
+import { attachSecrets } from "@/lib/items/store";
 import { ITEM_COLUMNS, type Item } from "@/lib/items/types";
 import { mapPlaces } from "@/lib/map/places";
 import { dayRoute } from "@/lib/map/routes";
@@ -29,7 +30,9 @@ export default async function TripPage({ params, searchParams }: PageProps<"/tri
   // 공유받은 사람은 보기 전용이다. 버튼만 숨기고, 실제로 막는 것은 RLS다. (R-08)
   const readOnly = trip.owner_id !== user.id;
 
-  const { data: items } = await supabase.from("items").select(ITEM_COLUMNS).eq("trip_id", trip.id).returns<Item[]>();
+  const { data: rows } = await supabase.from("items").select(ITEM_COLUMNS).eq("trip_id", trip.id).returns<Item[]>();
+  // 예약 정보(F20)는 소유자에게만 붙인다. 공유받은 사람에게는 서버가 원래 값을 보내지 않는다.
+  const items = readOnly ? (rows ?? []) : await attachSecrets(supabase, trip.id, rows ?? []);
   const grouped = groupItems(items ?? [], tripDays(trip.start_date, trip.end_date));
   const choices = dayChoices(
     grouped.days.map((d) => d.day),
