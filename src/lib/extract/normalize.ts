@@ -5,7 +5,9 @@
 
 import { MAX_DAYS } from "@/lib/trips/days";
 import { CURRENCIES, ITEM_KINDS, type ItemKind } from "@/lib/items/types";
+import { BOOKING_LINK_KINDS, BOOKING_NO_KINDS } from "@/lib/items/types";
 import type { ItemInput } from "@/lib/items/validation";
+import { revealOne, stripPlaceholders, type Vault } from "./vault";
 
 export const MAX_TEXT_LENGTH = 5000;
 export const MAX_ITEMS = 30;
@@ -19,6 +21,7 @@ export type RawItem = {
   address: string;
   memo: string;
   link: string;
+  booking_ref?: string; // F20: "[예약번호N]" 자리표시
   cost_amount: number | null;
   cost_currency: string | null;
   // F18: 원문에 일차·시각이 없을 때 AI가 추천한 값과 짧은 이유
@@ -32,7 +35,8 @@ export type Suggestion = { day: boolean; time: boolean; reason: string };
 export type ExtractedItem = ItemInput & { suggest: Suggestion | null };
 
 // 추천을 고를 때 쓰는 여행 정보. dayCount: 고를 수 있는 일차 수, busy: 일차별 이미 있는 일정 수
-export type SuggestContext = { startDate: string | null; dayCount: number; busy: Record<number, number> };
+// vault: AI에 보내기 전에 숨긴 링크·예약번호(F20). 있으면 자리표시만 받아 원래 값으로 되돌리고, AI가 쓴 주소는 버린다.
+export type SuggestContext = { startDate: string | null; dayCount: number; busy: Record<number, number>; vault?: Vault };
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^([01]?\d|2[0-3]):([0-5]\d)/;
@@ -42,7 +46,7 @@ function daysBetween(from: string, to: string): number {
   return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
 }
 
-function clampDay(day: number, max = MAX_DAYS): number {
+export function clampDay(day: number, max = MAX_DAYS): number {
   return Math.min(Math.max(Math.trunc(day), 1), max);
 }
 
@@ -84,11 +88,11 @@ export function normalizeItems(raw: RawItem[], ctx: SuggestContext): ExtractedIt
   const busy = { ...ctx.busy };
   const items: ExtractedItem[] = [];
   for (const r of raw) {
-    const name = clip(r.name ?? "", 200);
+    // F20: 이름에 자리표시가 들어오면 지운다(공개 칸에 예약번호·링크가 들어가지 않게).
+    const name = clip(ctx.vault ? stripPlaceholders(r.name ?? "").text : (r.name ?? ""), 200);
     if (!name || !(ITEM_KINDS as readonly string[]).includes(r.kind)) continue;
     const kind = r.kind as ItemKind;
     const cost = toCost(r.cost_amount, r.cost_currency);
-    const link = clip(r.link ?? "", 2000);
 
     const textDay = toDay(r, ctx.startDate);
     const aiDay = typeof r.suggested_day === "number" && Number.isFinite(r.suggested_day) ? clampDay(r.suggested_day, dayCount) : null;
@@ -104,19 +108,51 @@ export function normalizeItems(raw: RawItem[], ctx: SuggestContext): ExtractedIt
     const reason = clip(r.reason ?? "", 200) || (dayGuessed && aiDay === null ? FALLBACK_REASON : "");
     const suggest = kind !== "memo" && (dayGuessed || timeGuessed) ? { day: dayGuessed, time: timeGuessed, reason } : null;
 
+    const memo = clip([r.memo?.trim(), cost.note].filter(Boolean).join("\n"), 2000);
+    const fields = ctx.vault ? revealFields(r, kind, memo, ctx.vault) : { address: r.address ?? "", memo, link: plainLink(r.link) };
+
     items.push({
       kind,
       day,
       time: textTime ?? aiTime,
       name,
-      address: clip(r.address ?? "", 300),
-      memo: clip([r.memo?.trim(), cost.note].filter(Boolean).join("\n"), 2000),
-      link: /^https?:\/\//i.test(link) ? link : "",
+      address: clip(fields.address, 300),
+      memo: fields.memo,
+      link: fields.link,
       costAmount: cost.costAmount,
       costCurrency: cost.costCurrency,
+      ...("booking" in fields ? { booking: fields.booking } : {}),
       suggest,
     });
     if (items.length === MAX_ITEMS) break;
   }
   return items;
+}
+
+function plainLink(raw: string | undefined): string {
+  const link = clip(raw ?? "", 2000);
+  return /^https?:\/\//i.test(link) ? link : "";
+}
+
+// F20: 링크·예약번호 자리표시를 원래 값으로 되돌린다. AI가 자리표시가 아닌 주소를 쓰면 버린다(지어낸 주소).
+// 주소·메모에 들어간 자리표시는 지우고, 링크·예약번호 칸이 비어 있으면 그 값으로 쓴다(공개 칸에 원래 값이 들어가지 않게).
+function revealFields(r: RawItem, kind: ItemKind, memoRaw: string, vault: Vault) {
+  const address = stripPlaceholders(r.address ?? "");
+  const memo = stripPlaceholders(memoRaw);
+  const stray = [...address.found, ...memo.found];
+  let link = revealOne(r.link ?? "", vault, "링크").value;
+  let no = revealOne(r.booking_ref ?? "", vault, "예약번호").value;
+  for (const s of stray) {
+    if (s.kind === "링크" && !link) link = vault.links[s.index] ?? "";
+    if (s.kind === "예약번호" && !no) no = vault.bookings[s.index] ?? "";
+  }
+  const linkKind = (BOOKING_LINK_KINDS as readonly string[]).includes(kind);
+  const noKind = (BOOKING_NO_KINDS as readonly string[]).includes(kind);
+  return {
+    address: address.text,
+    memo: memo.text,
+    // 관광지 링크는 공개 칸, 교통·숙소·식당 링크는 예약 링크(소유자만)로
+    link: kind === "sight" ? link : "",
+    booking: { no: noKind ? no.slice(0, 100) : "", link: linkKind ? link : "", level: "auto" as const },
+  };
 }

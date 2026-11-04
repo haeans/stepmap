@@ -6,6 +6,7 @@ import { nearestPlaceId } from "@/lib/map/nearest";
 import { dayColor, formatDistance, type LatLng, type MapPlace } from "@/lib/map/places";
 import { legsByPlace } from "@/lib/map/route-plan";
 import type { DayPath, RouteLeg, RouteMode } from "@/lib/map/routes";
+import { BookingInfo } from "./booking-info";
 import { MapMenu } from "./map-menu";
 import { RouteMap, type MapPadding } from "./route-map";
 import { Segmented } from "./segmented";
@@ -318,7 +319,7 @@ function PlaceDetail({ place }: { place: MapPlace }) {
   );
 }
 
-const hasExtras = (place: MapPlace) => Boolean(place.memo || place.cost || place.link);
+const hasExtras = (place: MapPlace) => Boolean(place.memo || place.cost || place.link || place.secret);
 
 // 구간 거리·이동 수단. 장소 사이에 거점이 끼면 구간이 여러 개다 (예: 자동차 → 교통 → 자동차)
 function LegChips({ legs }: { legs: RouteLeg[] }) {
@@ -349,6 +350,8 @@ function PlaceExtras({ place }: { place: MapPlace }) {
           )}
         </p>
       )}
+      {/* 예약번호·예약 링크: 소유자에게만(F20) */}
+      <BookingInfo secret={place.secret} tone="current" className="mt-2" />
     </>
   );
 }

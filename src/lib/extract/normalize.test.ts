@@ -116,3 +116,34 @@ describe("normalizeItems", () => {
     expect(item.suggest).toBeNull();
   });
 });
+
+describe("자리표시 되돌리기 (F20)", () => {
+  const vault = { links: ["https://hotel.example.com/r?token=abc", "https://peak.example.com"], bookings: ["K7Q2XM"] };
+
+  it("숙소: 예약번호·링크는 예약 칸으로, 공개 링크와 메모에는 넣지 않는다", () => {
+    const [item] = normalizeItems(
+      [{ ...base, kind: "lodging", name: "호텔", date: "2026-12-01", time: "15:00", link: "[링크1]", booking_ref: "[예약번호1]", memo: "조식 포함 [예약번호1]" }],
+      { ...ctx, vault },
+    );
+    expect(item.link).toBe("");
+    expect(item.memo).toBe("조식 포함");
+    expect(item.booking).toEqual({ no: "K7Q2XM", link: "https://hotel.example.com/r?token=abc", level: "auto" });
+  });
+
+  it("관광지 링크는 공개 칸으로", () => {
+    const [item] = normalizeItems([{ ...base, date: "2026-12-01", time: "10:00", link: "[링크2]" }], { ...ctx, vault });
+    expect(item.link).toBe("https://peak.example.com");
+  });
+
+  it("AI가 지어낸 주소나 없는 번호는 버린다", () => {
+    const [item] = normalizeItems([{ ...base, date: "2026-12-01", time: "10:00", link: "https://evil.example", booking_ref: "[예약번호9]" }], { ...ctx, vault });
+    expect(item.link).toBe("");
+    expect(item.booking?.no).toBe("");
+  });
+
+  it("메모에만 자리표시가 있으면 예약번호 칸으로 옮긴다", () => {
+    const [item] = normalizeItems([{ ...base, kind: "food", date: "2026-12-01", time: "19:00", memo: "예약번호 [예약번호1]" }], { ...ctx, vault });
+    expect(item.memo).toBe("");
+    expect(item.booking?.no).toBe("K7Q2XM");
+  });
+});
