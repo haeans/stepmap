@@ -62,6 +62,18 @@ describe("normalizeItems", () => {
     expect(item.costCurrency).toBe("HKD");
   });
 
+  it("숙소 메모의 체크인·체크아웃 날짜는 뺀다 (GO 숙소 창이 이미 보여 줌), 시각은 남긴다", () => {
+    const lodging = { ...base, kind: "lodging" };
+    const memo = (m: string) => normalizeItems([{ ...lodging, memo: m }], ctx)[0].memo;
+    expect(memo("체크아웃 2026-12-13")).toBe("");
+    expect(memo("1박, 체크아웃: 12/13")).toBe("1박");
+    expect(memo("오션뷰 / 체크아웃 12월 13일 / 조식 포함")).toBe("오션뷰 / 조식 포함");
+    expect(memo("체크인 2026-12-12\n수영장 있음")).toBe("수영장 있음");
+    expect(memo("체크아웃 12/13 11:00")).toBe("체크아웃 12/13 11:00");
+    // 숙소가 아니면 그대로
+    expect(normalizeItems([{ ...base, memo: "체크아웃 2026-12-13" }], ctx)[0].memo).toBe("체크아웃 2026-12-13");
+  });
+
   it("지원하지 않는 통화는 금액을 비우고 메모에 남긴다", () => {
     const [item] = normalizeItems([{ ...base, memo: "케이블카", cost_amount: 50, cost_currency: "MOP" }], ctx);
     expect(item.costAmount).toBeNull();
