@@ -3,16 +3,13 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import { formatTime, ITEM_KIND_LABELS } from "@/lib/items/types";
 import { nearestPlaceId } from "@/lib/map/nearest";
-import { dayColor, formatDistance, type LatLng, type MapPlace } from "@/lib/map/places";
-import { legsByPlace } from "@/lib/map/route-plan";
-import type { DayPath, RouteLeg, RouteMode } from "@/lib/map/routes";
+import { dayColor, type LatLng, type MapPlace } from "@/lib/map/places";
+import type { DayPath } from "@/lib/map/routes";
 import { BookingInfo } from "./booking-info";
 import { MapMenu } from "./map-menu";
 import { RouteMap, type MapPadding } from "./route-map";
 import { Segmented } from "./segmented";
 import { ViewSwitch } from "./view-switch";
-
-const MODE_LABELS: Record<RouteMode, string> = { drive: "자동차", transit: "대중교통", straight: "직선", flight: "비행기", transport: "교통" };
 
 type Props = {
   places: MapPlace[];
@@ -219,9 +216,6 @@ export function MapView({ places, routes, days, missing, initialId, trip, email,
         >
           {shownDays.map((d) => {
             const dayPlaces = places.filter((p) => p.day === d);
-            // 장소 줄 앞에 그 장소까지의 구간, 마지막 장소 뒤에 숙소·출발 거점까지의 구간 (F15)
-            const path = routes[d];
-            const { before, after } = path ? legsByPlace(path.stops, path.legs) : { before: new Map<string, RouteLeg[]>(), after: [] };
             return (
               <li key={d} className="flex flex-col gap-1.5">
                 <div className="flex items-baseline gap-2 px-1">
@@ -235,7 +229,6 @@ export function MapView({ places, routes, days, missing, initialId, trip, email,
                   const active = p.id === selectedId;
                   return (
                     <div key={p.id} data-place={p.id} className="flex flex-col gap-1.5">
-                      <LegChips legs={before.get(p.id) ?? []} />
                       <button
                         type="button"
                         onClick={() => choosePlace(p.id)}
@@ -265,7 +258,6 @@ export function MapView({ places, routes, days, missing, initialId, trip, email,
                     </div>
                   );
                 })}
-                <LegChips legs={after} />
               </li>
             );
           })}
@@ -320,20 +312,6 @@ function PlaceDetail({ place }: { place: MapPlace }) {
 }
 
 const hasExtras = (place: MapPlace) => Boolean(place.memo || place.cost || place.link || place.secret);
-
-// 구간 거리·이동 수단. 장소 사이에 거점이 끼면 구간이 여러 개다 (예: 자동차 → 교통 → 자동차)
-function LegChips({ legs }: { legs: RouteLeg[] }) {
-  if (legs.length === 0) return null;
-  return (
-    <p className="ml-[1.35rem] flex flex-wrap items-center gap-1.5 border-l-2 border-dashed border-zinc-200 py-1 pl-4 text-[11px] text-zinc-500 dark:border-zinc-800">
-      {legs.map((leg, i) => (
-        <span key={i} className="rounded-full bg-zinc-100 px-2 py-0.5 dark:bg-zinc-900">
-          {formatDistance(leg.meters)} · {MODE_LABELS[leg.mode]}
-        </span>
-      ))}
-    </p>
-  );
-}
 
 // 세부 중 목록 줄에 없는 것: 메모·비용·링크 (PC 카드와 모바일 목록 줄 아래에서 함께 쓴다)
 function PlaceExtras({ place }: { place: MapPlace }) {
