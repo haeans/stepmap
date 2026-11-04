@@ -3,18 +3,19 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import { formatTime, ITEM_KIND_LABELS } from "@/lib/items/types";
 import { nearestPlaceId } from "@/lib/map/nearest";
-import { dayColor, formatDistance, type MapPlace } from "@/lib/map/places";
-import type { RouteLeg, RouteMode } from "@/lib/map/routes";
+import { dayColor, formatDistance, type LatLng, type MapPlace } from "@/lib/map/places";
+import { legsByPlace } from "@/lib/map/route-plan";
+import type { DayPath, RouteLeg, RouteMode } from "@/lib/map/routes";
 import { MapMenu } from "./map-menu";
 import { RouteMap, type MapPadding } from "./route-map";
 import { Segmented } from "./segmented";
 import { ViewSwitch } from "./view-switch";
 
-const MODE_LABELS: Record<RouteMode, string> = { drive: "자동차", transit: "대중교통", straight: "직선" };
+const MODE_LABELS: Record<RouteMode, string> = { drive: "자동차", transit: "대중교통", straight: "직선", flight: "비행기", transport: "교통" };
 
 type Props = {
   places: MapPlace[];
-  routes: Record<number, RouteLeg[]>;
+  routes: Record<number, DayPath>;
   days: number[];
   missing: number;
   initialId: string | null;
@@ -42,6 +43,11 @@ export function MapView({ places, routes, days, missing, initialId, trip, email,
   const selected = selectedIndex >= 0 ? visible[selectedIndex] : null;
   // 고른 일차, "전체"면 고른 장소의 일차를 강조한다 (결정 4, B23)
   const focusDay = day === "all" ? (selected?.day ?? null) : day;
+  // 지도 범위: 보이는 장소와 그 일차의 거점·숙소. 멀리 떨어진 반대편 공항은 뺀다 (F15 결정 2)
+  const framed = useMemo<LatLng[]>(() => {
+    const shown = day === "all" ? Object.values(routes) : routes[day] ? [routes[day]] : [];
+    return [...visible, ...shown.flatMap((path) => path.stops.filter((s) => s.mark && s.frame))];
+  }, [visible, routes, day]);
 
   // 들어올 때 현재 시각에 가장 가까운 일정의 핀을 고른다. 기기 시각을 써야 해서 화면이 뜬 뒤 한 번 계산한다. (결정 3)
   const startRef = useRef({ places, trip, initialId });
@@ -100,18 +106,21 @@ export function MapView({ places, routes, days, missing, initialId, trip, email,
     setSelectedId(id);
   }
 
-  // 지도에서 핀 고르기: 모바일은 세부가 목록 줄 아래에 있으므로 시트를 펼친다 (결정 11)
+  // 지도에서 핀 고르기: 모바일은 세부가 목록 줄 아래에 있으므로 시트를 펼친다 (F14 결정 11).
+  // PC는 접힌 패널을 펼쳐 세부가 보이게 한다 (F15 결정 7)
   function choosePin(id: string) {
     setSelectedId(id);
-    if (!window.matchMedia("(min-width: 768px)").matches) setExpanded(true);
+    if (window.matchMedia("(min-width: 768px)").matches) setCollapsed(false);
+    else setExpanded(true);
   }
 
   // 고른 장소의 목록 줄이 보이게 목록을 스크롤한다. 목록이 숨어 있으면(모바일 접힘) 하지 않는다.
+  // 이미 고른 핀을 접힌 채로 다시 눌러 펼칠 때도 스크롤하도록 collapsed를 본다.
   useEffect(() => {
     if (!selectedId) return;
     const row = panelRef.current?.querySelector<HTMLElement>(`[data-place="${CSS.escape(selectedId)}"]`);
     if (row?.offsetParent) row.scrollIntoView({ block: "nearest", behavior: "smooth" });
-  }, [selectedId, expanded]);
+  }, [selectedId, expanded, collapsed]);
 
   function step(delta: number) {
     if (visible.length === 0) return;
@@ -127,7 +136,7 @@ export function MapView({ places, routes, days, missing, initialId, trip, email,
       <div className="absolute inset-0">
         <RouteMap
           places={places}
-          framed={visible}
+          framed={framed}
           routes={routes}
           focusDay={focusDay}
           selectedId={selectedId}
@@ -209,6 +218,9 @@ export function MapView({ places, routes, days, missing, initialId, trip, email,
         >
           {shownDays.map((d) => {
             const dayPlaces = places.filter((p) => p.day === d);
+            // 장소 줄 앞에 그 장소까지의 구간, 마지막 장소 뒤에 숙소·출발 거점까지의 구간 (F15)
+            const path = routes[d];
+            const { before, after } = path ? legsByPlace(path.stops, path.legs) : { before: new Map<string, RouteLeg[]>(), after: [] };
             return (
               <li key={d} className="flex flex-col gap-1.5">
                 <div className="flex items-baseline gap-2 px-1">
@@ -218,18 +230,11 @@ export function MapView({ places, routes, days, missing, initialId, trip, email,
                   <span className="text-xs text-zinc-500">장소 {dayPlaces.length}곳</span>
                 </div>
                 {dayPlaces.length === 0 && <p className="px-1 text-xs text-zinc-500">지도에 올릴 장소가 없습니다.</p>}
-                {dayPlaces.map((p, i) => {
-                  const leg = i > 0 ? routes[d]?.[i - 1] : undefined;
+                {dayPlaces.map((p) => {
                   const active = p.id === selectedId;
                   return (
                     <div key={p.id} data-place={p.id} className="flex flex-col gap-1.5">
-                      {leg && (
-                        <p className="ml-[1.35rem] flex items-center gap-2 border-l-2 border-dashed border-zinc-200 py-1 pl-4 text-[11px] text-zinc-500 dark:border-zinc-800">
-                          <span className="rounded-full bg-zinc-100 px-2 py-0.5 dark:bg-zinc-900">
-                            {formatDistance(leg.meters)} · {MODE_LABELS[leg.mode]}
-                          </span>
-                        </p>
-                      )}
+                      <LegChips legs={before.get(p.id) ?? []} />
                       <button
                         type="button"
                         onClick={() => choosePlace(p.id)}
@@ -259,6 +264,7 @@ export function MapView({ places, routes, days, missing, initialId, trip, email,
                     </div>
                   );
                 })}
+                <LegChips legs={after} />
               </li>
             );
           })}
@@ -313,6 +319,20 @@ function PlaceDetail({ place }: { place: MapPlace }) {
 }
 
 const hasExtras = (place: MapPlace) => Boolean(place.memo || place.cost || place.link);
+
+// 구간 거리·이동 수단. 장소 사이에 거점이 끼면 구간이 여러 개다 (예: 자동차 → 교통 → 자동차)
+function LegChips({ legs }: { legs: RouteLeg[] }) {
+  if (legs.length === 0) return null;
+  return (
+    <p className="ml-[1.35rem] flex flex-wrap items-center gap-1.5 border-l-2 border-dashed border-zinc-200 py-1 pl-4 text-[11px] text-zinc-500 dark:border-zinc-800">
+      {legs.map((leg, i) => (
+        <span key={i} className="rounded-full bg-zinc-100 px-2 py-0.5 dark:bg-zinc-900">
+          {formatDistance(leg.meters)} · {MODE_LABELS[leg.mode]}
+        </span>
+      ))}
+    </p>
+  );
+}
 
 // 세부 중 목록 줄에 없는 것: 메모·비용·링크 (PC 카드와 모바일 목록 줄 아래에서 함께 쓴다)
 function PlaceExtras({ place }: { place: MapPlace }) {

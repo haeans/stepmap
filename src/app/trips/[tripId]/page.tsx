@@ -5,8 +5,10 @@ import { requireUser } from "@/lib/auth/user";
 import { coverSrc } from "@/lib/cover/cover";
 import { groupItems } from "@/lib/items/group";
 import { ITEM_COLUMNS, type Item } from "@/lib/items/types";
+import { findHubs } from "@/lib/map/hub-lookup";
 import { mapPlaces } from "@/lib/map/places";
-import { dayRoute } from "@/lib/map/routes";
+import { planDay } from "@/lib/map/route-plan";
+import { planRoute } from "@/lib/map/routes";
 import { createClient } from "@/lib/supabase/server";
 import { tripWeather } from "@/lib/weather/open-meteo";
 import { dayChoices, tripDays } from "@/lib/trips/days";
@@ -98,7 +100,7 @@ function weatherSpot(items: Item[]): { lat: number | null; lng: number | null } 
   return { lat: spot?.lat ?? null, lng: spot?.lng ?? null };
 }
 
-// 2화면(지도). 일차별 경로는 서버에서 구한다(캐시, B21).
+// 2화면(지도). 교통 거점과 일차별 경로는 서버에서 구한다(캐시, B21, F15 결정 1).
 type TripMapProps = {
   items: Item[];
   days: number[];
@@ -110,8 +112,14 @@ type TripMapProps = {
 
 async function TripMap({ items, days, itemId, trip, email, readOnly }: TripMapProps) {
   const { places, missing } = mapPlaces(items);
+  const hubs = await findHubs(items);
   const routes = Object.fromEntries(
-    await Promise.all(days.map(async (day) => [day, await dayRoute(places.filter((p) => p.day === day))] as const)),
+    await Promise.all(
+      days.map(async (day) => {
+        const plan = planDay(day, items, places, hubs);
+        return [day, { stops: plan.stops, legs: await planRoute(plan) }] as const;
+      }),
+    ),
   );
   return <MapView places={places} routes={routes} days={days} missing={missing} initialId={itemId} trip={trip} email={email} readOnly={readOnly} />;
 }
