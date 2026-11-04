@@ -1,6 +1,6 @@
 # deploy
 
-외부 서비스(Vercel, Supabase, Google Cloud, Gemini, Unsplash, Open-Meteo)의 배포·운영 설정입니다. 처음부터 다시 만들거나 설정을 바꿀 때 봅니다.
+외부 서비스(Vercel, Supabase, Google Cloud, Gemini, Unsplash, Open-Meteo, Wikimedia)의 배포·운영 설정입니다. 처음부터 다시 만들거나 설정을 바꿀 때 봅니다.
 
 > 작성: AI · 관리: haeans (B30) · 갱신: 설정이 바뀔 때 (① 킥오프 또는 ④ 최신화)
 > 공개 주소: https://stepmap-pi.vercel.app (B28)
@@ -93,6 +93,11 @@
 ## 6. Open-Meteo (C7)
 
 - 날씨(B74). 키·계정·설정이 없다. 비상업 용도 무료 조건이다 [가정].
+
+## 6-1. 장소 사진 (C8 F22)
+
+- Wikimedia(위키백과·Commons API): 키·계정·설정이 없다. 요청에 연락처가 든 User-Agent(`stepmap/1.0 (https://stepmap-pi.vercel.app; travel planner)`)를 보낸다.
+- Google Places 사진: 지금의 서버 키(`GOOGLE_MAPS_SERVER_KEY`, Places API (New))를 그대로 쓴다. Place Photo는 월 1,000번 무료 뒤 과금이므로 haeans가 할당량과 예산 알림을 본다(B30, B140).
 
 ## 7. 배포 후 확인
 

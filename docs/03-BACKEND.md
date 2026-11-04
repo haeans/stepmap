@@ -1,6 +1,6 @@
 # 03-BACKEND
 
-API 경로, 로그인·권한 확인, 외부 API(Claude·Gemini·구글맵·Unsplash·Open-Meteo) 호출 방식을 정하는 문서입니다.
+API 경로, 로그인·권한 확인, 외부 API(Claude·Gemini·구글맵·Unsplash·Open-Meteo·Wikimedia) 호출 방식을 정하는 문서입니다.
 
 > 작성: AI · 갱신: 사이클마다
 
@@ -23,6 +23,7 @@ API 경로, 로그인·권한 확인, 외부 API(Claude·Gemini·구글맵·Unsp
 | `sendChat(tripId, request)` | 서버 액션 | 대화 도우미 한 턴. 답장·일정 제안·고치기·지우기 제안·추천 칩을 돌려준다. 저장하지 않는다(3절, B114) | C8 (F19) |
 | `applyChange(tripId, request)` | 서버 액션 | 대화의 고치기·지우기 카드에서 "반영"·"삭제"를 눌렀을 때만 그 일정을 고치거나 지운다(B120) | C8 (F19) |
 | `getOrCreateShareLink(tripId)` | 서버 액션 | 공유 링크가 있으면 돌려주고 없으면 만든다(소유자만, RLS). | v0.9 |
+| `GET /trips/{tripId}/photo/{itemId}` | 라우트 핸들러 | 매거진 장소 카드 사진(JSON). Wikimedia(저장된 값, 없으면 소유자일 때 찾아 저장) → Google Places(장소 ID, 없으면 소유자일 때 찾아 저장). 성공·없음은 `Cache-Control: private, max-age=1209600`(14일), 실패는 `no-store`. 볼 권한은 RLS(7-3절) | C8 (F22) |
 | `GET /share/{token}` | 화면 | 로그인 후 `accept_share`로 등록하고 `/trips/{id}`로 보낸다. | v0.9 |
 
 - 데이터를 쓰는 서버 액션은 입력값만 검사한다. 누가 무엇을 고칠 수 있는지는 RLS가 정한다. RLS에 막히면 바뀐 행이 0개이므로 실패로 처리한다.
@@ -76,7 +77,8 @@ API 경로, 로그인·권한 확인, 외부 API(Claude·Gemini·구글맵·Unsp
 - 같은 이름의 다른 장소를 피하려고 여행 목적지를 함께 넘겨 검색한다. 미리보기에서 주소를 확인한다.
 - 구현(v0.5, `src/lib/items/geocode.ts`)
   - Places API (New) Text Search(`places:searchText`) 한 번으로 찾는다. 검색어는 "주소(없으면 이름) + 여행 목적지", 언어는 한국어, 결과 1개.
-  - 받는 값은 좌표와 주소(`formattedAddress`)만 요청한다(`X-Goog-FieldMask`).
+  - 받는 값은 좌표와 주소(`formattedAddress`)만 요청한다(`X-Goog-FieldMask`). C8 F22부터 장소 ID(`places.id`)도 받아 `items.place_id`에 저장한다(같은 Pro 단계, 호출 수 그대로, B138). 좌표를 다시 찾으면 사진 칸을 비운다(B143).
+  - 실패를 예외로 받는 `searchPlace`를 따로 내보낸다(교통 거점 찾기와 사진 경로가 쓴다). `geocodePlace`는 실패를 null로 바꾼다.
   - 대상 종류: 숙소, 관광지, 식당. 교통(출발·도착 두 곳)과 메모는 찾지 않는다.
   - 주소를 비워 두었으면 찾은 주소로 채운다. 사용자가 맞는 장소인지 화면에서 확인할 수 있다.
   - 이름·주소·종류가 그대로이고 좌표가 이미 있으면 다시 호출하지 않는다.
@@ -93,6 +95,8 @@ API 경로, 로그인·권한 확인, 외부 API(Claude·Gemini·구글맵·Unsp
 - 구현(v0.7, `src/lib/map/routes.ts`)
   - Routes API `directions/v2:computeRoutes`, 서버 키. 받는 값은 구간별 거리와 경로 선(`routes.legs.distanceMeters`, `routes.legs.polyline.encodedPolyline`)만 요청한다.
   - 일차마다 자동차 경로 한 번(첫 장소 → 경유지 → 마지막 장소). 결과가 비면 구간마다 대중교통 경로, 그래도 없으면 직선.
+  - C8 F15부터: 하루 동선은 `route-plan.ts`가 장소·교통 거점·숙소로 만든다(B132). 비행기·교통 구간은 Routes API를 부르지 않고(`mode: "flight"/"transport"`) 땅 위 구간끼리만 위 방식으로 구한다. 캐시 키는 `day-route-v2`(B134).
+  - 교통 거점(`src/lib/map/hubs.ts`, `hub-lookup.ts`): 교통 이름에서 출발지·도착지를 뽑아 "○○ 공항/역/터미널"로 Places Text Search(목적지 안 붙임). 검색어별 `unstable_cache` `["hub-geocode-v1", 검색어]` 30일, 못 찾음도 캐시, 실패는 캐시 안 함. 교통 항목 앞 20개, 여행당 처음 열 때 최대 40번(B129, B131).
   - 결과는 `unstable_cache`로 30일 둔다. 캐시 키는 좌표 목록(소수점 6자리)이라 장소가 바뀌면 새로 구한다(B21).
   - 실패(키 없음, 5초 초과)하면 그 일차는 직선으로 잇고 화면은 그대로 보여 준다.
 - 국내 경로: 한국에서는 구글의 도보·자동차 경로가 제한될 수 있다 [가정].
@@ -119,7 +123,7 @@ API 경로, 로그인·권한 확인, 외부 API(Claude·Gemini·구글맵·Unsp
 
 - API 키는 서버 쪽과 Vercel 환경 변수에만 둔다. 저장소에 올리지 않는다.
 
-## 7. 외부 서비스 호출 (C7)
+## 7. 외부 서비스 호출 (C7, C8)
 
 ### 7-1. Unsplash (대표 이미지, F08)
 
@@ -134,3 +138,11 @@ API 경로, 로그인·권한 확인, 외부 API(Claude·Gemini·구글맵·Unsp
 - 여행이 16일 안이면 예보, 더 멀면 작년 같은 날짜의 실제 날씨(아카이브)를 "작년 기준"으로 보여 준다(B74).
 - 좌표나 시작일이 없거나 실패하면 날씨를 비운다(서버 로그 `weather error`).
 - 파일: `src/lib/weather/open-meteo.ts`, `src/lib/weather/codes.ts`
+
+### 7-3. 장소 사진 (C8, F22)
+
+- 경로: `src/app/trips/[tripId]/photo/[itemId]/route.ts`. 로그인 사용자 권한으로 항목을 읽어(RLS) 숙소·관광지·식당이고 좌표가 있을 때만 찾는다.
+- Wikimedia(`src/lib/places/wikimedia.ts`, 관광지): 위키백과 ko → en 검색 → 문서 좌표 1km 확인(`distance.ts`) → 대표 사진이 Commons에 있으면 썸네일·작가·라이선스·파일 페이지를 `items`에 저장. 키 없음, 연락처 User-Agent. 볼 때 외부 호출 없음(B137).
+- Google(`src/lib/places/photo.ts`): Place Details `photos`만(무료 단계) → 가로 사진 첫 장 → Place Photo `skipHttpRedirect` 폭 800(과금). 사진 이름·주소는 저장·캐시하지 않는다(B139).
+- 기존 항목은 소유자가 볼 때만 찾아 저장한다(Wikimedia 결과, 좌표 1km 안의 장소 ID). 공유받은 사람은 찾거나 저장하지 않는다(B141).
+- 실패(키 없음·시간 초과·4xx·5xx)는 `no-store`로 사진 없이 돌려주고 서버 로그 `place photo error`.

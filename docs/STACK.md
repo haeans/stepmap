@@ -18,6 +18,7 @@
 | AI 추출 | Gemini API (무료 등급) | Claude API는 무료 플랜이 없어 E1에 따라 Gemini로 바꿨다(B14). |
 | 공유 | 공유 링크 + Supabase Auth 로그인 + RLS 보기 전용 | 아래 3절 |
 | 대표 이미지 (C7) | Unsplash API + Supabase Storage | 자동 이미지는 무료 사진 API, 직접 올린 사진은 이미 쓰는 Supabase에 둔다(B38, B47~B51). |
+| 장소 사진 (C8) | Wikimedia(위키백과·Commons API) + Google Places 사진 | 관광지는 무료·키 없는 Wikimedia를 먼저, 그 밖은 이미 쓰는 Google Places(B136~B143). |
 | 날씨 (C7) | Open-Meteo | 키·비용 없음(B74) |
 
 ## 2. Drizzle과 RLS를 함께 쓰는 방식
@@ -49,6 +50,8 @@
 | 대표 이미지 – Unsplash (C7) | 0원 (Demo: 앱 전체 시간당 50번) [가정] | 작가 표시·다운로드 알림·utm 규칙을 지켜야 한다(B50). | 여행 만들 때만 검색 1번 + 다운로드 알림 1번, 실패하면 건너뜀 |
 | 대표 이미지 – Supabase Storage (C7) | 0원 (Free 등급 용량 안) [가정] | 공개 버킷, 5MB·3종 제한 | 여행마다 파일 하나로 덮어쓰기, 여행 삭제 때 지움 |
 | 날씨 – Open-Meteo (C7) | 0원 (비상업 무료, 키 없음) [가정] | 비상업 용도 조건 [가정] | 3시간 캐시 |
+| 장소 사진 – Wikimedia (C8) | 0원 (키 없음) | 사진마다 작가·라이선스·파일 페이지 표시(CC). 연락처가 든 User-Agent를 보낸다 | 소유자가 볼 때 항목마다 한 번 찾아 주소를 저장 |
+| 장소 사진 – Google Places (C8) | Place Details(사진 목록)는 무료, Place Photo는 월 1,000번 무료 후 1,000번당 $7 | 장소 ID만 저장(사진 이름·주소 저장 금지). 작가와 "Google Maps" 표시 | 화면에 들어온 카드만, 브라우저 14일 캐시(B140) |
 
 - **예상 총비용**: 0원
 - **예산 한도**: 10,000원 안에서 운영한다.
