@@ -2,7 +2,7 @@
 
 import { daySchedule, dayHub } from "@/lib/items/day-plan";
 import { compareItems } from "@/lib/items/group";
-import { formatCost, GEOCODED_KINDS, type Item, type ItemKind, type ItemSecret } from "@/lib/items/types";
+import { GEOCODED_KINDS, type Item, type ItemKind } from "@/lib/items/types";
 import type { HubKind } from "./hubs";
 import type { TransportHubs } from "./route-plan";
 
@@ -21,11 +21,8 @@ export type MapPlace = LatLng & {
   name: string;
   address: string;
   time: string | null;
-  // 핀 세부(F14)에 보이는 칸
-  memo: string;
-  link: string;
-  secret?: ItemSecret | null; // 예약 정보(F20). 소유자에게만 있다
-  cost: string; // "12,000 JPY", 없으면 ""
+  memo: string; // 핀 위 팝업(F25)에 보인다
+  // 링크·비용·예약 정보는 넘기지 않는다. 팝업에 넣지 않으므로 예약 정보(F20)를 브라우저로 보낼 까닭이 없다 (F25)
 };
 
 // 좌표가 있는 숙소·관광지·식당만 일차 → 시각 → 순서로 줄 세운다.
@@ -53,9 +50,6 @@ export function mapPlaces(items: Item[]): { places: MapPlace[]; missing: number 
       address: item.address,
       time: item.time,
       memo: item.memo,
-      link: item.link,
-      secret: item.secret ?? null,
-      cost: formatCost(item.cost_amount, item.cost_currency),
       lat: Number(item.lat),
       lng: Number(item.lng),
     });
@@ -84,7 +78,7 @@ export function schedulePins(days: number[], items: Item[], hubs: Map<string, Tr
   for (const day of days) {
     let order = 0;
     for (const { role, item, side } of daySchedule(day, items)) {
-      const base = { id: `${day}:${item.id}`, itemId: item.id, day, kind: item.kind, address: "", memo: "", link: "", secret: null, cost: "" };
+      const base = { id: `${day}:${item.id}`, itemId: item.id, day, kind: item.kind, address: "", memo: "" };
       if (side) {
         // 교통 거점: 이름은 매거진 거점 카드와 같게. 도착 시각은 저장하지 않아 출발 거점만 시각이 있다.
         const at = hubs.get(item.id)?.[side];
@@ -111,9 +105,6 @@ export function schedulePins(days: number[], items: Item[], hubs: Map<string, Tr
         // 마지막 날 아침의 숙소는 체크인 시각이 전날 것이라 숨긴다 (F26 결정 2)
         time: role === "start" ? null : item.time,
         memo: item.memo,
-        link: item.link,
-        secret: item.secret ?? null,
-        cost: formatCost(item.cost_amount, item.cost_currency),
         lat: Number(item.lat),
         lng: Number(item.lng),
       });

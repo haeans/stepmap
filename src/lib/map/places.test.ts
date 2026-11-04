@@ -46,9 +46,12 @@ describe("mapPlaces", () => {
     expect(missing).toBe(1);
   });
 
-  it("핀 세부에 쓸 메모·링크·비용을 함께 넘긴다", () => {
+  it("메모는 넘기고 링크·비용·예약 정보는 넘기지 않는다", () => {
     const { places } = mapPlaces([item({ memo: "야경", link: "https://a.b", cost_amount: "1200", cost_currency: "JPY" })]);
-    expect(places[0]).toMatchObject({ memo: "야경", link: "https://a.b", cost: "1,200 JPY" });
+    expect(places[0]).toMatchObject({ memo: "야경" });
+    expect(places[0]).not.toHaveProperty("link");
+    expect(places[0]).not.toHaveProperty("cost");
+    expect(places[0]).not.toHaveProperty("secret");
   });
 });
 
