@@ -1,13 +1,13 @@
-// 1화면 공용 조각. 쓴 돈 영역에 통화별 합계와 1인당 금액을 둔다(R-09).
-// A안은 magazine-view.tsx(F10), B안은 paper-view.tsx(F11).
+// 1화면 공용 조각. 쓴 돈 영역에 항목별 금액과 통화별 합계를 둔다(R-09).
+// 1인당 금액은 C9 F27부터 쓴 돈 안의 "정산"(cost-section.tsx Settle)에서 인원을 넣어 본다.
 
 import { formatAmount, summarizeCosts } from "@/lib/cost/summary";
 import { formatCost, type Item } from "@/lib/items/types";
 
-// 쓴 돈: 항목별 금액, 통화별 합계와 1인당 금액 (R-09). 글자색은 바깥을 따른다(매거진 사진 위 유리 카드, F10).
-export function CostList({ items, companions }: { items: Item[]; companions: number }) {
+// 쓴 돈: 항목별 금액과 통화별 합계 (R-09). 글자색은 바깥을 따른다(매거진 사진 위 유리 카드, F10).
+export function CostList({ items }: { items: Item[] }) {
   if (items.length === 0) return <p className="text-sm opacity-60">비용이 있는 항목이 없습니다.</p>;
-  const totals = summarizeCosts(items, companions);
+  const totals = summarizeCosts(items, 1);
   return (
     <div className="flex flex-col gap-3 text-sm">
       <ul className="flex flex-col gap-1">
@@ -23,7 +23,6 @@ export function CostList({ items, companions }: { items: Item[]; companions: num
           <tr className="text-xs opacity-60">
             <th className="pt-2 text-left font-normal">통화</th>
             <th className="pt-2 text-right font-normal">합계</th>
-            <th className="pt-2 text-right font-normal">1인당 ({companions}명)</th>
           </tr>
         </thead>
         <tbody>
@@ -31,7 +30,6 @@ export function CostList({ items, companions }: { items: Item[]; companions: num
             <tr key={t.currency} className="font-medium">
               <td className="py-0.5">{t.currency}</td>
               <td className="py-0.5 text-right tabular-nums">{formatAmount(t.total, t.currency)}</td>
-              <td className="py-0.5 text-right tabular-nums">{formatAmount(t.perPerson, t.currency)}</td>
             </tr>
           ))}
         </tbody>

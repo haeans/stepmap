@@ -10,13 +10,15 @@ import { loadTripContext } from "@/lib/assistant/context";
 import { nextPosition, resolvePlace, saveSecret, toRow } from "@/lib/items/store";
 import { parseItemForm, toSecretRow, type ItemInput } from "@/lib/items/validation";
 import { createClient } from "@/lib/supabase/server";
+import { cleanPackingLabels } from "@/lib/trips/packing";
 
 // R-04 붙여넣기 → 자동 추출. 원문은 저장하지 않고 추출 결과만 미리보기로 돌려준다. (B15)
 // F18: 원문에 일차·시각이 없는 항목은 AI 추천값을 채우고 suggest로 표시한다.
 // F20: 링크·예약번호는 자리표시로 바꿔 보내고(hideForAi) 결과에서 되돌린다. 저장 금지 정보는 maskPersonal이 가린다.
 
 // unassigned: AI가 어느 항목에도 붙이지 않은 예약번호(F20). 미리보기에서 사용자가 직접 넣는다.
-export type ExtractState = { error: string | null; items: ExtractedItem[] | null; unassigned?: string[] };
+// packing: 준비물(C9 F27). 저장하지 않고 화면이 브라우저 체크리스트에 더한다.
+export type ExtractState = { error: string | null; items: ExtractedItem[] | null; unassigned?: string[]; packing?: string[] };
 export type SaveExtractedState = { error: string | null; saved: number | null };
 
 export async function extractItems(tripId: string, _prev: ExtractState, form: FormData): Promise<ExtractState> {
@@ -42,10 +44,11 @@ export async function extractItems(tripId: string, _prev: ExtractState, form: Fo
   if (!result.ok) return { error: "추출하지 못했습니다. 잠시 뒤 다시 시도하거나 직접 입력을 써 주세요.", items: null };
 
   const items = normalizeItems(result.items, { startDate: trip.startDate, dayCount, busy, vault: hidden.vault });
-  if (!items.length) return { error: "찾은 항목이 없습니다.", items: null };
+  const packing = cleanPackingLabels(result.packing);
+  if (!items.length && !packing.length) return { error: "찾은 항목이 없습니다.", items: null };
   const used = new Set(items.map((i) => i.booking?.no).filter(Boolean));
   const unassigned = [...new Set(hidden.vault.bookings)].filter((b) => !used.has(b));
-  return { error: null, items, unassigned };
+  return { error: null, items, unassigned, packing };
 }
 
 export async function saveExtractedItems(

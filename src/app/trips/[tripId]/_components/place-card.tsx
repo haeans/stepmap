@@ -1,7 +1,7 @@
 "use client";
 
 // 매거진 DAY 장소 카드 (F10). 사진이 들어간 카드를 누르면 서랍처럼 아래로 펼쳐지며
-// 그 일정에 필요한 것(시간, 티켓·입장료와 예약 링크, 주소, 메모, 지도에서 보기)을 보여 준다. 수정·삭제도 여기서 한다.
+// 그 일정에 필요한 것(시간, 비용(요금·숙박비·입장료·식비)과 예약 링크, 주소, 메모, 지도에서 보기)을 보여 준다. 수정·삭제도 여기서 한다.
 // 지도로 가는 버튼은 카드 앞면(펼침 버튼 바로 위)에도 있다(C8 F16).
 // 사진: 직접 넣은 사진(photoUrl) → 장소 사진(C8 F22: 관광지는 Wikimedia Commons 먼저, 그 밖은 Google Places) → 일차 색 그라데이션.
 // 하루의 시작·끝 숙소 카드(role, C9 F26)는 그라데이션 대신 로고.
@@ -10,7 +10,7 @@
 import Link from "next/link";
 import { useId, useRef, useState, useTransition, type MouseEvent, type ReactNode } from "react";
 import { deleteItem, updateItem } from "@/app/actions/items";
-import { formatCost, formatTime, GEOCODED_KINDS, ITEM_KIND_LABELS, type Item } from "@/lib/items/types";
+import { COST_LABEL, formatCost, formatTime, GEOCODED_KINDS, ITEM_KIND_LABELS, type Item } from "@/lib/items/types";
 import type { CardPhoto } from "@/lib/places/types";
 import type { TripDay } from "@/lib/trips/days";
 import { BookingInfo, BookingLinkButton } from "./booking-info";
@@ -133,9 +133,10 @@ export function PlaceCard({ item, photoUrl = null, color, days, readOnly, role }
                   {lodging && <BookingLinkButton secret={item.secret} tone="dark" />}
                 </div>
               </Row>
-              <Row label="티켓·입장">
+              {/* 비용 줄 이름은 종류별: 요금·숙박비·입장료·식비 (C9 F27) */}
+              <Row label={COST_LABEL[item.kind]}>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span>{cost || "비용 정보 없음"}</span>
+                  <span>{cost || `${COST_LABEL[item.kind]} 정보 없음`}</span>
                   {item.link && (
                     <a
                       href={item.link}

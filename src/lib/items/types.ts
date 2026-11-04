@@ -52,6 +52,9 @@ export function formatTime(time: string | null): string {
   return time ? time.slice(0, 5) : "";
 }
 
+// 장소 카드의 비용 줄 이름은 종류마다 다르다(C9 F27): 교통 요금, 숙소 숙박비, 관광지 입장료, 식당 식비.
+export const COST_LABEL: Record<ItemKind, string> = { transport: "요금", lodging: "숙박비", sight: "입장료", food: "식비", memo: "비용" };
+
 export function formatCost(amount: Item["cost_amount"], currency: string | null): string {
   if (amount === null || !currency) return "";
   const value = Number(amount);

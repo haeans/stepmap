@@ -51,6 +51,20 @@ export async function renameTrip(tripId: string, _prev: ActionState, form: FormD
   return { error: null };
 }
 
+// 쓴 돈 정산 인원 (C9 F27, R-09). 여행을 만들 때 받지 않고(F24) 매거진 쓴 돈의 "정산"에서 넣는다.
+// 기존 trips.companions 칸에 저장한다(DB 변경 없음). 소유자 확인은 RLS가 한다(공유받은 사람은 0행 → 실패).
+export async function setCompanions(tripId: string, companions: number): Promise<ActionState> {
+  await requireUser();
+  if (!Number.isInteger(companions) || companions < 1 || companions > 99) return { error: "인원은 1명부터 99명까지입니다." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("trips").update({ companions }).eq("id", tripId).select("id");
+  if (error || !data?.length) return { error: "인원을 저장하지 못했습니다." };
+
+  revalidatePath(`/trips/${tripId}`);
+  return { error: null };
+}
+
 // 올린 사진을 대표 이미지로 기록한다. 사진은 브라우저에서 Storage의 "<여행 id>/cover"에 먼저 올린다.
 // 주소는 여기서 만든다(아무 주소나 넣지 못하게). ?v=로 바꾼 사진이 바로 보이게 한다. (F08 결정 5, 6)
 export async function setUploadedCover(tripId: string): Promise<ActionState> {
