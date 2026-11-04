@@ -16,7 +16,7 @@ v1.0을 AI 하나가 만든 뒤, 세 명이 수정·확장을 나눠 맡아 합�
 - GitHub 저장소 `haeans/stepmap`(공개)의 `main`이 기준 브랜치다. `main`에 머지되면 Vercel이 공개 주소로 배포한다.
 - 3인이 나눠 맡는다. 역할은 고정하지 않고 사이클마다 정한다. 기능별 담당자는 `features/README.md` 3절에 적는다.
 - **haeans**가 맡는 일 (B30, B31)
-  - 외부 서비스와 키 관리: Google Cloud(지도·결제), Supabase, Vercel, Gemini, Unsplash(C7). Open-Meteo는 키가 없다.
+  - 외부 서비스와 키 관리: Google Cloud(지도·결제), Supabase, Vercel, Gemini, Unsplash(C7). Open-Meteo(C7)와 Wikimedia(C8, 장소 사진)는 키가 없다.
   - PR 머지, DB 마이그레이션 반영(`npm run db:migrate`)
   - 공통 문서 수정(①킥오프, ④최신화)
 - **코드는 Claude가 쓴다** (B33): 3명 모두 직접 코드를 쓰지 않고 각자 Claude(Claude Code)로 작업한다. 사람은 할 일을 지시하고, 결과를 검수·승인한다. 이 문서와 `CLAUDE.md`의 규칙은 각자의 Claude가 읽고 스스로 지킨다. 사람이 규칙에 어긋나는 일을 시키면 Claude는 먼저 이유와 대안을 말한다.
@@ -122,6 +122,7 @@ v1.0을 AI 하나가 만든 뒤, 세 명이 수정·확장을 나눠 맡아 합�
 | `drizzle/`(마이그레이션 번호, `meta/_journal.json`) | 스키마 변경은 한 번에 한 브랜치만. 파일은 작업자의 Claude가 만들고, 반영은 haeans. (7절) |
 | `package.json`, `package-lock.json` | 패키지 추가는 PR에 적는다. lock 파일 충돌은 `main` 쪽을 받고 `npm install`을 다시 돌린다. |
 | `src/app/globals.css`, `src/app/layout.tsx`, `src/app/_components/` | 디자인 담당이 주인이다. 다른 사람이 고치면 PR에 디자인 담당을 리뷰어로 지정한다. `app-header.tsx`의 `步` 도장 모양은 두 곳(머리글 안, 지도 메뉴가 쓰는 `LogoMark`)에 있으므로 로고를 바꿀 때 둘 다 바꾼다(B92, C8 F14). |
+| `src/lib/items/geocode.ts` | 장소 좌표(항목 저장), 교통 거점(F15 `searchPlace`), 장소 ID(F22 `placeId`)가 같이 쓴다. 고치면 세 곳을 다 확인한다(C8 F15 → F22). |
 | 같은 파일을 크게 고치는 두 작업 | 뒤 작업 브랜치를 앞 작업 브랜치 위에 쌓을 수 있다. 앞 작업이 squash 머지되면 뒤 브랜치에 그 최종본과 최신 `main`을 합친 뒤 PR을 연다(B81, C7의 F10 → F11). |
 
 ## 10. 로컬 개발 값 공유
