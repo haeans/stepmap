@@ -72,7 +72,7 @@ v1.0 이후 분담은 ① 시작 회의에서 정하고, haeans가 킥오프 PR�
 | F23 | 상단바·프로필 버튼 통일 (C9 2단계, F21과 같은 담당 추천) | [#56](https://github.com/haeans/stepmap/issues/56) | 미정 (디자인 담당) | `<담당>/f23-top-bar` | | 없음 | 킥오프 |
 | F24 | 여행 목록 정리: 미리보기 첫 일정·⋯ 메뉴·"발자국"·새 여행 필수 칸 (C9 1단계) | [#57](https://github.com/haeans/stepmap/issues/57) | haeans | `haeans/f24-trip-list` | | 없음 | 킥오프 |
 | F25 | 지도 탭 단순화: 핀만·핀 팝업과 구글맵 버튼·거리/이동수단·곰발바닥 버튼 삭제 (C9 1단계) | [#58](https://github.com/haeans/stepmap/issues/58) | leedaekeon578 | `leedaekeon578/f25-map-pins` | | 없음 | 킥오프 |
-| F26 | 하루 일정 규칙·사진 대체(로고)·항공권/승차권 기준·예약 링크 열기 버튼 (C9 1단계, **가장 먼저**) | [#59](https://github.com/haeans/stepmap/issues/59) | haeans | `haeans/f26-day-rules` | | 없음 | 킥오프 |
+| F26 | 하루 일정 규칙·사진 대체(로고)·항공권/승차권 기준·예약 링크 열기 버튼 (C9 1단계, **가장 먼저**) | [#59](https://github.com/haeans/stepmap/issues/59) | hyunw0000 | `hyunw0000/f26-day-rules` | | 없음 | 킥오프 |
 | F27 | BACK 정리: 준비물 붙여넣기 버그·쓴 돈 합계와 정산 버튼·쓴 돈 수정 버그 (C9 1단계) | [#60](https://github.com/haeans/stepmap/issues/60) | hyunw0000 | `hyunw0000/f27-back-fixes` | | 없음 | 킥오프 |
 | F28 | 추출 미리보기를 매거진 DAY BY DAY로, 사진 포함 (C9 1단계, F27 위에 쌓기) | [#61](https://github.com/haeans/stepmap/issues/61) | hyunw0000 | `hyunw0000/f28-magazine-preview` | | 없음 | 킥오프 |
 
@@ -90,7 +90,7 @@ v1.0 이후 분담은 ① 시작 회의에서 정하고, haeans가 킥오프 PR�
 
 | 단계 | 묶음 A (haeans) | 묶음 B (hyunw0000) | 묶음 C (leedaekeon578) |
 |---|---|---|---|
-| 1단계 (킥오프 머지 후 동시에 시작) | ① F26 → ② F24 | ① F27 → ② F28 (F27 위에 쌓기) | ① F25 (삭제 작업부터) |
+| 1단계 (킥오프 머지 후 동시에 시작) | ① F24 | ① F26 (가장 먼저) → ② F27 → ③ F28 (F27 위에 쌓기) | ① F25 (삭제 작업부터) |
 | 2단계 (1단계 모두 배포 후) | 검수 | 검수 | — |
 | 2단계 디자인 담당 (미정) | F21 → F23 (같은 사람) | | |
 
@@ -106,7 +106,8 @@ v1.0 이후 분담은 ① 시작 회의에서 정하고, haeans가 킥오프 PR�
 
 **같은 파일을 고치지만 기다리지 않는 작업** (나중에 머지하는 쪽이 최신 `main`을 받아 맞춘다)
 
-- F26 · F27: `src/lib/extract/prompt.ts`(F26 비행기 이름 규칙, F27 준비물), `ticket-strip.tsx`(F26 항공권·승차권 분류, F27 준비물 `Checklist`)
+- F26 → F27은 같은 담당(hyunw0000)이 차례로 한다. 둘 다 `src/lib/extract/prompt.ts`(F26 비행기 이름 규칙, F27 준비물), `ticket-strip.tsx`(F26 항공권·승차권 분류, F27 준비물 `Checklist`)를 고치므로 F26 머지 뒤 최신 `main`에서 F27을 판다(또는 F26 위에 쌓기, B81).
+- F26은 F25·F28의 선행 작업이므로 묶음 B가 가장 먼저 끝낸다. 묶음 B에 작업이 몰려 있어(F26·F27·F28) 늦어지면 다시 나눈다.
 - F24 · F27: `src/app/actions/trips.ts`(F24 새 여행 필수 칸, F27 정산 인원 저장)
 - F26의 사진 대체 이미지는 킥오프에서 넣은 `public/brand/logo.png`를 쓴다(킥오프 머지 후 바로 쓸 수 있다).
 
