@@ -1,8 +1,9 @@
 "use client";
 
-import { AdvancedMarker, APIProvider, ControlPosition, Map, Pin, useMap } from "@vis.gl/react-google-maps";
+import { AdvancedMarker, APIProvider, ControlPosition, Map, Pin, useAdvancedMarkerRef, useMap } from "@vis.gl/react-google-maps";
 import { useEffect } from "react";
 import { dayColor, type LatLng, type MapPlace } from "@/lib/map/places";
+import { PinPopup } from "./pin-popup";
 
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
 const MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || "DEMO_MAP_ID";
@@ -16,6 +17,8 @@ type Props = {
   focusDay: number | null; // 강조할 일차 (F14 결정 4)
   selectedId: string | null;
   onSelect: (id: string) => void;
+  popupId: string | null; // 팝업을 띄울 핀 (F25)
+  onClosePopup: () => void;
   padding: MapPadding;
 };
 
@@ -36,32 +39,59 @@ export function RouteMap(props: Props) {
         // 오른쪽 위는 로고 메뉴, 아래는 모바일 시트 자리다 (F14 결정 9)
         zoomControlOptions={{ position: ControlPosition.RIGHT_CENTER }}
         className="h-full w-full"
+        // 지도 빈 곳을 누르면 팝업을 닫는다. 핀을 누를 때는 지도 클릭이 오지 않는다 (F25)
+        onClick={props.onClosePopup}
       >
-        {props.places.map((p) => {
-          const selected = p.id === props.selectedId;
-          const dimmed = props.focusDay !== null && p.day !== props.focusDay;
-          return (
-            <AdvancedMarker
-              key={p.id}
-              position={p}
-              title={`DAY ${p.day} · ${p.order}. ${p.name}`}
-              onClick={() => props.onSelect(p.id)}
-              zIndex={selected ? 1000 : dimmed ? p.order : 100 + p.order}
-              style={{ opacity: dimmed ? 0.35 : 1, transition: "opacity 200ms" }}
-            >
-              <Pin
-                background={dayColor(p.day)}
-                borderColor={selected ? "#18181b" : "#ffffff"}
-                glyphColor="#ffffff"
-                glyphText={String(p.order)}
-                scale={selected ? 1.3 : 1}
-              />
-            </AdvancedMarker>
-          );
-        })}
+        {props.places.map((p) => (
+          <PlaceMarker
+            key={p.id}
+            place={p}
+            selected={p.id === props.selectedId}
+            dimmed={props.focusDay !== null && p.day !== props.focusDay}
+            popup={p.id === props.popupId}
+            onSelect={props.onSelect}
+            onClosePopup={props.onClosePopup}
+          />
+        ))}
         <CameraControl points={props.framed} selected={props.places.find((p) => p.id === props.selectedId) ?? null} padding={props.padding} />
       </Map>
     </APIProvider>
+  );
+}
+
+type MarkerProps = {
+  place: MapPlace;
+  selected: boolean;
+  dimmed: boolean;
+  popup: boolean;
+  onSelect: (id: string) => void;
+  onClosePopup: () => void;
+};
+
+// 일차 색 번호 핀 하나. 팝업은 그 핀에 붙여 핀 위에 띄운다.
+// 핀마다 자기 팝업을 따로 띄우므로 다른 핀으로 옮겨 가도 앞 팝업의 닫기(onClose)가 새 팝업을 닫지 않는다.
+function PlaceMarker({ place: p, selected, dimmed, popup, onSelect, onClosePopup }: MarkerProps) {
+  const [ref, marker] = useAdvancedMarkerRef();
+  return (
+    <>
+      <AdvancedMarker
+        ref={ref}
+        position={p}
+        title={`DAY ${p.day} · ${p.order}. ${p.name}`}
+        onClick={() => onSelect(p.id)}
+        zIndex={selected ? 1000 : dimmed ? p.order : 100 + p.order}
+        style={{ opacity: dimmed ? 0.35 : 1, transition: "opacity 200ms" }}
+      >
+        <Pin
+          background={dayColor(p.day)}
+          borderColor={selected ? "#18181b" : "#ffffff"}
+          glyphColor="#ffffff"
+          glyphText={String(p.order)}
+          scale={selected ? 1.3 : 1}
+        />
+      </AdvancedMarker>
+      {popup && <PinPopup place={p} anchor={marker} onClose={onClosePopup} />}
+    </>
   );
 }
 

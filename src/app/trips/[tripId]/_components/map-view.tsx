@@ -28,6 +28,8 @@ export function MapView({ places, days, missing, initialId, trip, email, readOnl
   const initial = places.find((p) => p.itemId === initialId) ?? null;
   const [day, setDay] = useState<number | "all">(initial?.day ?? "all");
   const [selectedId, setSelectedId] = useState<string | null>(initial?.id ?? null);
+  // 핀 위 팝업 (F25). 핀을 누르거나 ?item= 링크로 들어오면 연다. 목록 줄·자동 고르기로는 열지 않는다.
+  const [popupOpen, setPopupOpen] = useState(initial !== null);
   const [expanded, setExpanded] = useState(false); // 모바일 시트에서 목록을 펼쳤는가
   const [collapsed, setCollapsed] = useState(false); // PC 패널을 접었는가 (결정 10)
   const [padding, setPadding] = useState<MapPadding>({ top: GAP, right: GAP, bottom: GAP, left: GAP });
@@ -92,17 +94,21 @@ export function MapView({ places, days, missing, initialId, trip, email, readOnl
   function chooseDay(next: number | "all") {
     setDay(next);
     setSelectedId(null);
+    setPopupOpen(false);
   }
 
-  // 목록에서 고르기: 모바일 시트는 펼친 채로 두고 지도만 옮긴다 (결정 11)
+  // 목록에서 고르기: 모바일 시트는 펼친 채로 두고 지도만 옮긴다 (결정 11).
+  // 팝업은 열지 않는다. 모바일에서 시트를 펼친 채 열면 위에 남은 좁은 지도에서 팝업이 잘린다 (F25)
   function choosePlace(id: string) {
     setSelectedId(id);
+    setPopupOpen(false);
   }
 
   // 지도에서 핀 고르기: 모바일은 시트를 펼쳐 고른 목록 줄을 보인다 (F14 결정 11).
   // PC는 접힌 패널을 펼친다 (F15 결정 7)
   function choosePin(id: string) {
     setSelectedId(id);
+    setPopupOpen(true);
     if (window.matchMedia("(min-width: 768px)").matches) setCollapsed(false);
     else setExpanded(true);
   }
@@ -127,6 +133,8 @@ export function MapView({ places, days, missing, initialId, trip, email, readOnl
           focusDay={focusDay}
           selectedId={selectedId}
           onSelect={choosePin}
+          popupId={popupOpen ? (selected?.id ?? null) : null}
+          onClosePopup={() => setPopupOpen(false)}
           padding={padding}
         />
       </div>
