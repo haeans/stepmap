@@ -17,13 +17,14 @@ export async function createTrip(_prev: ActionState, form: FormData): Promise<Ac
   const parsed = parseTripForm(form);
   if (!parsed.ok) return { error: parsed.error };
 
-  const { title, destination, startDate, endDate, companions } = parsed.value;
+  const { title, destination, startDate, endDate } = parsed.value;
+  // 동행 인원은 보내지 않는다(DB 기본값 1, 인원은 쓴 돈의 정산에서 넣음, C9 F24).
   // 대표 이미지는 만들 때 한 번만 찾는다. 못 찾아도 여행은 만든다. (F08)
   const pick = await searchCover(destination);
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("trips")
-    .insert({ title, destination, start_date: startDate, end_date: endDate, companions, ...pick?.cover })
+    .insert({ title, destination, start_date: startDate, end_date: endDate, ...pick?.cover })
     .select("id")
     .single();
   if (error || !data) return { error: "여행을 만들지 못했습니다. 다시 시도해 주세요." };
