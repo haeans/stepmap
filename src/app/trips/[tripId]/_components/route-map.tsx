@@ -79,7 +79,6 @@ export function RouteMap(props: Props) {
             ) : null,
           );
         })}
-        <RouteLines routes={props.routes} focusDay={props.focusDay} />
         <CameraControl points={props.framed} selected={props.places.find((p) => p.id === props.selectedId) ?? null} padding={props.padding} />
       </Map>
     </APIProvider>
