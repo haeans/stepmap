@@ -11,7 +11,7 @@ import { deleteItem, updateItem } from "@/app/actions/items";
 import { compareItems } from "@/lib/items/group";
 import { formatCost, formatTime, type Item } from "@/lib/items/types";
 import type { TripDay } from "@/lib/trips/days";
-import { isPass, isTicket, parseFlight, parseRide, passLines, returnFlight, stayRange } from "@/lib/trips/go-info";
+import { isFlight, isPass, isTicket, parseFlight, parseRide, passLines, returnFlight, stayRange } from "@/lib/trips/go-info";
 import { clothingTip, isRainy, weatherKind, weatherLabel, type TripWeather, type WeatherKind } from "@/lib/weather/codes";
 import { BookingInfo } from "./booking-info";
 import { EDIT_PANEL, EditHeader } from "./edit-sheet";
@@ -324,6 +324,9 @@ function Barcode({ seed }: { seed: string }) {
   );
 }
 
+// 공항 코드(ICN)는 크게, 코드를 모르는 공항 이름(오사카)은 한 줄에 들어가게 작게 (C9 F26 결정 3)
+const airportClass = (v: string) => `leading-none font-black tracking-tight ${/^[A-Z]{3}$/.test(v) ? "text-5xl" : "text-2xl break-keep"}`;
+
 function BoardingPass({ item, transports, days }: { item: Item; transports: Item[]; days: TripDay[] }) {
   const f = parseFlight(item)!;
   const back = returnFlight(item, transports);
@@ -342,7 +345,7 @@ function BoardingPass({ item, transports, days }: { item: Item; transports: Item
       <div className="flex flex-col gap-5 px-5 pt-6 pb-4">
         <div className="flex items-end justify-between gap-2">
           <div>
-            <p className="text-5xl leading-none font-black tracking-tight">{f.from}</p>
+            <p className={airportClass(f.from)}>{f.from || "—"}</p>
             <p className="mt-1 text-xs text-zinc-500">{f.fromName}</p>
           </div>
           <div aria-hidden className="mb-6 flex flex-1 items-center gap-1 text-zinc-500">
@@ -351,7 +354,7 @@ function BoardingPass({ item, transports, days }: { item: Item; transports: Item
             <span className="flex-1 border-t-2 border-dashed border-zinc-300" />
           </div>
           <div className="text-right">
-            <p className="text-5xl leading-none font-black tracking-tight">{f.to}</p>
+            <p className={airportClass(f.to)}>{f.to || "—"}</p>
             <p className="mt-1 text-xs text-zinc-500">{f.toName}</p>
           </div>
         </div>
@@ -833,7 +836,7 @@ function groupFoot(kind: GoKind, group: Item[], lodgings: Item[], days: TripDay[
 function groupTitle(kind: GoKind, group: Item[]): string {
   const first = group[0];
   const route = kind === "flight" ? parseFlight(first) : kind === "ticket" ? parseRide(first.name) : null;
-  const base = route ? `${route.from} → ${route.to}` : first.name;
+  const base = route && route.from && route.to ? `${route.from} → ${route.to}` : first.name;
   return group.length > 1 ? `${base} 외 ${group.length - 1}${KIND_UNIT[kind]}` : base;
 }
 
@@ -924,7 +927,7 @@ export function TicketStrip({ items, days, readOnly, coverImage, companions }: P
   // 종류별로 묶고(각 묶음 안은 날짜순, groupItems가 이미 정렬함), 묶음은 가장 이른 예약 날짜순
   const groups = (
     [
-      ["flight", items.filter((i) => parseFlight(i))],
+      ["flight", items.filter(isFlight)],
       ["ticket", items.filter(isTicket)],
       ["lodging", items.filter((i) => i.kind === "lodging")],
       ["pass", items.filter(isPass)],
