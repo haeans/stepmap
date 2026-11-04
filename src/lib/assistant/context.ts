@@ -20,6 +20,8 @@ export type TripContextData = {
   existing: ExistingItem[];
   // 일차별 기존 일정 수
   busy: Record<number, number>;
+  // existing과 같은 순서의 id·메모. F19 대화에서 "#번호"로 가리킨 일정을 찾는 데 쓴다(모델에게는 id를 보내지 않는다).
+  refs: { id: string; memo: string }[];
 };
 
 export async function loadTripContext(supabase: Supabase, tripId: string, userId: string): Promise<TripContextData | null> {
@@ -32,18 +34,21 @@ export async function loadTripContext(supabase: Supabase, tripId: string, userId
 
   const { data } = await supabase
     .from("items")
-    .select("kind, day, time, name, address")
+    .select("id, kind, day, time, name, address, memo")
     .eq("trip_id", tripId)
     .order("day")
     .order("time", { nullsFirst: false })
+    .order("position")
     .limit(MAX_EXISTING)
-    .returns<ExistingItem[]>();
-  const existing = data ?? [];
+    .returns<(ExistingItem & { id: string; memo: string })[]>();
+  const rows = data ?? [];
+  const existing: ExistingItem[] = rows.map(({ kind, day, time, name, address }) => ({ kind, day, time, name, address }));
+  const refs = rows.map(({ id, memo }) => ({ id, memo }));
   const days = tripDays(trip.start_date, trip.end_date);
   const maxDay = Math.max(0, ...existing.map((i) => i.day));
   const dayCount = Math.max(dayChoices(days, trip.start_date !== null).length, maxDay);
   const busy: Record<number, number> = {};
   for (const i of existing) busy[i.day] = (busy[i.day] ?? 0) + 1;
 
-  return { destination: trip.destination, startDate: trip.start_date, endDate: trip.end_date, days, dayCount, existing, busy };
+  return { destination: trip.destination, startDate: trip.start_date, endDate: trip.end_date, days, dayCount, existing, busy, refs };
 }

@@ -1,19 +1,23 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { loadTripContext } from "@/lib/assistant/context";
 import { chatMessage } from "@/lib/assistant/prompt";
 import { MAX_CHAT_LENGTH } from "@/lib/assistant/route";
-import { normalizeProposal, type ProposalItem } from "@/lib/assistant/proposal";
+import { normalizeChanges, normalizeProposal, type ChangeFields, type ProposalChange, type ProposalItem } from "@/lib/assistant/proposal";
 import { requireUser } from "@/lib/auth/user";
 import { chatWithGemini } from "@/lib/extract/gemini";
 import { maskPersonal } from "@/lib/extract/mask";
 import { geocodePlace, geocodeQuery } from "@/lib/items/geocode";
+import { nextPosition, resolvePlace, toRow } from "@/lib/items/store";
 import { GEOCODED_KINDS, ITEM_KINDS } from "@/lib/items/types";
+import { parseItemForm } from "@/lib/items/validation";
 import { createClient } from "@/lib/supabase/server";
 
 // F19 대화 도우미 한 턴. 메시지 하나에 AI 호출 하나다. 대화는 서버·DB에 남기지 않는다. ([hyunw0000-f19-ai-planner] 결정 2·6·7)
 // 저장은 여기서 하지 않는다. 사용자가 제안 미리보기에서 "저장"을 누르면 saveExtractedItems로 저장한다(결정 4).
+// 저장된 일정 고치기·지우기도 제안만 하고, 사용자가 카드에서 "반영"·"삭제"를 누르면 applyChange로 반영한다(범위 추가, 2026-11-04).
 
 const MAX_HISTORY = 10;
 const MAX_PLAN = 30;
@@ -32,7 +36,7 @@ const ChatInput = z.object({
 export type ChatRequest = z.input<typeof ChatInput>;
 
 export type ChatResponse =
-  | { ok: true; reply: string; items: ProposalItem[]; notes: string[]; quickReplies: string[] }
+  | { ok: true; reply: string; items: ProposalItem[]; changes: ProposalChange[]; notes: string[]; quickReplies: string[] }
   | { ok: false; error: string };
 
 export async function sendChat(tripId: string, request: ChatRequest): Promise<ChatResponse> {
@@ -70,10 +74,101 @@ export async function sendChat(tripId: string, request: ChatRequest): Promise<Ch
   const missing = checked.filter((i) => i.found === false).length;
   if (missing) notes.push(`${missing}곳은 지도에서 찾지 못해 넣기를 꺼 두었습니다. 이름을 확인해 주세요.`);
 
-  const reply = result.reply.trim().slice(0, 600) || (checked.length ? "일정을 짜 봤어요." : "다시 말씀해 주세요.");
+  // 저장된 일정 고치기·지우기: "#번호" → 실제 일정. 이름을 바꾼 장소는 Places로 찾아 보고 못 찾으면 반영을 끈다.
+  const targets = trip.existing.map((e, i) => ({ ...e, id: trip.refs[i].id, memo: trip.refs[i].memo }));
+  const normalized = normalizeChanges(result.changes, { dayCount: trip.dayCount, targets });
+  notes.push(...normalized.notes);
+  const changes = await Promise.all(
+    normalized.changes.map(async (c) => {
+      if (!c.after || c.after.name === c.before.name || !GEOCODED_KINDS.includes(c.kind)) return c;
+      const place = await geocodePlace(geocodeQuery(c.after.name, trip.destination));
+      return { ...c, found: place !== null };
+    }),
+  );
+  const lost = changes.filter((c) => c.found === false).length;
+  if (lost) notes.push(`${lost}곳은 바꾼 이름을 지도에서 찾지 못해 반영을 꺼 두었습니다.`);
+
+  const reply =
+    result.reply.trim().slice(0, 600) ||
+    (checked.length ? "일정을 짜 봤어요." : changes.length ? "아래 카드에서 확인해 주세요." : "다시 말씀해 주세요.");
   const quickReplies = result.quickReplies
     .map((q) => q.trim().slice(0, 30))
     .filter(Boolean)
     .slice(0, 3);
-  return { ok: true, reply, items: checked, notes, quickReplies };
+  return { ok: true, reply, items: checked, changes, notes, quickReplies };
+}
+
+// ───────── 대화로 제안한 고치기·지우기 반영 ─────────
+// 사용자가 카드에서 "반영"·"삭제"를 눌렀을 때만 부른다. AI를 부르지 않는다.
+// 반영할 값은 화면에서 오므로 믿지 않고, 일정을 다시 읽어 직접 입력과 같은 검사(parseItemForm)를 거친다.
+
+const ChangeInput = z.object({
+  itemId: z.string().uuid(),
+  action: z.enum(["update", "delete"]),
+  after: z
+    .object({
+      day: z.number().int(),
+      time: z.string().nullable(),
+      name: z.string(),
+      address: z.string(),
+      memo: z.string(),
+    })
+    .nullable(),
+});
+
+export type ApplyChangeRequest = { itemId: string; action: "update" | "delete"; after: ChangeFields | null };
+
+export async function applyChange(tripId: string, request: ApplyChangeRequest): Promise<{ error: string | null }> {
+  const user = await requireUser();
+  const parsed = ChangeInput.safeParse(request);
+  if (!parsed.success) return { error: "바꿀 내용이 올바르지 않습니다." };
+  const { itemId, action, after } = parsed.data;
+
+  // 대화 도우미는 소유자만 쓴다(B17). 쓰기 권한은 RLS가 한 번 더 막는다.
+  const supabase = await createClient();
+  const { data: prev } = await supabase
+    .from("items")
+    .select("kind, day, name, address, lat, lng, link, cost_amount, cost_currency, trips(owner_id, destination)")
+    .eq("id", itemId)
+    .eq("trip_id", tripId)
+    .maybeSingle();
+  const trip = prev?.trips as unknown as { owner_id: string; destination: string } | null;
+  if (!prev || !trip) return { error: "이미 없는 일정입니다." };
+  if (trip.owner_id !== user.id) return { error: "여행을 만든 사람만 고칠 수 있습니다." };
+  if (prev.kind === "memo") return { error: "쪽지는 매거진에서 직접 고쳐 주세요." };
+
+  if (action === "delete") {
+    const { data, error } = await supabase.from("items").delete().eq("id", itemId).eq("trip_id", tripId).select("id");
+    if (error || !data?.length) return { error: "일정을 지우지 못했습니다." };
+    revalidatePath(`/trips/${tripId}`);
+    return { error: null };
+  }
+
+  if (!after) return { error: "바꿀 내용이 없습니다." };
+  // 종류·링크·비용은 대화로 바꾸지 않는다. 지금 값을 그대로 넣어 직접 입력과 같은 검사를 거친다.
+  const form = new FormData();
+  form.set("kind", prev.kind);
+  form.set("day", String(after.day));
+  form.set("time", after.time ?? "");
+  form.set("name", after.name);
+  form.set("address", after.address);
+  form.set("memo", after.memo);
+  form.set("link", prev.link ?? "");
+  form.set("costAmount", prev.cost_amount === null ? "" : String(prev.cost_amount));
+  form.set("costCurrency", prev.cost_currency ?? "");
+  const input = parseItemForm(form);
+  if (!input.ok) return { error: input.error };
+
+  const place = await resolvePlace(input.value, trip.destination, prev);
+  const position = input.value.day !== prev.day ? { position: await nextPosition(supabase, tripId, input.value.day) } : {};
+  const { data, error } = await supabase
+    .from("items")
+    .update({ ...toRow(input.value), ...place, ...position })
+    .eq("id", itemId)
+    .eq("trip_id", tripId)
+    .select("id");
+  if (error || !data?.length) return { error: "일정을 고치지 못했습니다." };
+
+  revalidatePath(`/trips/${tripId}`);
+  return { error: null };
 }

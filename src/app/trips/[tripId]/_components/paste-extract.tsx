@@ -1,21 +1,24 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState, useTransition, type KeyboardEvent } from "react";
-import { sendChat } from "@/app/actions/assistant";
+import { applyChange, sendChat } from "@/app/actions/assistant";
 import { extractItems, saveExtractedItems, type SaveExtractedState } from "@/app/actions/extract";
-import type { ProposalItem } from "@/lib/assistant/proposal";
+import { CHANGE_FIELD_LABELS, changedFields, type ChangeFields, type ProposalItem } from "@/lib/assistant/proposal";
+import { ITEM_KIND_LABELS } from "@/lib/items/types";
 import { MAX_CHAT_LENGTH, pasteScore, routeMessage, type Route } from "@/lib/assistant/route";
 import { MAX_TEXT_LENGTH, type ExtractedItem } from "@/lib/extract/normalize";
 import type { TripDay } from "@/lib/trips/days";
 import {
   appendEntry,
   clearChat,
+  closeOpenChanges,
   newId,
   readChat,
   replaceOpenProposals,
   updateEntry,
   useChat,
   type AssistantEntry,
+  type ChangeCard,
   type PreviewStatus,
 } from "./chat-store";
 import { BUBBLE_IN, BUBBLE_OUT, FIELD, GHOST, PRIMARY as BUTTON } from "./form-styles";
@@ -87,12 +90,14 @@ export function PasteExtract({ tripId, days }: { tripId: string; days: TripDay[]
       return;
     }
     if (result.items.length) replaceOpenProposals(tripId);
+    if (result.changes.length) closeOpenChanges(tripId);
     say(
       {
         text: result.reply,
         quickReplies: result.quickReplies,
         notes: result.notes,
         proposal: result.items.length ? { items: result.items, status: "open" } : undefined,
+        changes: result.changes.length ? result.changes.map((c) => ({ ...c, status: "open" as const })) : undefined,
         switchTo,
       },
       message,
@@ -270,10 +275,107 @@ function AssistantMessage({
             {preview.status === "saved" && preview.saved ? ` (${preview.saved}개)` : ""}
           </p>
         ))}
+      {entry.changes && entry.changes.length > 0 && (
+        <div className="flex flex-col gap-2" aria-label="저장된 일정 고치기·지우기">
+          {entry.changes.map((change) => (
+            <ChangeCardView
+              key={change.id}
+              tripId={tripId}
+              change={change}
+              onUpdate={(next) =>
+                updateEntry(tripId, entry.id, (e) => ({
+                  ...e,
+                  changes: e.changes?.map((c) => (c.id === change.id ? { ...c, ...next } : c)),
+                }))
+              }
+            />
+          ))}
+        </div>
+      )}
       {canSwitch && entry.switchTo && (
         <button type="button" onClick={() => onSwitch(entry.switchTo!)} className={`${GHOST} self-start px-2 py-1 text-xs`}>
           {entry.switchTo === "chat" ? "대화로 다시 보내기" : "붙여넣기로 뽑기"}
         </button>
+      )}
+    </div>
+  );
+}
+
+function fieldText(key: keyof ChangeFields, value: ChangeFields[keyof ChangeFields]): string {
+  if (key === "day") return `DAY ${value}`;
+  if (value === null || value === "") return "(없음)";
+  return String(value);
+}
+
+// 저장된 일정 고치기·지우기 카드. 버튼을 눌러야만 반영된다.
+function ChangeCardView({
+  tripId,
+  change,
+  onUpdate,
+}: {
+  tripId: string;
+  change: ChangeCard;
+  onUpdate: (next: Partial<ChangeCard>) => void;
+}) {
+  const [pending, startTransition] = useTransition();
+  const isDelete = change.action === "delete";
+  const blocked = change.found === false;
+  const fields = changedFields(change);
+  const when = `DAY ${change.before.day}${change.before.time ? ` ${change.before.time}` : ""}`;
+
+  function apply() {
+    startTransition(async () => {
+      const result = await applyChange(tripId, { itemId: change.id, action: change.action, after: change.after });
+      onUpdate(result.error ? { error: result.error } : { status: "done", error: undefined });
+    });
+  }
+
+  return (
+    <div
+      className={`flex flex-col gap-2 rounded-2xl border p-3 text-sm ${
+        isDelete ? "border-rose-500/40 bg-rose-500/5" : "border-sky-500/40 bg-sky-500/5"
+      } ${change.status === "open" ? "" : "opacity-60"}`}
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <span
+          className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+            isDelete ? "bg-rose-500/15 text-rose-700 dark:text-rose-300" : "bg-sky-500/15 text-sky-800 dark:text-sky-300"
+          }`}
+        >
+          {isDelete ? "지우기" : "고치기"}
+        </span>
+        <span className="text-xs text-muted">
+          {ITEM_KIND_LABELS[change.kind]} · {when}
+        </span>
+        <span className="font-semibold">{change.before.name}</span>
+        {blocked && (
+          <span className="rounded-full bg-rose-500/15 px-2 py-0.5 text-xs font-medium text-rose-700 dark:text-rose-300">지도에서 찾지 못함</span>
+        )}
+      </div>
+      {!isDelete && change.after && (
+        <ul className="flex flex-col gap-1">
+          {fields.map((k) => (
+            <li key={k} className="flex flex-wrap items-baseline gap-x-2 text-xs">
+              <span className="w-8 shrink-0 text-muted">{CHANGE_FIELD_LABELS[k]}</span>
+              <span className="line-through opacity-60">{fieldText(k, change.before[k])}</span>
+              <span aria-hidden>→</span>
+              <span className="font-medium">{fieldText(k, change.after![k])}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {change.error && <p className="rounded-xl bg-rose-500/15 px-3 py-2 text-xs text-rose-700 dark:text-rose-300">{change.error}</p>}
+      {change.status === "open" ? (
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={() => onUpdate({ status: "closed" })} disabled={pending} className={`${GHOST} px-3 py-1.5 text-xs`}>
+            취소
+          </button>
+          <button type="button" onClick={apply} disabled={pending || blocked} className={`${BUTTON} px-3 py-1.5 text-xs`}>
+            {pending ? "반영 중…" : isDelete ? "삭제" : "반영"}
+          </button>
+        </div>
+      ) : (
+        <p className="text-xs text-muted">{change.status === "done" ? (isDelete ? "지웠어요" : "반영했어요") : "반영하지 않았어요"}</p>
       )}
     </div>
   );

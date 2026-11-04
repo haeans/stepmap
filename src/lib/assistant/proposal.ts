@@ -154,3 +154,118 @@ export function normalizeProposal(raw: RawProposalItem[], ctx: ProposalContext):
   if (placed.length > MAX_PROPOSAL) notes.push(`한 번에 ${MAX_PROPOSAL}곳까지만 보여 줍니다.`);
   return { items, notes };
 }
+
+// ───────── 저장된 일정 고치기·지우기 (F19 범위 추가, 2026-11-04) ─────────
+// 모델은 <existing>의 "#번호"로 가리키고, 여기서 번호 → 실제 일정으로 바꾼다. 모델에게는 id를 보이지 않는다.
+// 사용자가 말한 시각은 그대로 두고(옮기지 않는다), 다른 일정과 겹치면 notes로 알린다.
+
+export const MAX_CHANGES = 10;
+
+// 모델이 돌려주는 고치기·지우기(gemini.ts 대화 스키마와 같은 모양). 바꾸지 않는 칸은 null
+export type RawChange = {
+  ref: string;
+  action: "update" | "delete";
+  day: number | null;
+  time: string | null;
+  name: string | null;
+  address: string | null;
+  memo: string | null;
+};
+
+// 가리킬 수 있는 저장된 일정. <existing>과 같은 순서(번호 = 순서 + 1)
+export type ChangeTarget = ExistingSlot & { id: string; address: string; memo: string };
+
+export type ChangeFields = { day: number; time: string | null; name: string; address: string; memo: string };
+
+// 화면에 보내는 고치기·지우기. found: 이름을 바꾼 장소를 Places에서 찾았는지(안 찾았으면 null)
+export type ProposalChange = {
+  id: string;
+  kind: ItemKind;
+  action: "update" | "delete";
+  before: ChangeFields;
+  after: ChangeFields | null;
+  found: boolean | null;
+};
+
+export const CHANGE_FIELD_LABELS: Record<keyof ChangeFields, string> = {
+  day: "일차",
+  time: "시각",
+  name: "이름",
+  address: "주소",
+  memo: "메모",
+};
+
+export function changedFields(change: Pick<ProposalChange, "before" | "after">): (keyof ChangeFields)[] {
+  if (!change.after) return [];
+  return (Object.keys(CHANGE_FIELD_LABELS) as (keyof ChangeFields)[]).filter((k) => change.before[k] !== change.after![k]);
+}
+
+function refIndex(ref: string): number | null {
+  const m = ref.match(/\d+/);
+  return m ? Number(m[0]) - 1 : null;
+}
+
+export function normalizeChanges(
+  raw: RawChange[],
+  ctx: { dayCount: number; targets: ChangeTarget[] },
+): { changes: ProposalChange[]; notes: string[] } {
+  const dayCount = clampDay(ctx.dayCount || 1);
+  const seen = new Set<string>();
+  const changes: ProposalChange[] = [];
+  const notes: string[] = [];
+  let skipped = 0;
+
+  for (const r of raw) {
+    const index = refIndex(r.ref ?? "");
+    const target = index === null ? undefined : ctx.targets[index];
+    // 없는 번호, 쪽지(메모 종류)는 다루지 않는다.
+    if (!target || target.kind === "memo" || !(ITEM_KINDS as readonly string[]).includes(target.kind)) {
+      skipped++;
+      continue;
+    }
+    if (seen.has(target.id)) continue;
+    seen.add(target.id);
+
+    const kind = target.kind as ItemKind;
+    const before: ChangeFields = {
+      day: target.day,
+      time: target.time ? target.time.slice(0, 5) : null,
+      name: target.name,
+      address: target.address,
+      memo: target.memo,
+    };
+
+    if (r.action === "delete") {
+      changes.push({ id: target.id, kind, action: "delete", before, after: null, found: null });
+      continue;
+    }
+    if (r.action !== "update") continue;
+
+    const after: ChangeFields = {
+      day: typeof r.day === "number" && Number.isFinite(r.day) ? clampDay(r.day, dayCount) : before.day,
+      time: r.time === null ? before.time : (toTime(r.time) ?? before.time),
+      name: clip(r.name, 200) || before.name,
+      address: r.address === null ? before.address : clip(r.address, 300),
+      memo: r.memo === null ? before.memo : clip(r.memo, 2000),
+    };
+    const change: ProposalChange = { id: target.id, kind, action: "update", before, after, found: null };
+    if (!changedFields(change).length) continue;
+
+    // 옮긴 시각이 그날 다른 일정과 겹치면 알린다(사용자가 말한 시각이라 옮기지 않는다).
+    if (after.time && kind !== "lodging" && (after.time !== before.time || after.day !== before.day)) {
+      const start = toMinutes(after.time);
+      const end = start + DEFAULT_MINUTES[kind];
+      const others = ctx.targets.filter((t) => t.id !== target.id);
+      const hit = busySlots(others, after.day).findIndex((s) => start < s.end && s.start < end);
+      if (hit >= 0) {
+        const other = others.filter((e) => e.day === after.day && e.time && e.kind !== "lodging" && e.kind !== "memo")[hit];
+        notes.push(`${after.name}: ${other?.name ?? "다른 일정"}과 시간이 겹칩니다.`);
+      }
+    }
+    changes.push(change);
+  }
+
+  if (skipped) notes.push(`${skipped}건은 고칠 수 없는 일정(없는 번호·쪽지)이라 뺐습니다.`);
+  if (changes.length > MAX_CHANGES) notes.push(`한 번에 ${MAX_CHANGES}건까지만 고치거나 지울 수 있습니다.`);
+  return { changes: changes.slice(0, MAX_CHANGES), notes };
+}

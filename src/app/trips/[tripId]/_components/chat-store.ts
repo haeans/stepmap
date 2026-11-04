@@ -4,13 +4,16 @@
 // 붙여넣은 원문은 남기지 않고 "붙여넣은 내용 · N자"로만 적는다(B15). 다른 쪽으로 다시 보낼 원문은 화면 메모리에만 둔다.
 
 import { useSyncExternalStore } from "react";
-import type { ProposalItem } from "@/lib/assistant/proposal";
+import type { ProposalChange, ProposalItem } from "@/lib/assistant/proposal";
 import type { ExtractedItem } from "@/lib/extract/normalize";
 
 const MAX_ENTRIES = 40;
 
 // 미리보기 상태: open(고치는 중) → saved(저장함) / closed(취소함) / replaced(다음 제안으로 바뀜)
 export type PreviewStatus = "open" | "saved" | "closed" | "replaced";
+
+// 고치기·지우기 카드 상태: open(대기) → done(반영함) / closed(취소함)
+export type ChangeCard = ProposalChange & { status: "open" | "done" | "closed"; error?: string };
 
 export type ChatEntry =
   | { id: string; role: "user"; text: string; pasted: boolean }
@@ -25,6 +28,8 @@ export type ChatEntry =
       proposal?: { items: ProposalItem[]; status: PreviewStatus; saved?: number };
       // 붙여넣기 추출 결과 중 미리보기로 확인할 항목(F18 추천 항목은 매거진 추천 카드로 간다)
       extract?: { items: ExtractedItem[]; status: PreviewStatus; saved?: number };
+      // 저장된 일정 고치기·지우기 제안. 카드마다 "반영"·"삭제"를 눌러야 반영된다.
+      changes?: ChangeCard[];
       // 판단이 틀렸을 때 다른 쪽으로 다시 보내는 버튼(원문은 화면 메모리에서 id로 찾는다)
       switchTo?: "extract" | "chat";
     };
@@ -83,6 +88,18 @@ export function updateEntry(tripId: string, id: string, update: (entry: Assistan
   write(
     tripId,
     read(tripId).map((e) => (e.id === id && e.role === "assistant" ? update(e) : e)),
+  );
+}
+
+// 새 고치기·지우기 제안이 오면 아직 누르지 않은 앞 카드는 닫는다(같은 일정을 두 번 고치지 않게).
+export function closeOpenChanges(tripId: string) {
+  write(
+    tripId,
+    read(tripId).map((e) =>
+      e.role === "assistant" && e.changes?.some((c) => c.status === "open")
+        ? { ...e, changes: e.changes.map((c) => (c.status === "open" ? { ...c, status: "closed" as const } : c)) }
+        : e,
+    ),
   );
 }
 

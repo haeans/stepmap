@@ -2,7 +2,7 @@ import "server-only";
 import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 import { CHAT_SYSTEM_PROMPT } from "@/lib/assistant/prompt";
-import type { RawProposalItem } from "@/lib/assistant/proposal";
+import type { RawChange, RawProposalItem } from "@/lib/assistant/proposal";
 import { ITEM_KINDS } from "@/lib/items/types";
 import type { RawItem } from "./normalize";
 import { SYSTEM_PROMPT, userMessage, type ExistingItem, type TripContext } from "./prompt";
@@ -106,12 +106,28 @@ const ChatSchema = z.object({
       reason: z.string(),
     }),
   ),
+  // 저장된 일정 고치기·지우기. ref는 <existing>의 "#번호"
+  changes: z.array(
+    z.object({
+      ref: z.string(),
+      action: z.enum(["update", "delete"]),
+      day: z.number().nullable(),
+      time: z.string().nullable(),
+      name: z.string().nullable(),
+      address: z.string().nullable(),
+      memo: z.string().nullable(),
+    }),
+  ),
   quick_replies: z.array(z.string()),
 });
 
-export type ChatResult = { ok: true; reply: string; items: RawProposalItem[]; quickReplies: string[] } | { ok: false };
+export type ChatResult =
+  | { ok: true; reply: string; items: RawProposalItem[]; changes: RawChange[]; quickReplies: string[] }
+  | { ok: false };
 
 export async function chatWithGemini(input: string): Promise<ChatResult> {
   const data = await callGemini({ label: "chat", system: CHAT_SYSTEM_PROMPT, input, schema: ChatSchema, maxOutputTokens: 4096 });
-  return data ? { ok: true, reply: data.reply, items: data.items, quickReplies: data.quick_replies } : { ok: false };
+  return data
+    ? { ok: true, reply: data.reply, items: data.items, changes: data.changes, quickReplies: data.quick_replies }
+    : { ok: false };
 }

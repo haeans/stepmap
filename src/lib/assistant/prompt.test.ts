@@ -38,7 +38,7 @@ describe("chatMessage", () => {
     expect(text).toContain("DAY 2 · 12-04(금) · 숙소: 난바 호텔");
   });
   it("기존 일정, 직전 제안, 대화 기록, 이번 말을 태그로 나눈다", () => {
-    expect(text).toContain("<existing>\n- DAY 1 09:10 [transport] KE723 인천→간사이");
+    expect(text).toContain("<existing>\n- #1 DAY 1 09:10 [transport] KE723 인천→간사이\n- #2 DAY 1 15:00 [lodging] 난바 호텔");
     expect(text).toContain("<current_plan>\n- DAY 2 10:00 [sight] 오사카성\n</current_plan>");
     expect(text).toContain("<history>\n사용자: 안녕\n</history>");
     expect(text.endsWith("<message>\n둘째 날 짜 줘\n</message>")).toBe(true);
