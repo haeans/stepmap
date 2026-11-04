@@ -78,6 +78,13 @@
       "when": 1793753034811,
       "tag": "0010_item_secrets_grants",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793759550439,
+      "tag": "0011_items_place_photo",
+      "breakpoints": true
     }
   ]
 }
