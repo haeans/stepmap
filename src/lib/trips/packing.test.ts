@@ -20,6 +20,16 @@ describe("packingFromMessage", () => {
     expect(packingFromMessage("챙길 것\n- 여권\n- 우산\n- 상비약")).toEqual(["여권", "우산", "상비약"]);
   });
 
+  it("말로 적은 준비물(하고·랑·음..)은 직접 나누지 않고 AI에 맡긴다", () => {
+    expect(packingFromMessage("준비물: 수영복하고 음.. 돼지코랑 여권 필수")).toBe("ai");
+    expect(packingFromMessage("준비물 수영복이랑 모자 그리고 선글라스")).toBe("ai");
+    expect(packingFromMessage("챙길 것: 여권, 수영복하고 모자")).toBe("ai");
+  });
+
+  it("짧은 목록은 직접 나눈다 (세 낱말까지)", () => {
+    expect(packingFromMessage("준비물: 선크림 SPF 50, 여권")).toEqual(["선크림 SPF 50", "여권"]);
+  });
+
   it("준비물 제목이 첫 줄이 아니거나 일정이 섞이면 null (AI 추출로 보낸다)", () => {
     expect(packingFromMessage("여권, 우산")).toBeNull();
     expect(packingFromMessage("[다낭 메모]\n준비물: 여권")).toBeNull();

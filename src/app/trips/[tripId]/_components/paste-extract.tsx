@@ -124,16 +124,17 @@ export function PasteExtract({ tripId, days }: { tripId: string; days: TripDay[]
   function send(raw: string, forced?: Route) {
     const message = raw.trim();
     if (!message || pending) return;
-    // C9 F27: "준비물: 여권, 충전기"처럼 준비물만 적은 말은 AI를 부르지 않고 바로 체크리스트에 더한다.
+    // C9 F27: "준비물: 여권, 충전기"처럼 준비물만 적은 짧은 목록은 AI를 부르지 않고 바로 체크리스트에 더한다.
+    // "준비물: 수영복하고 돼지코랑 여권"처럼 말로 적었으면 추출로 보내 AI가 물건마다 나눈다(대화로 가면 준비물을 다루지 않는다).
     const packing = forced ? null : packingFromMessage(message);
-    if (packing) {
+    if (packing && packing !== "ai") {
       appendEntry(tripId, { id: newId(), role: "user", pasted: false, text: message });
       if (raw === text) setText("");
       setInputError(null);
       say({ text: packingNote(addToChecklist(tripId, packing)) }, message);
       return;
     }
-    const route = forced ?? routeMessage(message);
+    const route = forced ?? (packing === "ai" ? "extract" : routeMessage(message));
     if (route === "chat" && message.length > MAX_CHAT_LENGTH) {
       setInputError(`말은 ${MAX_CHAT_LENGTH.toLocaleString()}자까지 보낼 수 있습니다. 티켓·예약 메일이라면 "붙여넣기로 뽑기"를 눌러 주세요.`);
       return;

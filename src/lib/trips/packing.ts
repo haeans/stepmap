@@ -27,14 +27,21 @@ export function cleanPackingLabels(raw: string[]): string[] {
   return out;
 }
 
-// 준비물만 적은 말이면 그 목록, 아니면 null. 첫 줄이 "준비물:" 같은 제목으로 시작하고,
-// 나머지 줄은 모두 짧은 목록 줄(시각·날짜·주소 링크 없음)이어야 한다. 쉼표·가운뎃점·줄바꿈으로 나눈다.
-export function packingFromMessage(text: string): string[] | null {
+// 말로 적은 목록: "수영복하고 돼지코랑", "그리고", "음..". 쉼표가 없어 직접 나누면 한 덩어리가 된다.
+const SPOKEN = /(?:하고|이랑|랑|그리고|및|이나|or|and)(?:\s|$)|\.\.|…/i;
+const MAX_LABEL_WORDS = 3; // "선크림 SPF 50", "110V 어댑터"
+
+// 준비물만 적은 말이면: 짧은 목록이면 그 목록, 말로 적은 문장이면 "ai"(AI 추출이 물건마다 나눈다), 아니면 null.
+// 첫 줄이 "준비물:" 같은 제목으로 시작하고, 나머지 줄은 모두 짧은 줄(시각·날짜·주소 링크 없음)이어야 한다.
+// 쉼표·줄바꿈으로 나눈다. ([haeans-f27-back-fixes] 결정 2·6)
+export function packingFromMessage(text: string): string[] | "ai" | null {
   const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   if (!lines.length || !HEADER.test(lines[0])) return null;
   const body = [lines[0].replace(HEADER, ""), ...lines.slice(1)].filter(Boolean);
   if (body.some((l) => l.length > 80 || NOT_A_LABEL.test(l))) return null;
-  const labels = cleanPackingLabels(body.flatMap((l) => l.split(/[,，、]/)));
+  const pieces = body.flatMap((l) => l.split(/[,，、]/)).map((p) => p.trim()).filter(Boolean);
+  if (pieces.some((p) => SPOKEN.test(p) || p.split(/\s+/).length > MAX_LABEL_WORDS)) return "ai";
+  const labels = cleanPackingLabels(pieces);
   return labels.length ? labels : null;
 }
 
