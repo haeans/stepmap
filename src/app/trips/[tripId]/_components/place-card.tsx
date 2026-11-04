@@ -209,7 +209,7 @@ export function PlaceCard({ item, photoUrl = null, color, days, readOnly, role }
 // 장소 사진 출처 (C8 F22 결정 7, D안). 카드 앞면은 오른쪽 위 ⓘ 하나만 두고, 누르면 사진을 크게 보며 출처 전체를 보인다.
 // Google 문서: 썸네일은 작가 표시를 뺄 수 있다(전체 출처가 있는 큰 사진을 볼 수 있으면). "Google Maps"는 사진과 같은 카드 안에 있어야 해서 앞면에 남긴다.
 // Wikimedia(CC): 사진에서 한 번 눌러 작가·라이선스·파일 페이지가 나온다.
-function PhotoInfo({ photo, name }: { photo: CardPhoto; name: string }) {
+export function PhotoInfo({ photo, name }: { photo: CardPhoto; name: string }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const link = "text-white underline underline-offset-2 hover:text-white/80";
   const brand = photo.source === "google" ? "Google Maps" : "Wikimedia Commons";

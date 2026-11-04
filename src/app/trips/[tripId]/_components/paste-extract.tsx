@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useRef, useState, useTransition, type KeyboardEvent } from "react";
 import { applyChange, sendChat } from "@/app/actions/assistant";
 import { extractItems, saveExtractedItems, type SaveExtractedState } from "@/app/actions/extract";
@@ -7,6 +8,7 @@ import { CHANGE_FIELD_LABELS, changedFields, type ChangeFields, type ProposalIte
 import { ITEM_KIND_LABELS } from "@/lib/items/types";
 import { MAX_CHAT_LENGTH, pasteScore, routeMessage, type Route } from "@/lib/assistant/route";
 import { MAX_TEXT_LENGTH, type ExtractedItem } from "@/lib/extract/normalize";
+import type { ItemInput } from "@/lib/items/validation";
 import type { TripDay } from "@/lib/trips/days";
 import { packingFromMessage } from "@/lib/trips/packing";
 import {
@@ -25,6 +27,7 @@ import {
 import { BUBBLE_IN, BUBBLE_OUT, FIELD, GHOST, PRIMARY as BUTTON } from "./form-styles";
 import { ItemFields } from "./item-fields";
 import { addToChecklist } from "./checklist-store";
+import { addPreviews, PREVIEWS_ANCHOR, showPreviews } from "./previews";
 import { addSuggestions } from "./suggestions";
 
 // R-04 붙여넣기 → 자동 추출 → 미리보기 → 저장 (02-FRONTEND.md 5-3절)
@@ -32,8 +35,16 @@ import { addSuggestions } from "./suggestions";
 // F19: 붙여넣기 탭이 대화창이 된다. 입력칸 하나에 붙여넣어도 되고 말을 걸어도 된다.
 // 보내면 코드(routeMessage)가 붙여넣기(추출)인지 대화인지 고른다. 틀렸으면 결과 아래 버튼으로 다른 쪽으로 다시 보낸다.
 // 대화 제안은 미리보기에서 고치고 "저장"을 눌러야 저장된다. ([hyunw0000-f19-ai-planner] 결정 1·4)
+// C9 F28: 붙여넣기 추출 결과(추천이 아닌 항목)는 입력창 미리보기 대신 매거진 DAY BY DAY에 "미리보기" 카드로 띄운다. ([hyunw0000-f28-magazine-preview] 결정 1)
 
 const DONE = { error: null, items: null };
+
+// 추천 표시(F18) 칸을 뺀 저장용 값. 미리보기(F28)에는 추천이 아닌 항목만 가므로 버려도 된다.
+function withoutSuggest(extracted: ExtractedItem): ItemInput {
+  const item: ItemInput & { suggest?: unknown } = { ...extracted };
+  delete item.suggest;
+  return item;
+}
 
 function packingNote(added: number): string {
   return added
@@ -69,26 +80,24 @@ export function PasteExtract({ tripId, days }: { tripId: string; days: TripDay[]
       say({ text: result.error ?? "찾은 항목이 없습니다.", error: true, switchTo: "chat" }, message);
       return;
     }
-    // F18: 추천 항목 → 매거진 추천 카드, 나머지 → 미리보기
+    // F18: 추천 항목 → 매거진 추천 카드, 나머지 → 매거진 미리보기 카드(C9 F28)
     const suggested = result.items.filter((i) => i.suggest);
     const rest = result.items.filter((i) => !i.suggest);
     addSuggestions(
       tripId,
       suggested.map(({ suggest, ...item }) => ({ item, suggest: suggest! })),
     );
+    addPreviews(tripId, rest.map(withoutSuggest));
     // C9 F27: 준비물은 메모 항목이 아니라 BACK 준비물 체크리스트(이 브라우저)에 바로 더한다.
     const packing = result.packing ?? [];
     const parts = result.items.length ? [`항목 ${result.items.length}개를 찾았어요.`] : [];
     if (packing.length) parts.push(packingNote(addToChecklist(tripId, packing)));
     if (suggested.length) parts.push(`일차·시각이 없던 ${suggested.length}개는 매거진 DAY에 추천 카드로 띄웠어요. 카드에서 "넣기"를 눌러야 저장돼요.`);
-    if (rest.length) parts.push(`${rest.length}개는 아래에서 확인하고 저장해 주세요.`);
-    // F20: 어느 항목에도 붙지 않은 예약번호는 미리보기에서 직접 넣게 알린다(미리보기가 없으면 말로 알린다).
+    if (rest.length) parts.push(`${rest.length}개는 매거진 DAY BY DAY에 미리보기로 띄웠어요. 사진과 함께 확인하고 "넣기"나 "모두 저장"을 눌러 주세요.`);
+    // F20: 어느 항목에도 붙지 않은 예약번호는 말로 알린다. 미리보기 카드의 "고치기"나 저장 뒤 일정 카드에서 넣는다.
     const unassigned = result.unassigned ?? [];
-    if (unassigned.length && !rest.length) parts.push(`어느 항목인지 못 정한 예약번호: ${unassigned.join(", ")} · 일정 카드에서 직접 넣어 주세요.`);
-    say(
-      { text: parts.join(" "), extract: rest.length ? { items: rest, status: "open", unassigned } : undefined, switchTo: "chat" },
-      message,
-    );
+    if (unassigned.length) parts.push(`어느 항목인지 못 정한 예약번호: ${unassigned.join(", ")} · 맞는 카드의 "고치기"에서 넣어 주세요.`);
+    say({ text: parts.join(" "), previews: rest.length || undefined, switchTo: "chat" }, message);
   }
 
   async function runChat(message: string) {
@@ -266,6 +275,7 @@ function AssistantMessage({
   canSwitch: boolean;
   onSwitch: (route: Route) => void;
 }) {
+  const router = useRouter();
   const preview = entry.proposal ? { type: "proposal" as const, ...entry.proposal } : entry.extract ? { type: "extract" as const, ...entry.extract } : null;
 
   // 미리보기를 저장하거나 닫으면 예약 정보(F20)는 이 브라우저 대화 기록에서도 지운다.
@@ -308,6 +318,20 @@ function AssistantMessage({
             {preview.status === "saved" && preview.saved ? ` (${preview.saved}개)` : ""}
           </p>
         ))}
+      {entry.previews && (
+        <button
+          type="button"
+          onClick={() => {
+            // 입력창을 닫고 미리보기 줄로 스크롤한다. 지도 탭이면 매거진으로 간다(도착하면 미리보기 줄이 #m-previews를 보고 스크롤).
+            const onMagazine = document.getElementById(PREVIEWS_ANCHOR) !== null;
+            showPreviews();
+            if (!onMagazine) router.push(`/trips/${encodeURIComponent(tripId)}#${PREVIEWS_ANCHOR}`);
+          }}
+          className={`${BUTTON} self-start px-4 py-2 text-xs`}
+        >
+          매거진에서 보기 ({entry.previews}개)
+        </button>
+      )}
       {entry.changes && entry.changes.length > 0 && (
         <div className="flex flex-col gap-2" aria-label="저장된 일정 고치기·지우기">
           {entry.changes.map((change) => (
