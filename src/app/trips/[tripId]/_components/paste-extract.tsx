@@ -8,6 +8,7 @@ import { ITEM_KIND_LABELS } from "@/lib/items/types";
 import { MAX_CHAT_LENGTH, pasteScore, routeMessage, type Route } from "@/lib/assistant/route";
 import { MAX_TEXT_LENGTH, type ExtractedItem } from "@/lib/extract/normalize";
 import type { TripDay } from "@/lib/trips/days";
+import { packingFromMessage } from "@/lib/trips/packing";
 import {
   appendEntry,
   clearChat,
@@ -23,6 +24,7 @@ import {
 } from "./chat-store";
 import { BUBBLE_IN, BUBBLE_OUT, FIELD, GHOST, PRIMARY as BUTTON } from "./form-styles";
 import { ItemFields } from "./item-fields";
+import { addToChecklist } from "./checklist-store";
 import { addSuggestions } from "./suggestions";
 
 // R-04 붙여넣기 → 자동 추출 → 미리보기 → 저장 (02-FRONTEND.md 5-3절)
@@ -32,6 +34,12 @@ import { addSuggestions } from "./suggestions";
 // 대화 제안은 미리보기에서 고치고 "저장"을 눌러야 저장된다. ([hyunw0000-f19-ai-planner] 결정 1·4)
 
 const DONE = { error: null, items: null };
+
+function packingNote(added: number): string {
+  return added
+    ? `준비물 ${added}개를 매거진 BACK의 준비물에 넣었어요. 준비물은 이 브라우저에만 저장돼요.`
+    : "준비물은 이미 매거진 BACK의 준비물에 있어요.";
+}
 
 export function PasteExtract({ tripId, days }: { tripId: string; days: TripDay[] }) {
   const entries = useChat(tripId);
@@ -68,7 +76,10 @@ export function PasteExtract({ tripId, days }: { tripId: string; days: TripDay[]
       tripId,
       suggested.map(({ suggest, ...item }) => ({ item, suggest: suggest! })),
     );
-    const parts = [`항목 ${result.items.length}개를 찾았어요.`];
+    // C9 F27: 준비물은 메모 항목이 아니라 BACK 준비물 체크리스트(이 브라우저)에 바로 더한다.
+    const packing = result.packing ?? [];
+    const parts = result.items.length ? [`항목 ${result.items.length}개를 찾았어요.`] : [];
+    if (packing.length) parts.push(packingNote(addToChecklist(tripId, packing)));
     if (suggested.length) parts.push(`일차·시각이 없던 ${suggested.length}개는 매거진 DAY에 추천 카드로 띄웠어요. 카드에서 "넣기"를 눌러야 저장돼요.`);
     if (rest.length) parts.push(`${rest.length}개는 아래에서 확인하고 저장해 주세요.`);
     // F20: 어느 항목에도 붙지 않은 예약번호는 미리보기에서 직접 넣게 알린다(미리보기가 없으면 말로 알린다).
@@ -113,7 +124,17 @@ export function PasteExtract({ tripId, days }: { tripId: string; days: TripDay[]
   function send(raw: string, forced?: Route) {
     const message = raw.trim();
     if (!message || pending) return;
-    const route = forced ?? routeMessage(message);
+    // C9 F27: "준비물: 여권, 충전기"처럼 준비물만 적은 짧은 목록은 AI를 부르지 않고 바로 체크리스트에 더한다.
+    // "준비물: 수영복하고 돼지코랑 여권"처럼 말로 적었으면 추출로 보내 AI가 물건마다 나눈다(대화로 가면 준비물을 다루지 않는다).
+    const packing = forced ? null : packingFromMessage(message);
+    if (packing && packing !== "ai") {
+      appendEntry(tripId, { id: newId(), role: "user", pasted: false, text: message });
+      if (raw === text) setText("");
+      setInputError(null);
+      say({ text: packingNote(addToChecklist(tripId, packing)) }, message);
+      return;
+    }
+    const route = forced ?? (packing === "ai" ? "extract" : routeMessage(message));
     if (route === "chat" && message.length > MAX_CHAT_LENGTH) {
       setInputError(`말은 ${MAX_CHAT_LENGTH.toLocaleString()}자까지 보낼 수 있습니다. 티켓·예약 메일이라면 "붙여넣기로 뽑기"를 눌러 주세요.`);
       return;

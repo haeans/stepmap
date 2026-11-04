@@ -355,6 +355,7 @@ export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = n
         <div className="grid gap-6 sm:grid-cols-2">
           <Reveal>
             <CostSection
+              tripId={trip.id}
               items={grouped.costs}
               companions={trip.companions}
               readOnly={readOnly}

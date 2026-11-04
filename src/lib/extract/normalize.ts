@@ -82,6 +82,24 @@ function toCost(amount: number | null, currency: string | null) {
   return { costAmount: null, costCurrency: null, note: `금액: ${rounded}${code ? ` ${code}` : ""}` };
 }
 
+// 숙소 메모에서 "체크인·체크아웃 + 날짜"만 있는 조각을 뺀다. GO 숙소 창이 체크인(그 일차)·체크아웃(다음 숙소나 마지막 날)을
+// 이미 보여 주므로 메모에 다시 둘 이유가 없다. 시각이 붙은 조각("체크아웃 12/13 11:00")은 창에 없는 정보라 남긴다.
+// 조각은 줄, 쉼표, " / ", " · "로 나눈다. ([haeans-f27-back-fixes] 결정 7)
+const STAY_DATE =
+  /^(?:체크\s?(?:인|아웃)|check-?\s?(?:in|out))\s*[:：]?\s*(?:\d{4}\s?[-./년]\s?)?\d{1,2}\s?(?:[-./]\s?\d{1,2}|월\s?\d{1,2}\s?일)\.?\s*(?:\([^)]*\))?$/i;
+
+export function dropStayDates(memo: string): string {
+  return memo
+    .split("\n")
+    .map((line) => {
+      const sep = [", ", " / ", " · ", ","].find((s) => line.includes(s)) ?? null;
+      const parts = sep ? line.split(sep) : [line];
+      return parts.filter((p) => !STAY_DATE.test(p.trim())).join(sep ?? "").trim();
+    })
+    .filter(Boolean)
+    .join("\n");
+}
+
 export function normalizeItems(raw: RawItem[], ctx: SuggestContext): ExtractedItem[] {
   const dayCount = clampDay(ctx.dayCount || 1);
   // 이번에 넣는 항목도 세어 같은 날에 몰리지 않게 한다.
@@ -108,7 +126,8 @@ export function normalizeItems(raw: RawItem[], ctx: SuggestContext): ExtractedIt
     const reason = clip(r.reason ?? "", 200) || (dayGuessed && aiDay === null ? FALLBACK_REASON : "");
     const suggest = kind !== "memo" && (dayGuessed || timeGuessed) ? { day: dayGuessed, time: timeGuessed, reason } : null;
 
-    const memo = clip([r.memo?.trim(), cost.note].filter(Boolean).join("\n"), 2000);
+    const rawMemo = kind === "lodging" ? dropStayDates(r.memo?.trim() ?? "") : r.memo?.trim();
+    const memo = clip([rawMemo, cost.note].filter(Boolean).join("\n"), 2000);
     const fields = ctx.vault ? revealFields(r, kind, memo, ctx.vault) : { address: r.address ?? "", memo, link: plainLink(r.link) };
 
     items.push({

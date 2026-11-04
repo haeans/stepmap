@@ -77,9 +77,11 @@ const ExtractSchema = z.object({
       reason: z.string(),
     }),
   ),
+  // C9 F27: 준비물은 메모 항목이 아니라 이 목록으로 받아 체크리스트(브라우저)에 더한다.
+  packing: z.array(z.string()),
 });
 
-export type ExtractResult = { ok: true; items: RawItem[] } | { ok: false };
+export type ExtractResult = { ok: true; items: RawItem[]; packing: string[] } | { ok: false };
 
 export async function extractWithGemini(trip: TripContext, text: string, existing: ExistingItem[] = []): Promise<ExtractResult> {
   const data = await callGemini({
@@ -89,7 +91,7 @@ export async function extractWithGemini(trip: TripContext, text: string, existin
     schema: ExtractSchema,
     maxOutputTokens: 8192,
   });
-  return data ? { ok: true, items: data.items } : { ok: false };
+  return data ? { ok: true, items: data.items, packing: data.packing } : { ok: false };
 }
 
 // F19 대화 한 턴. 모드 없이 답장·제안·다음 말 추천을 한 번에 받는다. ([hyunw0000-f19-ai-planner] 결정 3)

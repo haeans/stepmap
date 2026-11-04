@@ -6,7 +6,7 @@
 // - 날씨(WeatherBadge): 여행 제목 오른쪽의 투명 패널. 누르면 날씨 창(F16).
 // - 준비물(Checklist): 매거진 BACK에 둔다. DB 칸이 없어 이 브라우저에만 저장한다(localStorage).
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition, type ReactNode, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode, type RefObject } from "react";
 import { deleteItem, updateItem } from "@/app/actions/items";
 import { compareItems } from "@/lib/items/group";
 import { formatCost, formatTime, type Item } from "@/lib/items/types";
@@ -14,6 +14,7 @@ import type { TripDay } from "@/lib/trips/days";
 import { isFlight, isPass, isTicket, parseFlight, parseRide, passLines, returnFlight, stayRange } from "@/lib/trips/go-info";
 import { clothingTip, isRainy, weatherKind, weatherLabel, type TripWeather, type WeatherKind } from "@/lib/weather/codes";
 import { BookingInfo } from "./booking-info";
+import { useChecklist } from "./checklist-store";
 import { EDIT_PANEL, EditHeader } from "./edit-sheet";
 import { ItemForm } from "./item-form";
 
@@ -592,55 +593,7 @@ function PassCard({ item, days }: { item: Item; days: TripDay[] }) {
 
 // ───────── 5. 준비물 (이 브라우저에만 저장) ─────────
 
-type Check = { id: string; label: string; done: boolean };
-const CHANGE = "stepmap:checklist-change";
-
-function checklistKey(tripId: string) {
-  return `stepmap:checklist:${tripId}`;
-}
-function subscribe(onChange: () => void) {
-  window.addEventListener(CHANGE, onChange);
-  window.addEventListener("storage", onChange);
-  return () => {
-    window.removeEventListener(CHANGE, onChange);
-    window.removeEventListener("storage", onChange);
-  };
-}
-
-function useChecklist(tripId: string) {
-  const raw = useSyncExternalStore(
-    subscribe,
-    () => {
-      try {
-        return window.localStorage.getItem(checklistKey(tripId));
-      } catch {
-        return null;
-      }
-    },
-    () => null,
-  );
-  const checks: Check[] = useMemo(() => {
-    try {
-      const parsed = raw ? (JSON.parse(raw) as Check[]) : null;
-      if (Array.isArray(parsed)) return parsed;
-    } catch {
-      // 깨진 값이면 기본 목록
-    }
-    return []; // 넣은 준비물이 없으면 비어 있다(F16). 하나 더할 때마다 한 줄씩 생긴다.
-  }, [raw]);
-  const save = useCallback(
-    (next: Check[]) => {
-      try {
-        window.localStorage.setItem(checklistKey(tripId), JSON.stringify(next));
-      } catch {
-        // 저장소를 못 쓰면 바뀌지 않는다
-      }
-      window.dispatchEvent(new Event(CHANGE));
-    },
-    [tripId],
-  );
-  return [checks, save] as const;
-}
+// 저장은 checklist-store.ts (C9 F27에서 꺼냄)
 
 function dDay(start: string | null): string | null {
   if (!start) return null;
