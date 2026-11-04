@@ -128,6 +128,7 @@ API 경로, 로그인·권한 확인, 외부 API(Claude·Gemini·구글맵·Unsp
 ### 7-1. Unsplash (대표 이미지, F08)
 
 - 여행을 만들 때만 부른다: 목적지로 검색 1번(가로, 1장, `content_filter=high`) + 쓰기로 한 사진에 다운로드 알림 1번(B47). 기존 여행은 한꺼번에 받지 않는다.
+- 검색 전에 목적지가 실제 지역인지 Google Places Text Search로 확인한다(C9 F24, B149). 첫 결과가 지역(`political`)이면 그 영어 이름으로 Unsplash를 검색하고, 아니면 여러 낱말일 때 첫 낱말로 한 번 더 확인한다. 지역이 아니거나 실패하면 Unsplash를 부르지 않고 사진 없이 만든다. 서버 키 `GOOGLE_MAPS_SERVER_KEY`, 많아야 2번(`src/lib/cover/destination.ts`).
 - 사진 파일은 복사하지 않고 주소(`urls.raw`)·대표 색·작가 이름·작가 링크만 저장한다(B48). 화면 크기는 주소 파라미터로 정한다(`coverSrc`, B49).
 - 키 `UNSPLASH_ACCESS_KEY`는 서버 전용이다. 없거나 호출이 실패·시간 초과하면 자동 이미지를 건너뛰고 여행은 그대로 만든다.
 - 파일: `src/lib/cover/unsplash.ts`, `src/lib/cover/cover.ts`

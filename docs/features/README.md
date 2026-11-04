@@ -70,7 +70,7 @@ v1.0 이후 분담은 ① 시작 회의에서 정하고, haeans가 킥오프 PR�
 | F21 | 디자인 마무리: 로고·첫 화면·목록 배경·매거진 배경·새 여행 버튼 (C9 2단계, C9 킥오프에서 범위 고침) | [#41](https://github.com/haeans/stepmap/issues/41) | 미정 (디자인 담당) | `<담당>/f21-design-finish` | | 없음 | 킥오프 |
 | F22 | 매거진 장소 사진: 관광지는 Wikimedia, 그 밖은 Google Places 사진·출처 표시 (1단계, F15·F16 머지 후) | [#47](https://github.com/haeans/stepmap/issues/47) | haeans | `haeans/f22-place-photos` | [작업 파일](../work/haeans-f22-place-photos.md) | **있음** (0011 반영됨) | 반영 완료 (PR #54) |
 | F23 | 상단바·프로필 버튼 통일 (C9 2단계, F21과 같은 담당 추천) | [#56](https://github.com/haeans/stepmap/issues/56) | 미정 (디자인 담당) | `<담당>/f23-top-bar` | | 없음 | 킥오프 |
-| F24 | 여행 목록 정리: 미리보기 첫 일정·⋯ 메뉴·"발자국"·새 여행 필수 칸 (C9 1단계) | [#57](https://github.com/haeans/stepmap/issues/57) | haeans | `haeans/f24-trip-list` | | 없음 | 킥오프 |
+| F24 | 여행 목록 정리: 미리보기 첫 일정·⋯ 메뉴·"발자국"·새 여행 필수 칸 (C9 1단계) | [#57](https://github.com/haeans/stepmap/issues/57) | haeans | `haeans/f24-trip-list` | [작업 파일](../work/haeans-f24-trip-list.md) | 없음 | 반영 완료 (PR #63) |
 | F25 | 지도 탭 단순화: 핀만·핀 팝업과 구글맵 버튼·거리/이동수단·곰발바닥 버튼 삭제 (C9 1단계) | [#58](https://github.com/haeans/stepmap/issues/58) | leedaekeon578 | `leedaekeon578/f25-map-pins` | | 없음 | 킥오프 |
 | F26 | 하루 일정 규칙·사진 대체(로고)·항공권/승차권 기준·예약 링크 열기 버튼 (C9 1단계, **가장 먼저**) | [#59](https://github.com/haeans/stepmap/issues/59) | hyunw0000 | `hyunw0000/f26-day-rules` | | 없음 | 킥오프 |
 | F27 | BACK 정리: 준비물 붙여넣기 버그·쓴 돈 합계와 정산 버튼·쓴 돈 수정 버그 (C9 1단계) | [#60](https://github.com/haeans/stepmap/issues/60) | hyunw0000 | `hyunw0000/f27-back-fixes` | | 없음 | 킥오프 |
@@ -85,6 +85,8 @@ v1.0 이후 분담은 ① 시작 회의에서 정하고, haeans가 킥오프 PR�
 > C8 1단계 끝 (2026-11-04, `haeans/sync-c8-f15-f22`): F15·F22를 반영했다(`decisions.md` B129~B143). F14 결정 1·5는 F15 결정 1·2로 B129·B130이 됐다. F22는 출처를 "관광지는 Wikimedia Commons 먼저, 그 밖은 Google Places"로 바꿨다(2026-11-04 팀 합의, PRD 고침). DB 변경은 F22의 0011이고, `items.link` 비우기는 남은 값이 0개라 하지 않는다(B123). 1단계(F13~F20, F22)가 모두 끝났으므로 배포본을 보고 2단계 F21을 시작한다.
 
 > C9 (2026-11-04 킥오프): 범위는 `01-PRD.md` 4절 "C9". 회의 안건 17개를 작업 6개(F23~F28)와 F21 범위 고침으로 묶었다. 1단계는 기능(F24~F28), 2단계는 디자인(F21·F23)이고 2단계는 1단계를 모두 배포한 뒤 시작한다. C8 F21은 C9 2단계로 옮겼다. 디자인 담당(F21·F23)은 아직 정하지 않았다. DB 변경은 없다. 브랜드 이미지(로고, 하늘 배경)는 `public/brand/`에 있다(`02-FRONTEND.md` 7절). 진행 순서와 선행 조건은 아래 "C9 진행 순서".
+
+> C9 F24 최신화 (2026-11-04, `haeans/sync-c9-f24`): F24를 머지 후 공통 문서에 반영했다(`decisions.md` B144~B150). 작업 중 목적지 확인(글자 규칙, 지역일 때만 대표 사진)을 더했다. 남은 1단계: F26(가장 먼저) → F27 → F28, F25.
 
 ### C9 진행 순서
 
