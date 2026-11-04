@@ -5,7 +5,6 @@ import { formatTime, ITEM_KIND_LABELS } from "@/lib/items/types";
 import { nearestPlaceId } from "@/lib/map/nearest";
 import { dayColor, type LatLng, type MapPlace } from "@/lib/map/places";
 import type { DayPath } from "@/lib/map/routes";
-import { BookingInfo } from "./booking-info";
 import { MapMenu } from "./map-menu";
 import { RouteMap, type MapPadding } from "./route-map";
 import { Segmented } from "./segmented";
@@ -104,8 +103,8 @@ export function MapView({ places, routes, days, missing, initialId, trip, email,
     setSelectedId(id);
   }
 
-  // 지도에서 핀 고르기: 모바일은 세부가 목록 줄 아래에 있으므로 시트를 펼친다 (F14 결정 11).
-  // PC는 접힌 패널을 펼쳐 세부가 보이게 한다 (F15 결정 7)
+  // 지도에서 핀 고르기: 모바일은 시트를 펼쳐 고른 목록 줄을 보인다 (F14 결정 11).
+  // PC는 접힌 패널을 펼친다 (F15 결정 7)
   function choosePin(id: string) {
     setSelectedId(id);
     if (window.matchMedia("(min-width: 768px)").matches) setCollapsed(false);
@@ -249,12 +248,6 @@ export function MapView({ places, routes, days, missing, initialId, trip, email,
                           </span>
                         </span>
                       </button>
-                      {/* 모바일 핀 세부: 고른 줄 아래에 펼친다. PC는 아래 카드에 보인다 (결정 11) */}
-                      {active && hasExtras(p) && (
-                        <div className="ml-12 transition duration-300 starting:-translate-y-1 starting:opacity-0 md:hidden" aria-live="polite">
-                          <PlaceExtras place={p} />
-                        </div>
-                      )}
                     </div>
                   );
                 })}
@@ -264,8 +257,8 @@ export function MapView({ places, routes, days, missing, initialId, trip, email,
           {missing > 0 && <li className="rounded-2xl bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-950 dark:text-amber-300">위치를 찾지 못한 장소 {missing}개는 지도에 없습니다.</li>}
         </ol>
 
-        {/* 핀 세부와 이전/다음. PC에만 있다 (결정 11) */}
-        <div className="hidden items-start gap-3 border-t border-zinc-200 p-4 md:flex dark:border-zinc-800">
+        {/* 이전/다음. PC에만 있다 (결정 11). 핀 세부 카드는 F25에서 뺐다 */}
+        <div className="hidden items-center gap-3 border-t border-zinc-200 p-4 md:flex dark:border-zinc-800">
           <button
             type="button"
             onClick={() => step(-1)}
@@ -275,13 +268,7 @@ export function MapView({ places, routes, days, missing, initialId, trip, email,
           >
             ←
           </button>
-          <div
-            key={selected?.id ?? "none"}
-            className="max-h-[40vh] min-w-0 flex-1 overflow-y-auto transition duration-300 starting:translate-y-1 starting:opacity-0"
-            aria-live="polite"
-          >
-            {selected ? <PlaceDetail place={selected} /> : <p className="py-2 text-sm text-zinc-500">{visible.length ? "핀이나 장소를 누르거나 화살표로 넘겨 보세요." : "지도에 올릴 장소가 없습니다."}</p>}
-          </div>
+          <p className="min-w-0 flex-1 text-center text-sm text-zinc-500">{visible.length ? "핀이나 장소를 누르거나 화살표로 넘겨 보세요." : "지도에 올릴 장소가 없습니다."}</p>
           <button
             type="button"
             onClick={() => step(1)}
@@ -294,42 +281,5 @@ export function MapView({ places, routes, days, missing, initialId, trip, email,
         </div>
       </div>
     </section>
-  );
-}
-
-// 핀을 누르면 보이는 세부(PC 카드): 이름·종류·시각·주소·메모·비용·링크
-function PlaceDetail({ place }: { place: MapPlace }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <p className="text-xs font-semibold tracking-wide" style={{ color: dayColor(place.day) }}>
-        DAY {place.day} · {place.order}번째
-      </p>
-      <p className="text-lg leading-tight font-bold tracking-tight break-words">{place.name}</p>
-      <p className="text-xs break-words text-zinc-500">{[ITEM_KIND_LABELS[place.kind], formatTime(place.time), place.address].filter(Boolean).join(" · ")}</p>
-      <PlaceExtras place={place} />
-    </div>
-  );
-}
-
-const hasExtras = (place: MapPlace) => Boolean(place.memo || place.cost || place.link || place.secret);
-
-// 세부 중 목록 줄에 없는 것: 메모·비용·링크 (PC 카드와 모바일 목록 줄 아래에서 함께 쓴다)
-function PlaceExtras({ place }: { place: MapPlace }) {
-  return (
-    <>
-      {place.memo && <p className="mt-1 text-sm break-words whitespace-pre-line">{place.memo}</p>}
-      {(place.cost || place.link) && (
-        <p className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-          {place.cost && <span className="rounded-full bg-zinc-100 px-2 py-0.5 dark:bg-zinc-900">{place.cost}</span>}
-          {place.link && (
-            <a href={place.link} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:opacity-70">
-              링크 열기 ↗
-            </a>
-          )}
-        </p>
-      )}
-      {/* 예약번호·예약 링크: 소유자에게만(F20) */}
-      <BookingInfo secret={place.secret} tone="current" className="mt-2" />
-    </>
   );
 }
