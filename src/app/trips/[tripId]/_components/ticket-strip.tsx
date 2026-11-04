@@ -6,7 +6,7 @@
 // - 날씨(WeatherBadge): 여행 제목 오른쪽의 투명 패널. 누르면 날씨 창(F16).
 // - 준비물(Checklist): 매거진 BACK에 둔다. DB 칸이 없어 이 브라우저에만 저장한다(localStorage).
 
-import { useCallback, useMemo, useRef, useState, useSyncExternalStore, useTransition, type ReactNode, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition, type ReactNode, type RefObject } from "react";
 import { deleteItem, updateItem } from "@/app/actions/items";
 import { compareItems } from "@/lib/items/group";
 import { formatCost, formatTime, type Item } from "@/lib/items/types";
@@ -117,15 +117,19 @@ const ZOOM_UP = "[@media(width>=48rem)_and_(height>=38rem)]:[zoom:1.25] [@media(
 const ZOOM_UNDO = "[@media(width>=48rem)_and_(height>=38rem)]:[zoom:0.8] [@media(width>=64rem)_and_(height>=44rem)]:[zoom:0.7143]";
 const MAX_H = "max-h-[calc(100dvh-2rem)] [@media(width>=48rem)_and_(height>=38rem)]:max-h-[calc((100dvh-2rem)/1.25)] [@media(width>=64rem)_and_(height>=44rem)]:max-h-[calc((100dvh-2rem)/1.4)]";
 
-function GoDialog({ dialogRef, label, children, onClose }: { dialogRef: RefObject<HTMLDialogElement | null>; label: string; children: ReactNode; onClose?: () => void }) {
+// beforeClose: 바깥 누르기·Esc로 닫기 전에 묻는다. false면 닫지 않는다(수정 중 고친 내용이 있을 때).
+function GoDialog({ dialogRef, label, children, onClose, beforeClose }: { dialogRef: RefObject<HTMLDialogElement | null>; label: string; children: ReactNode; onClose?: () => void; beforeClose?: () => boolean }) {
   return (
     <dialog
       ref={dialogRef}
       aria-label={label}
       onClose={onClose}
+      onCancel={(e) => {
+        if (beforeClose && !beforeClose()) e.preventDefault();
+      }}
       onClick={(e) => {
         // 바깥(어두운 곳)을 누르면 닫는다
-        if (e.target === e.currentTarget) e.currentTarget.close();
+        if (e.target === e.currentTarget && (!beforeClose || beforeClose())) e.currentTarget.close();
       }}
       // 폭: 카드(23rem) + 웹에서는 오른쪽 아이콘 버튼 줄
       className={`m-auto w-[min(23rem,calc(100vw-2rem))] overflow-y-auto overscroll-contain bg-transparent p-0 text-zinc-900 backdrop:bg-black/55 backdrop:backdrop-blur-sm md:w-[min(26rem,calc(100vw-2rem))] ${MAX_H} ${ZOOM_UP}`}
@@ -246,14 +250,34 @@ function useItemActions(item: Item, close: () => void) {
   return { editing, setEditing, error, deleting, onDelete };
 }
 
-function ItemDialogBody({ item, days, readOnly, close, children }: { item: Item; days: TripDay[]; readOnly: boolean; close: () => void; children: ReactNode }) {
+// 수정 중 나가기 (F16 검수): 한 칸이라도 고쳤으면 "저장하지 않고 닫을까요?"를 묻고, 안 고쳤으면 바로 나간다.
+// guardRef에 묻는 함수를 걸어 두면 창(GoDialog)이 바깥 누르기·Esc 때 부른다. 창을 열 때마다 GroupTile이 이 몸통을 새로 그려 원래 카드가 보인다.
+function ItemDialogBody({ item, days, readOnly, close, guardRef, children }: { item: Item; days: TripDay[]; readOnly: boolean; close: () => void; guardRef: RefObject<(() => boolean) | null>; children: ReactNode }) {
   const { editing, setEditing, error, deleting, onDelete } = useItemActions(item, close);
+  const dirty = useRef(false);
+  const canLeave = useCallback(() => !dirty.current || window.confirm("수정한 내용을 저장하지 않고 닫을까요?"), []);
+  useEffect(() => {
+    if (!editing) return;
+    guardRef.current = canLeave;
+    return () => {
+      guardRef.current = null;
+    };
+  }, [editing, guardRef, canLeave]);
+  const startEdit = () => {
+    dirty.current = false;
+    setEditing(true);
+  };
   if (editing) {
     return (
       // 창은 웹에서 키워 보이므로 수정 화면은 그만큼 되돌려 원래 크기로 보이게 한다
       <div data-tone="dark" className={`${EDIT_PANEL} ${ZOOM_UNDO}`}>
-        <EditHeader title="항목 수정" sub={item.name} onClose={() => setEditing(false)} back />
-        <div className="max-h-[70vh] overflow-y-auto px-5 pb-5">
+        <EditHeader title="항목 수정" sub={item.name} onClose={() => canLeave() && setEditing(false)} back />
+        <div
+          className="max-h-[70vh] overflow-y-auto px-5 pb-5"
+          onInput={() => {
+            dirty.current = true;
+          }}
+        >
           <ItemForm key={item.updated_at} action={updateItem.bind(null, item.id, item.trip_id)} days={days} item={item} submitLabel="고치기" onSaved={() => setEditing(false)} />
         </div>
       </div>
@@ -261,7 +285,7 @@ function ItemDialogBody({ item, days, readOnly, close, children }: { item: Item;
   }
   const actions = !readOnly && (
     <>
-      <RailButton label="수정" onClick={() => setEditing(true)}>
+      <RailButton label="수정" onClick={startEdit}>
         <EditIcon className="size-[1.15rem]" />
       </RailButton>
       <RailButton label={deleting ? "지우는 중…" : "삭제"} onClick={onDelete} disabled={deleting} danger>
@@ -818,6 +842,12 @@ function groupTitle(kind: GoKind, group: Item[]): string {
 function GroupTile({ kind, group, items, days, readOnly, coverImage, companions }: { kind: GoKind; group: Item[]; items: Item[]; days: TripDay[]; readOnly: boolean; coverImage: string; companions: number }) {
   const d = useDialog();
   const [picked, setPicked] = useState(0);
+  const guardRef = useRef<(() => boolean) | null>(null);
+  const [opened, setOpened] = useState(0); // 창을 열 때마다 올려 몸통을 새로 그린다(수정 중 나갔다 다시 열어도 수정창이 아니라 카드)
+  const open = () => {
+    setOpened((n) => n + 1);
+    d.open();
+  };
   const index = Math.min(picked, group.length - 1); // 지워서 줄어들면 마지막 것을 보여 준다
   const item = group[index];
   const lodgings = items.filter((i) => i.kind === "lodging");
@@ -847,9 +877,9 @@ function GroupTile({ kind, group, items, days, readOnly, coverImage, companions 
 
   return (
     <>
-      <Tile icon={icon} kind={KIND_LABEL[kind]} corner={corner} title={groupTitle(kind, group)} foot={groupFoot(kind, group, lodgings, days)} onOpen={d.open} />
-      <GoDialog dialogRef={d.ref} label={`${KIND_LABEL[kind]} 자세히`}>
-        <ItemDialogBody key={`${item.id}:${item.updated_at}`} item={item} days={days} readOnly={readOnly} close={d.close}>
+      <Tile icon={icon} kind={KIND_LABEL[kind]} corner={corner} title={groupTitle(kind, group)} foot={groupFoot(kind, group, lodgings, days)} onOpen={open} />
+      <GoDialog dialogRef={d.ref} label={`${KIND_LABEL[kind]} 자세히`} beforeClose={() => guardRef.current?.() ?? true}>
+        <ItemDialogBody key={`${item.id}:${item.updated_at}:${opened}`} item={item} days={days} readOnly={readOnly} close={d.close} guardRef={guardRef}>
           <Pager index={index} labels={labels} onPick={setPicked}>
             {body}
           </Pager>
