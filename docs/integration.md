@@ -3,7 +3,7 @@
 v1.0을 AI 하나가 만든 뒤, 세 명이 수정·확장을 나눠 맡아 합치는 규칙(문서 수정 권한, 브랜치, PR, 머지 순서, 충돌 시 기준)입니다.
 
 > 작성: AI 초안 → 사람 검토·수정 · 갱신: 규칙이 바뀔 때 (① 시작 회의 합의 후 haeans)
-> 결정 근거: `decisions.md` B29~B37, B81, B83
+> 결정 근거: `decisions.md` B29~B37, B81, B83, B92
 
 ## 1. 적용 시점
 
@@ -121,7 +121,7 @@ v1.0을 AI 하나가 만든 뒤, 세 명이 수정·확장을 나눠 맡아 합�
 |---|---|
 | `drizzle/`(마이그레이션 번호, `meta/_journal.json`) | 스키마 변경은 한 번에 한 브랜치만. 파일은 작업자의 Claude가 만들고, 반영은 haeans. (7절) |
 | `package.json`, `package-lock.json` | 패키지 추가는 PR에 적는다. lock 파일 충돌은 `main` 쪽을 받고 `npm install`을 다시 돌린다. |
-| `src/app/globals.css`, `src/app/layout.tsx`, `src/app/_components/` | 디자인 담당이 주인이다. 다른 사람이 고치면 PR에 디자인 담당을 리뷰어로 지정한다. |
+| `src/app/globals.css`, `src/app/layout.tsx`, `src/app/_components/` | 디자인 담당이 주인이다. 다른 사람이 고치면 PR에 디자인 담당을 리뷰어로 지정한다. `app-header.tsx`의 `步` 도장 모양은 두 곳(머리글 안, 지도 메뉴가 쓰는 `LogoMark`)에 있으므로 로고를 바꿀 때 둘 다 바꾼다(B92, C8 F14). |
 | 같은 파일을 크게 고치는 두 작업 | 뒤 작업 브랜치를 앞 작업 브랜치 위에 쌓을 수 있다. 앞 작업이 squash 머지되면 뒤 브랜치에 그 최종본과 최신 `main`을 합친 뒤 PR을 연다(B81, C7의 F10 → F11). |
 
 ## 10. 로컬 개발 값 공유

@@ -15,11 +15,13 @@ API 경로, 로그인·권한 확인, 외부 API(Claude·Gemini·구글맵·Unsp
 | `renameTrip(tripId)` | 서버 액션 | 여행 이름 수정 | v0.3 |
 | `setUploadedCover(tripId)` | 서버 액션 | 브라우저가 Storage `trip-covers/<여행 id>/cover`에 올린 사진을 대표 이미지로 기록한다. 주소는 서버가 만들고 `?v=<시각>`을 붙인다(B51, B52). | C7 (F08) |
 | `deleteTrip(tripId)` | 서버 액션 | 여행 삭제. 올린 대표 이미지(`<여행 id>/cover`)도 지운다(실패해도 삭제 진행, B54). | v0.3, C7 |
-| `createItem(tripId)` | 서버 액션 | 항목 넣기. 좌표 찾기 후 저장 | v0.5 |
-| `updateItem(itemId, tripId)` | 서버 액션 | 항목 고치기. 이름·주소·종류가 바뀌었을 때만 좌표를 다시 찾는다. | v0.5 |
-| `deleteItem(itemId, tripId)` | 서버 액션 | 항목 지우기 | v0.5 |
-| `extractItems(tripId, text)` | 서버 액션 | 원문에서 항목 추출. 저장하지 않고 미리보기 항목만 돌려준다. | v0.6 |
-| `saveExtractedItems(tripId, form)` | 서버 액션 | 미리보기에서 고른 항목 저장. 좌표 찾기 후 `source = ai` | v0.6 |
+| `createItem(tripId)` | 서버 액션 | 항목 넣기. 좌표 찾기 후 저장. 폼이 `booking=1`을 보내면 예약 정보를 `item_secrets`에 따로 저장한다(B128) | v0.5, C8 |
+| `updateItem(itemId, tripId)` | 서버 액션 | 항목 고치기. 이름·주소·종류가 바뀌었을 때만 좌표를 다시 찾는다. `booking=1`이면 예약 정보도 저장·지운다(B128). | v0.5, C8 |
+| `deleteItem(itemId, tripId)` | 서버 액션 | 항목 지우기. 예약 정보는 cascade로 같이 지워진다 | v0.5 |
+| `extractItems(tripId, text)` | 서버 액션 | 원문에서 항목 추출. 저장하지 않고 미리보기 항목(추천 표시 포함)과 못 정한 예약번호만 돌려준다. | v0.6, C8 |
+| `saveExtractedItems(tripId, form)` | 서버 액션 | 미리보기·추천 카드·대화 제안에서 고른 항목 저장. 좌표 찾기 후 `source = ai` | v0.6, C8 |
+| `sendChat(tripId, request)` | 서버 액션 | 대화 도우미 한 턴. 답장·일정 제안·고치기·지우기 제안·추천 칩을 돌려준다. 저장하지 않는다(3절, B114) | C8 (F19) |
+| `applyChange(tripId, request)` | 서버 액션 | 대화의 고치기·지우기 카드에서 "반영"·"삭제"를 눌렀을 때만 그 일정을 고치거나 지운다(B120) | C8 (F19) |
 | `getOrCreateShareLink(tripId)` | 서버 액션 | 공유 링크가 있으면 돌려주고 없으면 만든다(소유자만, RLS). | v0.9 |
 | `GET /share/{token}` | 화면 | 로그인 후 `accept_share`로 등록하고 `/trips/{id}`로 보낸다. | v0.9 |
 
@@ -36,6 +38,8 @@ API 경로, 로그인·권한 확인, 외부 API(Claude·Gemini·구글맵·Unsp
 - Drizzle로 DB에 직접 접속하지 않는다. 관리자 권한이 되어 RLS가 적용되지 않을 수 있기 때문이다.
 - 대표 이미지 올리기(C7, F08)는 브라우저의 로그인 사용자 클라이언트가 Storage에 직접 올리고, Storage RLS가 소유자만 허용한다(`04-DB.md` Storage 절). 서버는 기록만 한다(`setUploadedCover`).
 - 여행 목록(C7, F09)은 카드 미리보기용으로 목록의 여행 항목을 한 번에 읽는다(서버 컴포넌트, 같은 RLS). 실패하면 미리보기 없이 목록만 보여 준다.
+- 예약 정보(C8, F20): 여행 상세(`page.tsx`)는 소유자일 때만 `item_secrets`를 읽어 항목에 붙인다. 공유받은 사람에게는 읽지 않고 보내지도 않으며, RLS도 소유자만 허용한다(B121, B122). 표가 없으면(반영 전) 예약 정보 없이 보인다.
+- 저장 금지 검사(C8, F20): `parseItemForm`이 이름·주소·메모·링크·예약번호에서 저장 금지 정보(카드번호(Luhn)·주민번호·CVC·비밀번호 등)를 찾으면 저장하지 않는다(`src/lib/items/sensitive.ts`, B127).
 
 ## 3. AI 추출 호출 (R-04)
 
@@ -52,9 +56,16 @@ API 경로, 로그인·권한 확인, 외부 API(Claude·Gemini·구글맵·Unsp
   - 모델(B19): `gemini-3.5-flash-lite`를 먼저 부르고, 429·503으로 거절되면 `gemini-3.1-flash-lite`를 한 번 부른다. 한도는 모델마다 따로 센다.
   - 스키마에는 숫자 범위·배열 길이 제한을 넣지 않는다. Gemini가 "too many states"로 거절한다. 일차 범위(1~60)와 항목 수(30개)는 `normalize.ts`에서 맞춘다.
   - 호출 줄이기(B17): 같은 모델로 재시도하지 않는다(`maxRetries: 0`, 60초 제한). 출력 8,192토큰, `thinking_level: "low"`, `store: false`.
-  - 보내기 전에 개인정보 모양의 값을 가린다(`mask.ts`, B18).
+  - 보내기 전에 개인정보 모양의 값을 가린다(`mask.ts`, B18). C8(F20)부터는 먼저 링크와 예약번호를 `[링크N]`·`[예약번호N]`으로 바꾸고(`vault.ts`의 `hideForAi`), 결과의 `link`·`booking_ref` 칸에서 원래 값으로 되돌린다. 순서는 `hideForAi` → `maskPersonal`이다(B125).
   - 지시문에 여행 목적지, 시작일·종료일, 일차 수를 넣는다. 원문은 사용자 메시지로 따로 넘기고, 원문 속 지시는 따르지 않도록 한다.
   - 결과는 `normalize.ts`에서 다시 다듬고, 저장 때는 직접 입력과 같은 검사(`validation.ts`)를 거친다.
+  - 추천(C8, F18): 스키마에 `suggested_day`·`suggested_time`·`reason`을 더했다. 소유자 확인과 함께 `loadTripContext`가 기존 일정(최대 150개)의 종류·일차·시각·이름·주소를 읽어 `<existing>`으로 보낸다(메모·링크·비용 제외, B111). 일차는 원문 날짜 → 원문 일차 → AI 추천 → 일정이 가장 적은 날, 시각은 원문 → AI 추천(메모 제외) 순이고, 원문에서 온 값이 아니면 `suggest`로 표시한다(B16).
+- 대화 도우미(C8, F19, `src/app/actions/assistant.ts`, `src/lib/assistant/`)
+  - 붙여넣기/대화 고르기는 화면에서 `routeMessage`(`route.ts`, 점수제)가 한다. 추출은 지금처럼 `extractItems`로 간다(B113).
+  - `sendChat`: 입력 검사(zod, 말 1,000자, 대화 기록 최근 10턴, 직전 제안 30개) → `loadTripContext`(소유자만, 기존 일정 150개) → 이번 말·대화 기록·직전 제안·기존 일정 이름/주소를 `hideForAi` → `maskPersonal` → `chatWithGemini`(호출 한 번) → 자리표시 지우기(`stripPlaceholders`) → `normalizeProposal`(새 일정: 범위·중복·시간 겹침·최대 12개) · `normalizeChanges`(고치기·지우기: 번호 확인·쪽지 제외·최대 10건) → Places 확인. 저장하지 않는다(B114~B118).
+  - 지시문(`prompt.ts`)은 고정이고, 여행·일차(날짜·요일·숙소)·기존 일정(`#번호`)·직전 제안·대화 기록·이번 말은 태그로 나눠 사용자 메시지로 넘긴다. 모델에게 DB id를 보내지 않고, 번호 → id 표는 서버가 요청마다 만든다(B120).
+  - 출력은 `{ reply, items, changes, quick_replies }` 하나다(B115). 출력 4,096토큰, 생각 수준 낮음, `store: false`, 429·503일 때만 다음 모델(B118). 공급자 호출은 `gemini.ts` 한 파일에 둔다(B14).
+  - `applyChange`: 카드의 "반영"·"삭제"를 눌렀을 때만 부른다. 일정을 다시 읽어 소유자를 확인하고 `parseItemForm` → `resolvePlace` → update/delete. `booking=1`을 보내지 않으므로 `item_secrets`는 그대로이고, 지우면 cascade로 같이 지워진다. 이미 없는 일정이면 "이미 없는 일정입니다"를 돌려준다(B120, B128).
   - 키: `GEMINI_API_KEY`(서버 전용). 키가 없거나 호출이 실패하면 "추출하지 못했다"는 안내만 보여 준다.
 
 ## 4. 구글맵 호출 (R-04, R-05, R-06)
