@@ -4,7 +4,7 @@
 import { compareItems } from "@/lib/items/group";
 import { splitRoute } from "@/lib/items/route-name";
 import type { Item } from "@/lib/items/types";
-import { isPass, parseFlight, parseRide } from "@/lib/trips/go-info";
+import { isFlight, isPass, parseRide } from "@/lib/trips/go-info";
 import type { TravelMode } from "./route-plan";
 
 export type HubKind = "airport" | "station" | "terminal";
@@ -27,14 +27,11 @@ export function hubQuery(place: string, kind: HubKind): string | null {
   return ends.test(text) ? text : `${text} ${word}`;
 }
 
-// 편명(KE123, 7C1301)만 있는 앞부분
-const FLIGHT_NO = /^([A-Z]{2}|[A-Z]\d|\d[A-Z])\s?\d{1,4}$/;
-// "공항"·"airport"는 넣지 않는다. 공항철도·Airport Express 같은 기차 이름에도 쓰여서다.
-const FLIGHT_WORDS = /항공|비행|flight|airlines?/i;
+// 비행기인가는 GO 카드와 같은 기준(go-info.ts isFlight, C9 F26 결정 3)을 쓴다.
 
-// 비행기인가: 공항 코드 구간(parseFlight), 편명, 항공·비행 같은 말. AI 추출 이름 "KE123 인천→홍콩"은 편명으로 안다.
-export function isFlight(item: Item, carrier: string): boolean {
-  return parseFlight(item) !== null || FLIGHT_NO.test(carrier) || FLIGHT_WORDS.test(item.name);
+// 교통 항목의 거점 종류: 비행기는 공항, 버스는 터미널, 그 밖은 역
+export function hubKind(item: Item): HubKind {
+  return isFlight(item) ? "airport" : parseRide(item.name)?.bus ? "terminal" : "station";
 }
 
 // 비행기는 공항, 버스는 터미널, 그 밖은 역. 교통 패스와 화살표 없는 이름은 거점이 없다.
@@ -42,11 +39,10 @@ export function isFlight(item: Item, carrier: string): boolean {
 // 글자가 많을수록 그 터미널·역을 더 잘 찾기 때문이다. (결정 3)
 export function hubQueries(item: Item): HubQueries | null {
   if (item.kind !== "transport" || isPass(item)) return null;
-  const { carrier, from, to } = splitRoute(item.name);
+  const { from, to } = splitRoute(item.name);
   if (!from && !to) return null;
-  const flight = isFlight(item, carrier);
-  const kind: HubKind = flight ? "airport" : parseRide(item.name)?.bus ? "terminal" : "station";
-  const queries = { mode: flight ? "flight" : "transport", kind, from: hubQuery(from, kind), to: hubQuery(to, kind) } as const;
+  const kind = hubKind(item);
+  const queries = { mode: kind === "airport" ? "flight" : "transport", kind, from: hubQuery(from, kind), to: hubQuery(to, kind) } as const;
   return queries.from || queries.to ? queries : null;
 }
 

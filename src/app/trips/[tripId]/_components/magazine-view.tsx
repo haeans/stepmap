@@ -11,6 +11,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import type { GroupedItems } from "@/lib/items/group";
+import { daySchedule, type DayEntry } from "@/lib/items/day-plan";
 import type { Item } from "@/lib/items/types";
 import { dayColor } from "@/lib/map/places";
 import type { TripDay } from "@/lib/trips/days";
@@ -18,6 +19,7 @@ import { dayAreas } from "@/lib/trips/areas";
 import { averageColor, hueBackground, hueFromText, placeholderCover, toneBackground } from "@/lib/trips/tone";
 import type { Trip } from "@/lib/trips/types";
 import type { TripWeather } from "@/lib/weather/codes";
+import { HubCard } from "./hub-card";
 import { ItemCard } from "./item-card";
 import { NoteComposer } from "./note-composer";
 import { PlaceCard } from "./place-card";
@@ -180,10 +182,12 @@ function Cards({ items, empty, days, readOnly }: { items: Item[]; empty: string;
 }
 
 // DAY 한 칸 (F10). 제목 아래에 그날의 지역만 짧게 보이고, DAY를 누르면 서랍처럼 장소 카드들이 펼쳐진다.
+// 카드는 하루 일정 규칙(C9 F26, daySchedule)을 따른다: 시작(전날 숙소 또는 도착 거점) → 관광지·식당 → 끝(그날 숙소 또는 출발 거점).
 // PC: 짝수 번째는 내용이 왼쪽·제목이 오른쪽, 홀수 번째는 반대. 모바일: 기준선 왼쪽, 한쪽 정렬.
 function DayBlock({
   day,
   places,
+  entries,
   destination,
   contentLeft,
   photos,
@@ -193,7 +197,8 @@ function DayBlock({
   suggestions,
 }: {
   day: TripDay;
-  places: Item[];
+  places: Item[]; // 그날의 관광지·식당 (지역 이름과 개수)
+  entries: DayEntry[]; // 하루 일정: 시작 + 장소 + 끝
   destination: string;
   contentLeft: boolean;
   photos: Record<string, string>;
@@ -213,7 +218,15 @@ function DayBlock({
   const color = dayColor(day.day);
   const { areas, more } = dayAreas(places.map((p) => p.address), destination);
   const toggle = () => setOpen((v) => !v);
-  const empty = places.length === 0 && suggestions.length === 0;
+  const empty = entries.length === 0 && suggestions.length === 0;
+  const end = entries.at(-1)?.role === "end" ? entries.at(-1) : undefined;
+  const body = end ? entries.slice(0, -1) : entries;
+  const card = (e: DayEntry) =>
+    e.role !== "place" && e.side ? (
+      <HubCard item={e.item} side={e.side} />
+    ) : (
+      <PlaceCard key={e.item.updated_at} item={e.item} photoUrl={photos[e.item.id]} color={color} days={dayOptions} readOnly={readOnly} role={e.role === "place" ? undefined : e.role} />
+    );
 
   return (
     <li aria-label={`${day.day}일차`} className="relative grid gap-4 pb-12 pl-10 md:grid-cols-2 md:gap-x-16 md:pl-0">
@@ -233,7 +246,7 @@ function DayBlock({
               {more > 0 && <span className="text-white/55"> 외 {more}곳</span>}
             </p>
           )}
-          <p className={`mt-1 ${MUTED}`}>{empty ? "아직 장소가 없습니다" : `장소 ${places.length}곳${suggestions.length ? ` · 추천 ${suggestions.length}` : ""} · ${open ? "접기 ↑" : "펼치기 ↓"}`}</p>
+          <p className={`mt-1 ${MUTED}`}>{empty ? "아직 일정이 없습니다" : `장소 ${places.length}곳${suggestions.length ? ` · 추천 ${suggestions.length}` : ""} · ${open ? "접기 ↑" : "펼치기 ↓"}`}</p>
         </button>
       </Reveal>
 
@@ -247,16 +260,22 @@ function DayBlock({
             >
               <div className="min-h-0 overflow-hidden" inert={!open}>
                 <ul className="flex flex-col gap-3">
-                  {places.map((item, i) => (
-                    <Reveal as="li" key={item.id} delay={i * 80}>
-                      <PlaceCard key={item.updated_at} item={item} photoUrl={photos[item.id]} color={color} days={dayOptions} readOnly={readOnly} />
+                  {body.map((e, i) => (
+                    <Reveal as="li" key={`${e.role}:${e.item.id}`} delay={i * 80}>
+                      {card(e)}
                     </Reveal>
                   ))}
+                  {/* F18 추천은 그날 끝(숙소·출발 거점) 앞에 둔다 */}
                   {suggestions.map((s) => (
                     <li key={s.id}>
                       <SuggestionCard tripId={tripId} suggestion={s} color={color} days={dayOptions} />
                     </li>
                   ))}
+                  {end && (
+                    <Reveal as="li" key={`end:${end.item.id}`} delay={body.length * 80}>
+                      {card(end)}
+                    </Reveal>
+                  )}
                 </ul>
               </div>
             </div>
@@ -279,6 +298,8 @@ export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = n
   const suggestions = readOnly ? [] : stored;
   // 추천이 여행 기간 뒤 일차에 있으면 그 일차까지 늘려 보인다.
   const days = [...grouped.days];
+  // 하루 일정 규칙(C9 F26)은 다른 날의 숙소(전날 밤)와 교통도 봐야 해서 전체 항목으로 계산한다. 메모는 쓰지 않는다.
+  const allItems = [...grouped.transport, ...grouped.lodging, ...grouped.days.flatMap((d) => d.places)];
   const lastSuggested = Math.max(0, ...suggestions.map((s) => s.item.day));
   for (let d = days.length + 1; d <= lastSuggested; d++) days.push({ day: { day: d, date: null }, places: [] });
 
@@ -315,6 +336,7 @@ export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = n
               key={day.day}
               day={day}
               places={dayPlaces}
+              entries={daySchedule(day.day, allItems)}
               destination={trip.destination}
               contentLeft={index % 2 === 0}
               photos={photos}

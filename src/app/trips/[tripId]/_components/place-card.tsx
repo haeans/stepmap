@@ -4,6 +4,7 @@
 // 그 일정에 필요한 것(시간, 티켓·입장료와 예약 링크, 주소, 메모, 지도에서 보기)을 보여 준다. 수정·삭제도 여기서 한다.
 // 지도로 가는 버튼은 카드 앞면(펼침 버튼 바로 위)에도 있다(C8 F16).
 // 사진: 직접 넣은 사진(photoUrl) → 장소 사진(C8 F22: 관광지는 Wikimedia Commons 먼저, 그 밖은 Google Places) → 일차 색 그라데이션.
+// 하루의 시작·끝 숙소 카드(role, C9 F26)는 그라데이션 대신 로고.
 // 장소 사진은 앞면 오른쪽 위 ⓘ를 누르면 크게 보며 출처(작가·라이선스·원본 링크)를 보인다. Google 사진은 앞면에 "Google Maps"도 둔다.
 
 import Link from "next/link";
@@ -14,10 +15,13 @@ import type { CardPhoto } from "@/lib/places/types";
 import type { TripDay } from "@/lib/trips/days";
 import { BookingInfo } from "./booking-info";
 import { EDIT_DIALOG, EditHeader } from "./edit-sheet";
+import { LogoPhoto } from "./hub-card";
 import { ItemForm } from "./item-form";
 import { photoVersion, usePlacePhoto } from "./use-place-photo";
 
-type Props = { item: Item; photoUrl?: string | null; color: string; days: TripDay[]; readOnly: boolean };
+// role: 하루의 시작·끝 숙소 카드(C9 F26)이면 "start"·"end". 사진을 못 불러오면 그라데이션 대신 로고를 쓴다.
+// 시작 숙소(마지막 날 아침)는 체크인 시각이 전날 것이라 시각을 보이지 않는다.
+type Props = { item: Item; photoUrl?: string | null; color: string; days: TripDay[]; readOnly: boolean; role?: "start" | "end" };
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -28,7 +32,7 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-export function PlaceCard({ item, photoUrl = null, color, days, readOnly }: Props) {
+export function PlaceCard({ item, photoUrl = null, color, days, readOnly, role }: Props) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleting, startDelete] = useTransition();
@@ -84,11 +88,13 @@ export function PlaceCard({ item, photoUrl = null, color, days, readOnly }: Prop
                 onError={photoUrl ? undefined : onPhotoError}
                 className="absolute inset-0 size-full object-cover transition duration-700 ease-out group-hover:scale-105 motion-reduce:transition-none"
               />
+            ) : role ? (
+              <LogoPhoto />
             ) : (
               <div aria-hidden className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${color}aa, ${color}33 60%, transparent)` }} />
             )}
             <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" />
-            {time && <span className="absolute top-3 left-3 rounded-full bg-black/45 px-2.5 py-1 font-mono text-xs backdrop-blur-md">{time}</span>}
+            {time && role !== "start" && <span className="absolute top-3 left-3 rounded-full bg-black/45 px-2.5 py-1 font-mono text-xs backdrop-blur-md">{time}</span>}
             <div className="absolute inset-x-3 bottom-3 flex items-end justify-between gap-2">
               <div className="min-w-0">
                 <p className="text-xs text-white/70">

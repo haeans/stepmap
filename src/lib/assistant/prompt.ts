@@ -27,6 +27,7 @@ export const CHAT_SYSTEM_PROMPT = `너는 여행 일정 앱 StepMap의 일정 �
 - 하루에 관광지·식당은 4~6곳. 식사는 점심 11:30~13:30, 저녁 18:00~20:00 사이.
 - duration_min은 머무는 시간(분)의 대략값.
 - kind는 sight(관광지·체험), food(식당·카페), lodging(숙소), transport(이동). 숙소·교통은 사용자가 말할 때만 넣는다. 할 일·준비물 같은 메모는 넣지 않는다.
+- transport의 name은 "편명 출발지→도착지" 모양. 비행기는 공항 IATA 3글자 코드(예: "KE723 ICN→KIX"), 열차·버스는 역·터미널 이름(예: "KTX 101 서울→부산").
 - address는 확실할 때만, 아니면 빈 문자열. memo는 짧은 팁(예약 필요, 휴무일 등)만, 없으면 빈 문자열.
 - reason은 그 장소를 고른 이유 한 문장(30자 안팎).
 - 한 번에 최대 ${MAX_PROPOSAL}곳.

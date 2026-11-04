@@ -14,15 +14,70 @@ const AIRPORTS: Record<string, string> = {
   LHR: "런던 히스로", CDG: "파리 샤를드골", FRA: "프랑크푸르트", FCO: "로마", BCN: "바르셀로나",
 };
 
+// 공항 이름 → 코드 ("인천" → "ICN")
+const AIRPORT_CODES: Record<string, string> = Object.fromEntries(Object.entries(AIRPORTS).map(([code, name]) => [name, code]));
+
+// from·to는 공항 코드(알면) 또는 이름 그대로, 이름이 없으면 빈 문자열이다. fromName·toName은 한국어 공항 이름(모르면 from·to).
 export type Flight = { from: string; to: string; fromName: string; toName: string; flightNo: string | null };
 
-// "ICN → KIX", "ICN-KIX", "인천 ICN → 간사이 KIX" 같은 이름에서 공항 코드를 뽑는다. 비행기가 아니면 null.
+// 항공권·승차권 나누는 기준 (C9 F26 결정 3). 교통 항목은 아래 중 하나면 비행기(항공권)다.
+// ① 화살표 양쪽이 공항 코드: "ICN → KIX", "인천 ICN -> 홍콩 HKG"
+// ② 편명(KE723, 7C1301)이나 항공·비행 같은 말이 있고, 기차·버스·배 말(역·열차·KTX·버스 …)이 없다: "KE723 인천 → 간사이"
+// ③ 화살표 양쪽이 모두 아는 공항(이름 또는 "○○공항"): "인천 → 간사이", "김포공항 → 제주공항"
+// "공항" 한 낱말만으로는 비행기로 보지 않는다(공항철도·공항버스). 그 밖의 교통은 패스 말이 있으면 교통 패스, 아니면 승차권이다.
+const CODE_ROUTE = /\b([A-Z]{3})\b[^A-Z]*?(?:→|->|-|–|~|>)[^A-Z]*?\b([A-Z]{3})\b/;
+const FLIGHT_NO = /^([A-Z]{2}|[A-Z]\d|\d[A-Z])\s?\d{1,4}$/;
+const FLIGHT_WORDS = /항공|비행|flight|airlines?|airways/i;
+const GROUND_WORDS = /역|station|열차|기차|철도|신칸센|KTX|SRT|ITX|무궁화|새마을|train|rail|express|버스|bus|터미널|terminal|페리|ferry|배편|선박|크루즈|지하철|metro|subway|택시|taxi/i;
+const ARROW = /\s*(?:→|->|⇒|~|>)\s*/;
+
+function routeSides(name: string): { carrier: string; from: string; to: string } {
+  const m = name.match(ARROW);
+  if (!m || m.index === undefined) return { carrier: name.trim(), from: "", to: "" };
+  const words = name.slice(0, m.index).trim().split(/\s+/).filter(Boolean);
+  const from = words.pop() ?? "";
+  // 도착 쪽은 첫 낱말(공항 이름)만. 뒤에 붙은 터미널(T1) 같은 말은 버린다.
+  const to = name.slice(m.index + m[0].length).trim().split(/\s+/)[0] ?? "";
+  return { carrier: words.join(" "), from, to };
+}
+
+// "간사이", "간사이공항", "간사이 국제공항", "KIX" → 아는 공항이면 코드, 모르면 null
+function airportCode(place: string): string | null {
+  const text = place.trim();
+  if (/^[A-Z]{3}$/.test(text)) return text;
+  const bare = text.replace(/\s*(국제)?공항$/, "");
+  return AIRPORT_CODES[bare] ?? null;
+}
+
+function flightSide(place: string): { code: string; name: string } {
+  const code = airportCode(place);
+  if (code) return { code, name: AIRPORTS[code] ?? code };
+  const bare = place.replace(/\s*(국제)?공항$/, "");
+  return { code: bare, name: bare };
+}
+
 export function parseFlight(item: Pick<Item, "name" | "address" | "memo">): Flight | null {
-  const route = item.name.match(/\b([A-Z]{3})\b[^A-Z]*?(?:→|->|-|–|~|>)[^A-Z]*?\b([A-Z]{3})\b/);
-  if (!route) return null;
-  const [, from, to] = route;
   const no = `${item.address} ${item.name} ${item.memo}`.match(/\b([A-Z]{2}|[A-Z]\d|\d[A-Z])\s?(\d{2,4})\b/);
-  return { from, to, fromName: AIRPORTS[from] ?? from, toName: AIRPORTS[to] ?? to, flightNo: no ? `${no[1]}${no[2]}` : null };
+  const flightNo = no ? `${no[1]}${no[2]}` : null;
+
+  const coded = item.name.match(CODE_ROUTE);
+  if (coded) {
+    const [, from, to] = coded;
+    return { from, to, fromName: AIRPORTS[from] ?? from, toName: AIRPORTS[to] ?? to, flightNo };
+  }
+
+  const { carrier, from, to } = routeSides(item.name);
+  const flightWord = !GROUND_WORDS.test(item.name) && (carrier.split(/\s+/).some((w) => FLIGHT_NO.test(w)) || FLIGHT_WORDS.test(item.name));
+  const knownAirports = from !== "" && to !== "" && airportCode(from) !== null && airportCode(to) !== null;
+  if (!flightWord && !knownAirports) return null;
+
+  const a = from ? flightSide(from) : { code: "", name: "" };
+  const b = to ? flightSide(to) : { code: "", name: "" };
+  return { from: a.code, to: b.code, fromName: a.name, toName: b.name, flightNo };
+}
+
+export function isFlight(item: Pick<Item, "kind" | "name" | "address" | "memo">): boolean {
+  return item.kind === "transport" && parseFlight(item) !== null;
 }
 
 // 돌아오는 편: 출발·도착이 뒤집힌 다른 비행기
@@ -55,11 +110,11 @@ export function stayRange(item: Item, lodgings: Item[], days: TripDay[]): Stay {
 const PASS_WORDS = /패스|pass|\d+\s*일권|일일권|자유이용|프리|free|무제한|정기권|티머니|T-?money|교통카드|IC\s?카드/i;
 
 export function isPass(item: Item): boolean {
-  return item.kind === "transport" && parseFlight(item) === null && PASS_WORDS.test(item.name);
+  return item.kind === "transport" && !isFlight(item) && PASS_WORDS.test(item.name);
 }
 
 export function isTicket(item: Item): boolean {
-  return item.kind === "transport" && parseFlight(item) === null && !PASS_WORDS.test(item.name);
+  return item.kind === "transport" && !isFlight(item) && !PASS_WORDS.test(item.name);
 }
 
 export type Ride = { carrier: string; from: string; to: string; bus: boolean };
