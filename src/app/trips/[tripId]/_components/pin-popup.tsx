@@ -5,7 +5,7 @@ import { useEffect } from "react";
 import { formatTime } from "@/lib/items/types";
 import { hubLabel, type MapPlace } from "@/lib/map/places";
 
-// 핀 위 팝업 (C9 F25, R-06 b안): 이름과 "시간: / 주소: / 메모:" 줄(값이 없으면 줄을 숨김), 오른쪽 아래 구글맵 아이콘.
+// 핀 위 팝업 (C9 F25, R-06 b안): 이름과 시간·주소·메모 표(값이 없으면 줄을 숨김), 오른쪽 아래 구글맵 아이콘.
 // 예약번호·예약 링크는 넣지 않는다. 공항·역·터미널 거점은 주소·메모가 없어 이름, "공항 · 도착", 시간만 보인다.
 // 마지막 날 아침 숙소의 시각은 핀 목록(schedulePins)에서 이미 비어 온다.
 // 닫기: 작은 X 버튼·Esc는 여기서, 지도 빈 곳 누르기는 route-map.tsx가 처리한다.
@@ -45,27 +45,28 @@ export function PinPopup({ place, anchor, onClose }: Props) {
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
             <p className="text-base leading-snug font-bold break-words">{place.name}</p>
-            {place.hub && <p className="text-zinc-500">{hubLabel(place.hub)}</p>}
+            {place.hub && <p className="text-sm text-zinc-600">{hubLabel(place.hub)}</p>}
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="닫기"
             title="닫기"
-            className="-mt-0.5 -mr-1 flex size-6 shrink-0 items-center justify-center rounded-full text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700"
+            className="-mt-0.5 -mr-1 flex size-6 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-600 transition hover:bg-zinc-200 hover:text-zinc-900"
           >
-            <svg aria-hidden viewBox="0 0 12 12" className="size-3" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+            <svg aria-hidden viewBox="0 0 12 12" className="size-3" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
               <path d="M2 2l8 8M10 2l-8 8" />
             </svg>
           </button>
         </div>
 
+        {/* 표: 위쪽 가는 선, 줄 사이 가는 선. 값이 없는 줄은 그리지 않아 선도 함께 사라진다 */}
         {rows.length > 0 && (
-          <dl className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 leading-snug">
+          <dl className="divide-y divide-zinc-200 border-t border-zinc-200 leading-snug">
             {rows.map((r) => (
-              <div key={r.label} className="contents">
-                <dt className="text-zinc-500">{r.label}:</dt>
-                <dd className="min-w-0 break-words whitespace-pre-line">{r.value}</dd>
+              <div key={r.label} className="flex gap-3 py-1.5">
+                <dt className="w-8 shrink-0 text-sm text-zinc-600">{r.label}</dt>
+                <dd className="min-w-0 flex-1 text-sm break-words whitespace-pre-line text-zinc-900">{r.value}</dd>
               </div>
             ))}
           </dl>
@@ -78,7 +79,7 @@ export function PinPopup({ place, anchor, onClose }: Props) {
             rel="noopener noreferrer"
             aria-label="구글맵에서 보기"
             title="구글맵에서 보기"
-            className="flex size-8 items-center justify-center rounded-full border border-zinc-200 text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-900 active:scale-95"
+            className="flex size-9 items-center justify-center rounded-full bg-zinc-100 text-zinc-800 transition hover:bg-zinc-200 hover:text-zinc-950 active:scale-95"
           >
             <GlobeArrowIcon />
           </a>
@@ -91,7 +92,7 @@ export function PinPopup({ place, anchor, onClose }: Props) {
 // 지구본(왼쪽 아래)에 바깥으로 나가는 화살표(오른쪽 위)를 겹친 아이콘
 function GlobeArrowIcon() {
   return (
-    <svg aria-hidden viewBox="0 0 24 24" className="size-[18px]" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <svg aria-hidden viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="10" cy="14" r="7.5" />
       <ellipse cx="10" cy="14" rx="3.2" ry="7.5" />
       <path d="M2.5 14h15" />
