@@ -1,23 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useRef, useState, useTransition } from "react";
+import { useActionState, useEffect, useId, useRef, useState, useTransition } from "react";
 import { deleteTrip, renameTrip, type ActionState } from "@/app/actions/trips";
 import { authorLink, coverSrc, UNSPLASH_HOME } from "@/lib/cover/cover";
-import { CoverUpload } from "./cover-upload";
+import { useCoverUpload } from "./cover-upload";
 import { cardSubtitle } from "@/lib/trips/card-text";
 import { PREVIEW_EMPTY_TEXT, type PreviewDay } from "@/lib/trips/preview";
 import type { Trip } from "@/lib/trips/types";
 
 const LONG_PRESS_MS = 500;
 const CARD_BUTTON = "rounded-full bg-white/15 px-3 py-1.5 text-xs font-medium text-white ring-1 ring-white/20 backdrop-blur-md hover:bg-white/25 disabled:opacity-50";
+const MENU_ITEM = "w-full rounded-xl px-3 py-2 text-left text-sm transition hover:bg-white/15 focus-visible:bg-white/15 focus-visible:outline-none disabled:opacity-50";
 
 // 여행 카드 (F09). 작업 파일 leedaekeon578-f09-trip-cards 결정 1~5.
-// shared: 공유받은 여행. "공유받음"을 표시하고 이름 수정·삭제 버튼을 숨긴다. (R-08)
+// shared: 공유받은 여행. "공유받음"을 표시하고 ⋯ 메뉴(대표 이미지·이름 수정·삭제)를 숨긴다. (R-08)
 // 미리보기: PC는 마우스를 올리면 오른쪽 절반, 모바일은 길게 누르는 동안 카드 전체. 짧게 탭하면 여행으로 들어간다.
 export function TripRow({ trip, shared, preview }: { trip: Trip; shared: boolean; preview: PreviewDay[] }) {
   const [editing, setEditing] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const cover = useCoverUpload(trip.id, setDeleteError);
   const [deleting, startDelete] = useTransition();
   const [state, action, pending] = useActionState<ActionState, FormData>(
     async (prev, form) => {
@@ -126,10 +129,11 @@ export function TripRow({ trip, shared, preview }: { trip: Trip; shared: boolean
           </div>
         )}
 
-        {!editing && (
+        {/* 미리보기: DAY마다 첫 관광지(없으면 첫 일정) 하나, 더 있으면 가운데 점 "•••" (C9 F24). PC는 오른쪽 2/5. ⋯ 메뉴가 열려 있으면 숨긴다. */}
+        {!editing && !menuOpen && (
           <div
             className={`pointer-events-none absolute z-10 flex-col gap-2 overflow-hidden bg-black/70 p-5 pt-14 text-sm backdrop-blur-md ${
-              pressed ? "inset-0 flex" : "inset-y-0 right-0 hidden w-1/2 group-hover:flex"
+              pressed ? "inset-0 flex" : "inset-y-0 right-0 hidden w-2/5 group-hover:flex"
             }`}
           >
             <p className="text-xs font-semibold tracking-wider text-white/60">미리보기</p>
@@ -138,9 +142,11 @@ export function TripRow({ trip, shared, preview }: { trip: Trip; shared: boolean
             ) : (
               <ul className="flex flex-col gap-1.5">
                 {preview.map((d) => (
-                  <li key={d.day} className="truncate">
-                    <span className="mr-2 font-semibold">DAY {d.day}</span>
-                    {d.places.join(" · ")}
+                  <li key={d.day} className="flex min-w-0 items-center">
+                    <span className="mr-2 shrink-0 font-semibold">DAY {d.day}</span>
+                    <span className="truncate">{d.name}</span>
+                    {/* 이름이 길어 잘려도 점은 보이게 따로 둔다 */}
+                    {d.more && <span aria-hidden className="ml-1.5 shrink-0 text-[0.6rem] tracking-[0.15em] text-white/60">•••</span>}
                   </li>
                 ))}
               </ul>
@@ -172,18 +178,95 @@ export function TripRow({ trip, shared, preview }: { trip: Trip; shared: boolean
         )}
 
         {!shared && !editing && (
-          <div className="absolute top-4 right-4 z-20 flex gap-1.5">
-            <CoverUpload tripId={trip.id} className={CARD_BUTTON} onError={setDeleteError} />
-            <button type="button" onClick={() => setEditing(true)} className={CARD_BUTTON}>
-              이름 수정
-            </button>
-            <button type="button" onClick={onDelete} disabled={deleting} className={CARD_BUTTON}>
-              {deleting ? "지우는 중…" : "삭제"}
-            </button>
-          </div>
+          <TripMenu
+            title={trip.title}
+            open={menuOpen}
+            setOpen={setMenuOpen}
+            busy={cover.pending ? "올리는 중…" : deleting ? "지우는 중…" : null}
+            onCover={cover.pick}
+            onRename={() => setEditing(true)}
+            onDelete={onDelete}
+          />
         )}
+        {!shared && cover.input}
       </div>
       {(state.error || deleteError) && <p className="text-sm text-red-600">{state.error ?? deleteError}</p>}
     </li>
+  );
+}
+
+// 카드 오른쪽 위 반투명 ⋯ 버튼과 메뉴 (C9 F24, B53 고침). 대표 이미지 바꾸기 → 이름 수정 → 삭제.
+// 지도 메뉴(MapMenu)처럼 바깥을 누르거나 Esc로 닫는다. 열면 첫 항목에, Esc로 닫으면 ⋯ 버튼에 포커스.
+// 카드 링크와 겹치지 않는 형제 요소라 메뉴를 눌러도 여행으로 들어가지 않는다.
+function TripMenu({ title, open, setOpen, busy, onCover, onRename, onDelete }: {
+  title: string;
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  busy: string | null;
+  onCover: () => void;
+  onRename: () => void;
+  onDelete: () => void;
+}) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuId = useId();
+
+  useEffect(() => {
+    if (!open) return;
+    const root = rootRef.current;
+    root?.querySelector<HTMLButtonElement>("[data-menu-item]")?.focus();
+    const onPointer = (e: PointerEvent) => {
+      if (!root?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setOpen(false);
+      buttonRef.current?.focus();
+    };
+    document.addEventListener("pointerdown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open, setOpen]);
+
+  // 항목을 고르면 메뉴를 닫고 그 일을 한다.
+  const choose = (action: () => void) => () => {
+    setOpen(false);
+    action();
+  };
+
+  return (
+    <div ref={rootRef} className="absolute top-4 right-4 z-30">
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={() => setOpen(!open)}
+        disabled={busy !== null}
+        aria-expanded={open}
+        aria-controls={open ? menuId : undefined}
+        aria-label={`${title} 메뉴`}
+        className={busy ? CARD_BUTTON : `${CARD_BUTTON} flex size-9 items-center justify-center p-0 text-lg leading-none`}
+      >
+        {busy ?? <span aria-hidden>⋯</span>}
+      </button>
+      {open && (
+        <div
+          id={menuId}
+          className="absolute top-11 right-0 flex w-44 flex-col gap-0.5 rounded-2xl bg-black/60 p-1.5 text-white shadow-xl ring-1 ring-white/20 backdrop-blur-xl transition duration-200 starting:-translate-y-1 starting:opacity-0"
+        >
+          <button type="button" data-menu-item onClick={choose(onCover)} className={MENU_ITEM}>
+            대표 이미지 바꾸기
+          </button>
+          <button type="button" data-menu-item onClick={choose(onRename)} className={MENU_ITEM}>
+            이름 수정
+          </button>
+          <button type="button" data-menu-item onClick={choose(onDelete)} className={`${MENU_ITEM} text-red-300`}>
+            삭제
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
