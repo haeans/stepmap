@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useActionState, useEffect, useId, useRef, useState, useTransition } from "react";
 import { deleteTrip, renameTrip, type ActionState } from "@/app/actions/trips";
 import { authorLink, coverSrc, UNSPLASH_HOME } from "@/lib/cover/cover";
-import { dayColor } from "@/lib/map/places";
 import { useCoverUpload } from "./cover-upload";
 import { cardSubtitle } from "@/lib/trips/card-text";
 import { PREVIEW_EMPTY_TEXT, type PreviewDay } from "@/lib/trips/preview";
@@ -144,10 +143,7 @@ export function TripRow({ trip, shared, preview }: { trip: Trip; shared: boolean
               <ul className="flex flex-col gap-1.5">
                 {preview.map((d) => (
                   <li key={d.day} className="flex min-w-0 items-center">
-                    {/* DAY 글자는 매거진·지도 핀과 같은 일차 색(dayColor, B63) */}
-                    <span className="mr-2 shrink-0 font-semibold" style={{ color: dayColor(d.day) }}>
-                      DAY {d.day}
-                    </span>
+                    <span className="mr-2 shrink-0 font-semibold">DAY {d.day}</span>
                     <span className="truncate">{d.name}</span>
                     {/* 이름이 길어 잘려도 점은 보이게 따로 둔다 */}
                     {d.more && <span aria-hidden className="ml-1.5 shrink-0 text-[0.6rem] tracking-[0.15em] text-white/60">•••</span>}
