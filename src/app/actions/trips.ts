@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/user";
 import { COVER_BUCKET, coverObjectPath } from "@/lib/cover/cover";
+import { findDestinationArea } from "@/lib/cover/destination";
 import { notifyDownload, searchCover } from "@/lib/cover/unsplash";
 import { createClient } from "@/lib/supabase/server";
 import { parseTitle, parseTripForm } from "@/lib/trips/validation";
@@ -17,13 +18,16 @@ export async function createTrip(_prev: ActionState, form: FormData): Promise<Ac
   const parsed = parseTripForm(form);
   if (!parsed.ok) return { error: parsed.error };
 
-  const { title, destination, startDate, endDate, companions } = parsed.value;
+  const { title, destination, startDate, endDate } = parsed.value;
+  // 동행 인원은 보내지 않는다(DB 기본값 1, 인원은 쓴 돈의 정산에서 넣음, C9 F24).
   // 대표 이미지는 만들 때 한 번만 찾는다. 못 찾아도 여행은 만든다. (F08)
-  const pick = await searchCover(destination);
+  // 목적지가 실제 지역으로 확인될 때만 그 지역 이름으로 찾는다. 아니면 엉뚱한 사진 대신 기본 카드(C9 F24).
+  const area = await findDestinationArea(destination);
+  const pick = area ? await searchCover(area) : null;
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("trips")
-    .insert({ title, destination, start_date: startDate, end_date: endDate, companions, ...pick?.cover })
+    .insert({ title, destination, start_date: startDate, end_date: endDate, ...pick?.cover })
     .select("id")
     .single();
   if (error || !data) return { error: "여행을 만들지 못했습니다. 다시 시도해 주세요." };
