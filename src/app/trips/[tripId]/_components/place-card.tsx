@@ -4,10 +4,10 @@
 // 그 일정에 필요한 것(시간, 티켓·입장료와 예약 링크, 주소, 메모, 지도에서 보기)을 보여 준다. 수정·삭제도 여기서 한다.
 // 지도로 가는 버튼은 카드 앞면(펼침 버튼 바로 위)에도 있다(C8 F16).
 // 사진: 직접 넣은 사진(photoUrl) → 장소 사진(C8 F22: 관광지는 Wikimedia Commons 먼저, 그 밖은 Google Places) → 일차 색 그라데이션.
-// 장소 사진은 출처(작가·라이선스, Google Maps)를 사진 위에 같이 보인다.
+// 장소 사진은 앞면 오른쪽 위 ⓘ를 누르면 크게 보며 출처(작가·라이선스·원본 링크)를 보인다. Google 사진은 앞면에 "Google Maps"도 둔다.
 
 import Link from "next/link";
-import { useId, useRef, useState, useTransition, type ReactNode } from "react";
+import { useId, useRef, useState, useTransition, type MouseEvent, type ReactNode } from "react";
 import { deleteItem, updateItem } from "@/app/actions/items";
 import { formatCost, formatTime, GEOCODED_KINDS, ITEM_KIND_LABELS, type Item } from "@/lib/items/types";
 import type { CardPhoto } from "@/lib/places/types";
@@ -108,7 +108,7 @@ export function PlaceCard({ item, photoUrl = null, color, days, readOnly }: Prop
             </div>
           </div>
         </button>
-        {!photoUrl && placePhoto && <PhotoCredit photo={placePhoto} />}
+        {!photoUrl && placePhoto && <PhotoInfo photo={placePhoto} name={item.name} />}
       </div>
 
       {/* 서랍: grid 행 높이 0fr → 1fr 로 부드럽게 열고 닫는다 */}
@@ -192,39 +192,88 @@ export function PlaceCard({ item, photoUrl = null, color, days, readOnly }: Prop
   );
 }
 
-// 장소 사진 출처 (C8 F22). 사진과 같은 카드 안, 오른쪽 위.
-// Google: 작가 이름(링크)과 "Google Maps"(번역하지 않음, 원본 사진 링크). Wikimedia: 작가 · 라이선스 · Wikimedia Commons(파일 페이지 링크).
-function PhotoCredit({ photo }: { photo: CardPhoto }) {
-  const link = "underline-offset-2 hover:underline";
+// 장소 사진 출처 (C8 F22 결정 7, D안). 카드 앞면은 오른쪽 위 ⓘ 하나만 두고, 누르면 사진을 크게 보며 출처 전체를 보인다.
+// Google 문서: 썸네일은 작가 표시를 뺄 수 있다(전체 출처가 있는 큰 사진을 볼 수 있으면). "Google Maps"는 사진과 같은 카드 안에 있어야 해서 앞면에 남긴다.
+// Wikimedia(CC): 사진에서 한 번 눌러 작가·라이선스·파일 페이지가 나온다.
+function PhotoInfo({ photo, name }: { photo: CardPhoto; name: string }) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const link = "text-white underline underline-offset-2 hover:text-white/80";
   const brand = photo.source === "google" ? "Google Maps" : "Wikimedia Commons";
+
+  // 바깥(배경)을 누르면 닫는다. 창 안을 누른 것은 닫지 않는다.
+  function onBackdrop(e: MouseEvent<HTMLDialogElement>) {
+    if (e.target === e.currentTarget) dialogRef.current?.close();
+  }
+
   return (
-    <p className="absolute top-3 right-3 z-10 flex max-w-[65%] items-center gap-1 rounded-full bg-black/55 px-2.5 py-1 text-xs text-white backdrop-blur-md">
-      <span className="truncate">
-        사진{" "}
-        {photo.authors.map((a, i) => (
-          <span key={i}>
-            {i > 0 && ", "}
-            {a.uri ? (
-              <a href={a.uri} target="_blank" rel="noopener noreferrer" className={link}>
-                {a.name}
+    <>
+      <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5">
+        {photo.source === "google" && (
+          <span translate="no" className="rounded-full bg-black/55 px-2 py-0.5 text-xs text-white backdrop-blur-md">
+            Google Maps
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={() => dialogRef.current?.showModal()}
+          aria-label={`${name} 사진 크게 보기와 출처`}
+          title="사진 출처"
+          className="flex size-7 items-center justify-center rounded-full bg-black/55 font-serif text-sm text-white italic backdrop-blur-md transition hover:bg-black/75 active:scale-95"
+        >
+          i
+        </button>
+      </div>
+
+      <dialog
+        ref={dialogRef}
+        aria-label={`${name} 사진`}
+        onClick={onBackdrop}
+        className="m-auto w-[min(48rem,calc(100vw-2rem))] overflow-hidden rounded-3xl border border-white/10 bg-zinc-950/95 p-0 text-white shadow-2xl backdrop:bg-black/70 backdrop:backdrop-blur-sm"
+      >
+        <div className="relative">
+          {/* eslint-disable-next-line @next/next/no-img-element -- 외부 사진 주소를 그대로 쓴다(B49) */}
+          <img src={photo.url} alt={`${name} 사진`} referrerPolicy="no-referrer" className="block max-h-[70vh] w-full object-contain" />
+          <button
+            type="button"
+            onClick={() => dialogRef.current?.close()}
+            aria-label="사진 닫기"
+            className="absolute top-3 right-3 flex size-9 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-md transition hover:bg-black/75 active:scale-90"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="px-5 py-4 text-sm">
+          <p className="font-semibold">{name}</p>
+          <p className="mt-1 text-white/75">
+            사진{" "}
+            {photo.authors.length ? (
+              photo.authors.map((a, i) => (
+                <span key={i}>
+                  {i > 0 && ", "}
+                  {a.uri ? (
+                    <a href={a.uri} target="_blank" rel="noopener noreferrer" className={link}>
+                      {a.name}
+                    </a>
+                  ) : (
+                    a.name
+                  )}
+                </span>
+              ))
+            ) : (
+              "작가 미상"
+            )}
+            {photo.license && ` · ${photo.license}`}
+            {" · "}
+            {photo.link ? (
+              <a href={photo.link} target="_blank" rel="noopener noreferrer" translate="no" className={`whitespace-nowrap ${link}`}>
+                {brand}
               </a>
             ) : (
-              a.name
+              <span translate="no" className="whitespace-nowrap">{brand}</span>
             )}
-          </span>
-        ))}
-        {photo.license && ` · ${photo.license}`}
-      </span>
-      <span aria-hidden>·</span>
-      {photo.link ? (
-        <a href={photo.link} target="_blank" rel="noopener noreferrer" translate="no" className={`shrink-0 ${link}`}>
-          {brand}
-        </a>
-      ) : (
-        <span translate="no" className="shrink-0">
-          {brand}
-        </span>
-      )}
-    </p>
+          </p>
+        </div>
+      </dialog>
+    </>
   );
 }
