@@ -1,11 +1,15 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
 import { straightMeters, type LatLng } from "./places";
+import type { DayPlan, RouteStop, TravelMode } from "./route-plan";
 
 // 일차별 실제 경로 (a안, B20). 같은 좌표 목록이면 캐시를 써서 Routes API를 다시 부르지 않는다. (B21)
+// 비행기·교통 구간은 경로를 찾지 않고 땅 위 구간끼리만 찾는다. (F15)
 
-export type RouteMode = "drive" | "transit" | "straight";
+export type RouteMode = "drive" | "transit" | "straight" | TravelMode;
 export type RouteLeg = { polyline: string | null; meters: number; mode: RouteMode };
+// 지도에 넘기는 하루 동선. legs[i]는 stops[i] → stops[i + 1]이다.
+export type DayPath = { stops: RouteStop[]; legs: RouteLeg[] };
 
 const ENDPOINT = "https://routes.googleapis.com/directions/v2:computeRoutes";
 const MAX_INTERMEDIATES = 25;
@@ -83,5 +87,27 @@ export async function dayRoute(places: LatLng[]): Promise<RouteLeg[]> {
       legs.push(...chunk.slice(0, -1).map((a, i) => straightLeg(a, chunk[i + 1])));
     }
   }
+  return legs;
+}
+
+// 하루 동선의 구간을 구한다. 비행기·교통 구간은 직선거리만 두고(Routes API 부르지 않음),
+// 그 사이 땅 위로 이어진 점들은 dayRoute로 한 번에 구한다.
+export async function planRoute({ stops, travel }: DayPlan): Promise<RouteLeg[]> {
+  const legs: RouteLeg[] = [];
+  let run: LatLng[] = stops.slice(0, 1);
+  const flush = async () => {
+    legs.push(...(await dayRoute(run)));
+  };
+  for (let i = 0; i < travel.length; i++) {
+    const mode = travel[i];
+    if (mode === null) {
+      run.push(stops[i + 1]);
+      continue;
+    }
+    await flush();
+    legs.push({ polyline: null, meters: straightMeters(stops[i], stops[i + 1]), mode });
+    run = [stops[i + 1]];
+  }
+  await flush();
   return legs;
 }

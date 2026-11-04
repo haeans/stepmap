@@ -42,33 +42,36 @@ export function isAreaResult(types: string[] | undefined): boolean {
 }
 
 export async function geocodePlace(query: string): Promise<GeocodeResult | null> {
-  const key = process.env.GOOGLE_MAPS_SERVER_KEY;
-  if (!key || !query) return null;
-
+  if (!process.env.GOOGLE_MAPS_SERVER_KEY || !query) return null;
   try {
-    const res = await fetch("https://places.googleapis.com/v1/places:searchText", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Goog-Api-Key": key,
-        "X-Goog-FieldMask": "places.formattedAddress,places.location,places.types",
-      },
-      body: JSON.stringify({ textQuery: query, languageCode: "ko", pageSize: 1 }),
-      signal: AbortSignal.timeout(5000),
-      cache: "no-store",
-    });
-    if (!res.ok) {
-      console.error("geocode failed", res.status);
-      return null;
-    }
-    const data = (await res.json()) as {
-      places?: { formattedAddress?: string; location?: { latitude: number; longitude: number }; types?: string[] }[];
-    };
-    const place = data.places?.[0];
-    if (!place?.location || isAreaResult(place.types)) return null;
-    return { lat: place.location.latitude, lng: place.location.longitude, address: place.formattedAddress ?? "" };
+    return await searchPlace(query);
   } catch (error) {
     console.error("geocode error", error instanceof Error ? error.message : error);
     return null;
   }
+}
+
+// 못 찾으면 null, 호출이 실패하면(키 없음·시간 초과·4xx·5xx) 예외를 던진다.
+// 거점 찾기(F15)는 실패를 캐시하지 않으려고 이 함수를 직접 쓴다.
+export async function searchPlace(query: string): Promise<GeocodeResult | null> {
+  const key = process.env.GOOGLE_MAPS_SERVER_KEY;
+  if (!key) throw new Error("no key");
+  const res = await fetch("https://places.googleapis.com/v1/places:searchText", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Goog-Api-Key": key,
+      "X-Goog-FieldMask": "places.formattedAddress,places.location,places.types",
+    },
+    body: JSON.stringify({ textQuery: query, languageCode: "ko", pageSize: 1 }),
+    signal: AbortSignal.timeout(5000),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`geocode ${res.status}`);
+  const data = (await res.json()) as {
+    places?: { formattedAddress?: string; location?: { latitude: number; longitude: number }; types?: string[] }[];
+  };
+  const place = data.places?.[0];
+  if (!place?.location || isAreaResult(place.types)) return null;
+  return { lat: place.location.latitude, lng: place.location.longitude, address: place.formattedAddress ?? "" };
 }
