@@ -1,6 +1,6 @@
 "use client";
 
-import { AdvancedMarker, APIProvider, ControlPosition, Map, Pin, useMap, useMapsLibrary } from "@vis.gl/react-google-maps";
+import { AdvancedMarker, APIProvider, ControlPosition, Map, Pin, useMap } from "@vis.gl/react-google-maps";
 import { useEffect } from "react";
 import { dayColor, type LatLng, type MapPlace } from "@/lib/map/places";
 import type { DayPath } from "@/lib/map/routes";
@@ -21,7 +21,7 @@ type Props = {
   padding: MapPadding;
 };
 
-// 2화면의 구글맵. 일차별 색 번호 핀과 경로 선을 그린다. (R-06)
+// 2화면의 구글맵. 일차별 색 번호 핀을 그린다. 동선 선은 F25에서 뺐다. (R-06)
 export function RouteMap(props: Props) {
   if (!API_KEY) {
     return <div className="flex h-full items-center justify-center text-sm text-zinc-500">지도 키가 없어 지도를 표시할 수 없습니다.</div>;
@@ -83,58 +83,6 @@ export function RouteMap(props: Props) {
       </Map>
     </APIProvider>
   );
-}
-
-// 경로 선. 실제 경로는 실선, 경로를 못 찾은 구간은 대시, 비행기·교통 구간은 둥근 점선이다. (B20, F15 결정 6)
-// 여러 일차를 함께 보면 같은 길에서 선이 겹친다. 앞 일차일수록 굵게 아래에, 뒤 일차일수록 가늘게 위에 그려
-// 겹친 구간에서도 두 색이 다 보이게 한다. 강조한 일차는 맨 위에 진하게, 나머지는 흐리게 그린다. (B23, F14 결정 4)
-function RouteLines({ routes, focusDay }: Pick<Props, "routes" | "focusDay">) {
-  const map = useMap();
-  const geometry = useMapsLibrary("geometry");
-  const maps = useMapsLibrary("maps");
-
-  useEffect(() => {
-    if (!map || !geometry || !maps) return;
-    const lines: google.maps.Polyline[] = [];
-    const days = Object.keys(routes)
-      .map(Number)
-      .filter((day) => routes[day].legs.length > 0)
-      .sort((x, y) => x - y);
-
-    days.forEach((day, rank) => {
-      const { stops, legs } = routes[day];
-      const color = dayColor(day);
-      const weight = Math.min(4 + 3 * (days.length - 1 - rank), 16);
-      const dimmed = focusDay !== null && focusDay !== day;
-      const zIndex = day === focusDay ? 1000 : rank;
-      const opacity = dimmed ? 0.25 : 0.9;
-
-      legs.forEach((leg, i) => {
-        const path = [stops[i], stops[i + 1]];
-        if (leg.polyline) {
-          lines.push(
-            new maps.Polyline({ map, path: geometry.encoding.decodePath(leg.polyline), strokeColor: color, strokeOpacity: opacity, strokeWeight: weight, zIndex }),
-          );
-        } else if (leg.mode === "flight" || leg.mode === "transport") {
-          const dot = { path: google.maps.SymbolPath.CIRCLE, fillColor: color, fillOpacity: opacity, strokeOpacity: 0, scale: Math.max(weight / 2, 2.5) };
-          lines.push(new maps.Polyline({ map, path, strokeOpacity: 0, zIndex, icons: [{ icon: dot, offset: "0", repeat: `${Math.max(weight * 3, 14)}px` }] }));
-        } else {
-          lines.push(
-            new maps.Polyline({
-              map,
-              path,
-              strokeOpacity: 0,
-              zIndex,
-              icons: [{ icon: { path: "M 0,-1 0,1", strokeOpacity: opacity, strokeColor: color, scale: Math.max(weight - 1, 3) }, offset: "0", repeat: "12px" }],
-            }),
-          );
-        }
-      });
-    });
-    return () => lines.forEach((l) => l.setMap(null));
-  }, [map, geometry, maps, routes, focusDay]);
-
-  return null;
 }
 
 // 고른 장소가 있으면 그 핀으로, 없으면 범위 안 점이 모두 들어오게 지도를 옮긴다. (R-07)
