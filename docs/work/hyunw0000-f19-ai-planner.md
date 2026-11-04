@@ -165,3 +165,15 @@ PRD 4절 C8 F19 ("v1.0 이후 후보"의 "AI 일정 도우미"). F17(#45)·F18(#
 - `npm run lint` 통과, `npm test` 23개 파일 154개 통과(`route.test.ts`·`proposal.test.ts`·`prompt.test.ts` 포함).
 - `npm run typecheck`는 로컬 전용 파일(`src/app/preview`, `src/lib/local-mock.ts`)을 뺀 임시 작업 트리에서 통과. `next build`는 같은 트리에서 webpack으로 통과(로컬 개발 서버가 폴더를 쓰고 있어 Turbopack 빌드는 못 함).
 - 화면 확인(AI 호출·DB 저장 포함)은 아직 하지 않았다.
+
+## 9. main(F20·F16·F14) 합치기 (2026-11-04)
+
+- `origin/main`을 합쳤다. 충돌: `src/app/actions/extract.ts`, `paste-extract.tsx`. F19의 `loadTripContext`·대화창 구조는 두고 F20 변경을 옮겨 넣었다.
+- F20 주의 사항(`haeans-f20-booking-mask.md`, Slack 공지) 반영
+  - 추출: `hideForAi` → `maskPersonal` → `normalizeItems(..., { vault })`, `unassigned`(못 정한 예약번호)를 대화창 추출 미리보기에 보인다. 미리보기가 없으면 답장에 적는다.
+  - 대화(`sendChat`): 이번 말·대화 기록·직전 제안·기존 일정 이름/주소를 `hideForAi` → `maskPersonal` 순서로 거쳐 보낸다. 대화는 예약 정보를 저장하지 않으므로 vault는 버리고, 모델이 옮겨 쓴 자리표시(`[링크N]`·`[예약번호N]`)는 `stripPlaceholders`로 지운다.
+  - 기존 일정 요약은 이름·주소만 보낸다(메모·링크·예약 정보 X). 고치기·지우기용 id·메모는 서버에만 둔다.
+  - 고치기(`applyChange`)는 `booking=1`을 보내지 않으므로 `item_secrets`를 건드리지 않는다. 지우기는 cascade로 예약 정보도 지워진다. 저장 금지 정보는 `parseItemForm`이 거절하고 카드에 오류로 보인다.
+  - 대화 기록(localStorage)의 추출 결과에 들어 있던 예약 정보는 미리보기를 저장하거나 닫으면 지운다.
+  - 입력창 개인정보 안내 문구를 F20 문구로 바꿨다.
+- 자체검수: `npm run lint` 통과, `tsc --noEmit` 통과(로컬 전용 파일 제외), `npm test` 27개 파일 196개 통과. `npm run build`·화면 확인은 아직.

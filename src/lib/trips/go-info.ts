@@ -49,9 +49,32 @@ export function stayRange(item: Item, lodgings: Item[], days: TripDay[]): Stay {
   return { checkIn: dateOf(item.day), checkOut: dateOf(outDay), nights: outDay > item.day ? outDay - item.day : null, next };
 }
 
-// 교통 패스: 비행기가 아닌 교통 항목. 메모의 쉼표·줄바꿈 목록을 탈 수 있는 노선으로 본다.
+// 비행기가 아닌 교통은 둘로 나눈다(F16).
+// - 교통 패스: 기간 안에 자유롭게 타는 표. 이름에 패스·1일권·프리 같은 말이 있다. 메모의 쉼표·줄바꿈 목록을 탈 수 있는 노선으로 본다.
+// - 승차권: 그 밖의 교통. 정해진 구간·시각이 있는 기차·버스·배 표.
+const PASS_WORDS = /패스|pass|\d+\s*일권|일일권|자유이용|프리|free|무제한|정기권|티머니|T-?money|교통카드|IC\s?카드/i;
+
 export function isPass(item: Item): boolean {
-  return item.kind === "transport" && parseFlight(item) === null;
+  return item.kind === "transport" && parseFlight(item) === null && PASS_WORDS.test(item.name);
+}
+
+export function isTicket(item: Item): boolean {
+  return item.kind === "transport" && parseFlight(item) === null && !PASS_WORDS.test(item.name);
+}
+
+export type Ride = { carrier: string; from: string; to: string; bus: boolean };
+
+// "KTX 101 서울→부산", "서울 -> 부산 고속버스" 같은 이름에서 출발·도착을 뽑는다. 화살표가 없으면 null.
+// (- 는 "KTX-산천" 같은 이름에 쓰여서 구간 표시로 보지 않는다)
+export function parseRide(name: string): Ride | null {
+  const m = name.match(/^(.*?)\s*(?:→|->|⇒|~|>)\s*(.+)$/);
+  if (!m) return null;
+  const left = m[1].trim().split(/\s+/);
+  const right = m[2].trim().split(/\s+/);
+  const from = left.pop() ?? "";
+  const to = right.shift() ?? "";
+  if (!from || !to) return null;
+  return { carrier: [...left, ...right].join(" "), from, to, bus: /버스|bus/i.test(name) };
 }
 
 export function passLines(memo: string): string[] {

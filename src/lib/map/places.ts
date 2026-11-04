@@ -1,7 +1,7 @@
 // 지도(2화면)에 올릴 장소를 고르고 일차별 번호를 매긴다. (B22)
 
 import { compareItems } from "@/lib/items/group";
-import { GEOCODED_KINDS, type Item, type ItemKind } from "@/lib/items/types";
+import { formatCost, GEOCODED_KINDS, type Item, type ItemKind, type ItemSecret } from "@/lib/items/types";
 
 export type LatLng = { lat: number; lng: number };
 
@@ -13,6 +13,11 @@ export type MapPlace = LatLng & {
   name: string;
   address: string;
   time: string | null;
+  // 핀 세부(F14)에 보이는 칸
+  memo: string;
+  link: string;
+  secret?: ItemSecret | null; // 예약 정보(F20). 소유자에게만 있다
+  cost: string; // "12,000 JPY", 없으면 ""
 };
 
 // 좌표가 있는 숙소·관광지·식당만 일차 → 시각 → 순서로 줄 세운다.
@@ -37,6 +42,10 @@ export function mapPlaces(items: Item[]): { places: MapPlace[]; missing: number 
       name: item.name,
       address: item.address,
       time: item.time,
+      memo: item.memo,
+      link: item.link,
+      secret: item.secret ?? null,
+      cost: formatCost(item.cost_amount, item.cost_currency),
       lat: Number(item.lat),
       lng: Number(item.lng),
     });

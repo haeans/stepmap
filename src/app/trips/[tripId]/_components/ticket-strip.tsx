@@ -1,28 +1,28 @@
 "use client";
 
-// 매거진 맨 위(제목 아래)의 GO 패널 (F10). 카드를 누르면 레퍼런스("GO 패널을 누르면 뜨는 창 5종") 모양의 창이 뜬다.
-// - 항공권(비행기 교통 항목), 숙소 예약(숙소 항목), 교통 패스(비행기가 아닌 교통 항목): 항목 칸으로 채우고, 창 아래에서 수정·삭제
-// - 날씨: 서버에서 받은 여행 날씨(Open-Meteo)
-// - 준비물: 체크리스트. DB 칸이 없어 이 브라우저에만 저장한다(localStorage).
+// 매거진 맨 위(제목 아래)의 GO 패널 (F10, C8 F16). 카드를 누르면 레퍼런스("GO 패널을 누르면 뜨는 창") 모양의 창이 뜬다.
+// - 항공권(비행기 교통 항목), 승차권(기차·버스·배 교통 항목), 숙소 예약(숙소 항목), 교통 패스(이름에 패스·1일권 등이 든 교통 항목):
+//   종류마다 카드 하나로 묶고(F16), 카드 아래 좌우 화살표로 예약을 하나씩 넘겨 본다. 닫기·수정·삭제는 아이콘 버튼(웹은 카드 오른쪽 세로). 카드와 넘기는 순서는 날짜순.
+// - 날씨(WeatherBadge): 여행 제목 오른쪽의 투명 패널. 누르면 날씨 창(F16).
+// - 준비물(Checklist): 매거진 BACK에 둔다. DB 칸이 없어 이 브라우저에만 저장한다(localStorage).
 
-import { useCallback, useMemo, useRef, useState, useSyncExternalStore, useTransition, type ReactNode, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition, type ReactNode, type RefObject } from "react";
 import { deleteItem, updateItem } from "@/app/actions/items";
+import { compareItems } from "@/lib/items/group";
 import { formatCost, formatTime, type Item } from "@/lib/items/types";
 import type { TripDay } from "@/lib/trips/days";
-import { isPass, parseFlight, passLines, returnFlight, stayRange } from "@/lib/trips/go-info";
+import { isPass, isTicket, parseFlight, parseRide, passLines, returnFlight, stayRange } from "@/lib/trips/go-info";
 import { clothingTip, isRainy, weatherKind, weatherLabel, type TripWeather, type WeatherKind } from "@/lib/weather/codes";
+import { BookingInfo } from "./booking-info";
 import { EDIT_PANEL, EditHeader } from "./edit-sheet";
 import { ItemForm } from "./item-form";
 
 type Props = {
-  tripId: string;
   items: Item[]; // 교통·숙소 항목
   days: TripDay[];
   readOnly: boolean;
-  weather: TripWeather | null;
   coverImage: string;
   companions: number;
-  startDate: string | null;
 };
 
 const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
@@ -61,10 +61,17 @@ const TrainIcon = (p: { className?: string }) => (
     <path d="M5 11h14M9 21l-2-4M15 21l2-4M9 14h.01M15 14h.01" />
   </Svg>
 );
-const CheckIcon = (p: { className?: string }) => (
+
+const BusIcon = (p: { className?: string }) => (
   <Svg {...p}>
-    <path d="M9 11l3 3L22 4" />
-    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+    <rect x="4" y="3" width="16" height="15" rx="3" />
+    <path d="M4 11h16M8 21v-3M16 21v-3M8 14.5h.01M16 14.5h.01" />
+  </Svg>
+);
+const PassIcon = (p: { className?: string }) => (
+  <Svg {...p}>
+    <rect x="3" y="6" width="18" height="12" rx="2" />
+    <path d="M7 10h6M7 14h3" />
   </Svg>
 );
 
@@ -103,35 +110,132 @@ function WeatherIcon({ kind, className = "size-6" }: { kind: WeatherKind; classN
 
 // ───────── 창(팝업) 틀 ─────────
 
-function GoDialog({ dialogRef, label, children, onClose }: { dialogRef: RefObject<HTMLDialogElement | null>; label: string; children: ReactNode; onClose?: () => void }) {
+// 웹(넓은 화면)에서는 창 전체를 글씨·간격까지 비율 그대로 키운다(zoom). 창이 화면에 다 들어오도록 화면 높이도 같이 본다.
+// - 폭 48rem 이상이고 높이 38rem 이상: 1.25배 / 폭 64rem 이상이고 높이 44rem 이상: 1.4배 (가장 긴 숙소 창이 들어가는 높이)
+// - 그보다 낮은 화면은 키우지 않는다. 그래도 넘치면(아주 낮은 화면) 창 안에서 스크롤한다.
+// 수정 화면은 원래 크기로 보이게 같은 조건에서 되돌린다(ZOOM_UNDO).
+const ZOOM_UP = "[@media(width>=48rem)_and_(height>=38rem)]:[zoom:1.25] [@media(width>=64rem)_and_(height>=44rem)]:[zoom:1.4]";
+const ZOOM_UNDO = "[@media(width>=48rem)_and_(height>=38rem)]:[zoom:0.8] [@media(width>=64rem)_and_(height>=44rem)]:[zoom:0.7143]";
+const MAX_H = "max-h-[calc(100dvh-2rem)] [@media(width>=48rem)_and_(height>=38rem)]:max-h-[calc((100dvh-2rem)/1.25)] [@media(width>=64rem)_and_(height>=44rem)]:max-h-[calc((100dvh-2rem)/1.4)]";
+
+// beforeClose: 바깥 누르기·Esc로 닫기 전에 묻는다. false면 닫지 않는다(수정 중 고친 내용이 있을 때).
+function GoDialog({ dialogRef, label, children, onClose, beforeClose }: { dialogRef: RefObject<HTMLDialogElement | null>; label: string; children: ReactNode; onClose?: () => void; beforeClose?: () => boolean }) {
   return (
     <dialog
       ref={dialogRef}
       aria-label={label}
       onClose={onClose}
+      onCancel={(e) => {
+        if (beforeClose && !beforeClose()) e.preventDefault();
+      }}
       onClick={(e) => {
         // 바깥(어두운 곳)을 누르면 닫는다
-        if (e.target === e.currentTarget) e.currentTarget.close();
+        if (e.target === e.currentTarget && (!beforeClose || beforeClose())) e.currentTarget.close();
       }}
-      // 웹(넓은 화면)에서는 창 전체를 글씨·간격까지 비율 그대로 키운다(zoom): md 1.25배, lg 1.4배
-      className="m-auto w-[min(23rem,calc(100vw-2rem))] overflow-visible bg-transparent p-0 text-zinc-900 backdrop:bg-black/55 backdrop:backdrop-blur-sm md:[zoom:1.25] lg:[zoom:1.4]"
+      // 폭: 카드(23rem) + 웹에서는 오른쪽 아이콘 버튼 줄
+      className={`m-auto w-[min(23rem,calc(100vw-2rem))] overflow-y-auto overscroll-contain bg-transparent p-0 text-zinc-900 backdrop:bg-black/55 backdrop:backdrop-blur-sm md:w-[min(26rem,calc(100vw-2rem))] ${MAX_H} ${ZOOM_UP}`}
     >
-      <div className="relative transition duration-300 ease-out starting:translate-y-4 starting:scale-95 starting:opacity-0">
-        <button
-          type="button"
-          onClick={() => dialogRef.current?.close()}
-          aria-label="닫기"
-          className="absolute -top-11 right-0 flex size-9 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-md transition hover:rotate-90 hover:bg-white/25"
-        >
-          ✕
-        </button>
-        {children}
-      </div>
+      <div className="transition duration-300 ease-out starting:translate-y-4 starting:scale-95 starting:opacity-0">{children}</div>
     </dialog>
   );
 }
 
-// 항공권·숙소·패스 창 아래: 수정·삭제. 수정을 누르면 카드 대신 흰 수정 폼.
+const CloseIcon = (p: { className?: string }) => (
+  <Svg {...p}>
+    <path d="M6 6l12 12M18 6 6 18" />
+  </Svg>
+);
+const EditIcon = (p: { className?: string }) => (
+  <Svg {...p}>
+    <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
+  </Svg>
+);
+const TrashIcon = (p: { className?: string }) => (
+  <Svg {...p}>
+    <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" />
+  </Svg>
+);
+
+// 창의 아이콘 버튼(닫기·수정·삭제). 글자는 마우스를 올리면(title) 나오고, 화면 읽기에는 aria-label로 읽힌다.
+function RailButton({ label, onClick, disabled, danger, className = "", children }: { label: string; onClick: () => void; disabled?: boolean; danger?: boolean; className?: string; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      title={label}
+      className={`flex size-10 items-center justify-center rounded-full bg-white/15 backdrop-blur-md transition hover:bg-white/30 active:scale-95 disabled:opacity-50 ${danger ? "text-rose-200 hover:bg-rose-500/40 hover:text-white" : "text-white"} ${className}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+// 창 안 배치: 카드 + 아이콘 버튼 줄. 웹(md 이상)은 카드 오른쪽 위에 세로(닫기 → 수정 → 삭제),
+// 좁은 화면은 카드 위 오른쪽에 가로(수정 · 삭제 · 닫기).
+function DialogFrame({ onClose, actions, children }: { onClose: () => void; actions?: ReactNode; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-2 md:flex-row-reverse md:items-start">
+      <div className="flex justify-end gap-2 md:flex-col">
+        <RailButton label="닫기" onClick={onClose} className="order-last hover:rotate-90 md:order-first">
+          <CloseIcon className="size-5" />
+        </RailButton>
+        {actions}
+      </div>
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
+  );
+}
+
+// 같은 종류의 예약이 여럿이면 카드 바로 아래 줄의 좌우 화살표로 넘겨 본다(키보드 ← →도 된다).
+// 화살표 사이에 몇 번째인지(점)와 지금 보는 예약 이름. 카드 내용을 가리지 않게 카드 위에 겹치지 않는다.
+function Pager({ index, labels, onPick, children }: { index: number; labels: string[]; onPick: (i: number) => void; children: ReactNode }) {
+  const count = labels.length;
+  if (count < 2) return <>{children}</>;
+  const arrow = (dir: -1 | 1) => {
+    const to = index + dir;
+    const off = to < 0 || to >= count;
+    return (
+      <button
+        type="button"
+        onClick={() => onPick(to)}
+        disabled={off}
+        aria-label={off ? (dir < 0 ? "이전 없음" : "다음 없음") : `${dir < 0 ? "이전" : "다음"}: ${labels[to]}`}
+        title={off ? undefined : labels[to]}
+        className="flex size-9 shrink-0 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-md transition hover:bg-white/30 active:scale-95 disabled:opacity-30 disabled:hover:bg-white/15"
+      >
+        <Svg className="size-5">
+          <path d={dir < 0 ? "m15 6-6 6 6 6" : "m9 6 6 6-6 6"} />
+        </Svg>
+      </button>
+    );
+  };
+  return (
+    <div
+      onKeyDown={(e) => {
+        if (e.key === "ArrowLeft" && index > 0) onPick(index - 1);
+        if (e.key === "ArrowRight" && index < count - 1) onPick(index + 1);
+      }}
+    >
+      {children}
+      <div className="mt-2.5 flex items-center gap-2">
+        {arrow(-1)}
+        <div className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
+          <span className="flex gap-1.5">
+            {labels.map((l, i) => (
+              <button key={i} type="button" onClick={() => onPick(i)} aria-label={l} aria-current={i === index} className={`h-1.5 rounded-full transition-all ${i === index ? "w-5 bg-white" : "w-1.5 bg-white/40 hover:bg-white/70"}`} />
+            ))}
+          </span>
+          <span className="max-w-full truncate text-xs text-white/85">{labels[index]}</span>
+        </div>
+        {arrow(1)}
+      </div>
+    </div>
+  );
+}
+
+// 항공권·승차권·숙소·패스 창의 수정·삭제(아이콘 버튼, DialogFrame). 수정을 누르면 카드 대신 흰 수정 폼.
 function useItemActions(item: Item, close: () => void) {
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -147,34 +251,54 @@ function useItemActions(item: Item, close: () => void) {
   return { editing, setEditing, error, deleting, onDelete };
 }
 
-function ItemDialogBody({ item, days, readOnly, close, children }: { item: Item; days: TripDay[]; readOnly: boolean; close: () => void; children: ReactNode }) {
+// 수정 중 나가기 (F16 검수): 한 칸이라도 고쳤으면 "저장하지 않고 닫을까요?"를 묻고, 안 고쳤으면 바로 나간다.
+// guardRef에 묻는 함수를 걸어 두면 창(GoDialog)이 바깥 누르기·Esc 때 부른다. 창을 열 때마다 GroupTile이 이 몸통을 새로 그려 원래 카드가 보인다.
+function ItemDialogBody({ item, days, readOnly, close, guardRef, children }: { item: Item; days: TripDay[]; readOnly: boolean; close: () => void; guardRef: RefObject<(() => boolean) | null>; children: ReactNode }) {
   const { editing, setEditing, error, deleting, onDelete } = useItemActions(item, close);
+  const dirty = useRef(false);
+  const canLeave = useCallback(() => !dirty.current || window.confirm("수정한 내용을 저장하지 않고 닫을까요?"), []);
+  useEffect(() => {
+    if (!editing) return;
+    guardRef.current = canLeave;
+    return () => {
+      guardRef.current = null;
+    };
+  }, [editing, guardRef, canLeave]);
+  const startEdit = () => {
+    dirty.current = false;
+    setEditing(true);
+  };
   if (editing) {
     return (
-      // 창은 웹에서 1.25·1.4배로 커지므로 수정 화면은 그만큼 되돌려 원래 크기로 보이게 한다
-      <div data-tone="dark" className={`${EDIT_PANEL} md:[zoom:0.8] lg:[zoom:0.7143]`}>
-        <EditHeader title="항목 수정" sub={item.name} onClose={() => setEditing(false)} back />
-        <div className="max-h-[70vh] overflow-y-auto px-5 pb-5">
+      // 창은 웹에서 키워 보이므로 수정 화면은 그만큼 되돌려 원래 크기로 보이게 한다
+      <div data-tone="dark" className={`${EDIT_PANEL} ${ZOOM_UNDO}`}>
+        <EditHeader title="항목 수정" sub={item.name} onClose={() => canLeave() && setEditing(false)} back />
+        <div
+          className="max-h-[70vh] overflow-y-auto px-5 pb-5"
+          onInput={() => {
+            dirty.current = true;
+          }}
+        >
           <ItemForm key={item.updated_at} action={updateItem.bind(null, item.id, item.trip_id)} days={days} item={item} submitLabel="고치기" onSaved={() => setEditing(false)} />
         </div>
       </div>
     );
   }
-  return (
+  const actions = !readOnly && (
     <>
-      {children}
-      {!readOnly && (
-        <div className="mt-3 flex justify-center gap-2 text-sm text-white">
-          <button type="button" onClick={() => setEditing(true)} className="rounded-full bg-white/15 px-4 py-1.5 backdrop-blur-md transition hover:bg-white/25 active:scale-95">
-            수정
-          </button>
-          <button type="button" onClick={onDelete} disabled={deleting} className="rounded-full bg-white/15 px-4 py-1.5 text-rose-200 backdrop-blur-md transition hover:bg-rose-500/30 active:scale-95 disabled:opacity-50">
-            {deleting ? "지우는 중…" : "삭제"}
-          </button>
-        </div>
-      )}
-      {error && <p className="mt-2 text-center text-sm text-rose-200">{error}</p>}
+      <RailButton label="수정" onClick={startEdit}>
+        <EditIcon className="size-[1.15rem]" />
+      </RailButton>
+      <RailButton label={deleting ? "지우는 중…" : "삭제"} onClick={onDelete} disabled={deleting} danger>
+        <TrashIcon className="size-[1.15rem]" />
+      </RailButton>
     </>
+  );
+  return (
+    <DialogFrame onClose={close} actions={actions}>
+      {children}
+      {error && <p className="mt-2 text-center text-sm text-rose-200">{error}</p>}
+    </DialogFrame>
   );
 }
 
@@ -237,6 +361,7 @@ function BoardingPass({ item, transports, days }: { item: Item; transports: Item
           {cell("일차", `DAY ${item.day}`)}
         </div>
         {item.memo && <p className="rounded-xl bg-black/5 px-3 py-2 text-sm whitespace-pre-wrap">{item.memo}</p>}
+        <BookingInfo secret={item.secret} />
       </div>
       <div className="relative mx-5 border-t-2 border-dashed border-zinc-300">
         <span className="absolute -top-3 -left-8 size-6 rounded-full bg-black/55" />
@@ -261,7 +386,6 @@ function BoardingPass({ item, transports, days }: { item: Item; transports: Item
 
 function StayCard({ item, lodgings, days, coverImage, companions }: { item: Item; lodgings: Item[]; days: TripDay[]; coverImage: string; companions: number }) {
   const stay = stayRange(item, lodgings, days);
-  const [showMemo, setShowMemo] = useState(false);
   // 여행 기간 막대: 이 숙소에 묵는 밤은 주황, 나머지는 회색
   const nights = days.slice(0, -1);
   const mine = (d: number) => {
@@ -270,7 +394,7 @@ function StayCard({ item, lodgings, days, coverImage, companions }: { item: Item
   };
   return (
     <div className="overflow-hidden rounded-3xl bg-white shadow-2xl">
-      <div className="relative h-40 bg-cover bg-center md:h-52" style={{ backgroundImage: `url("${coverImage}")` }}>
+      <div className="relative h-36 bg-cover bg-center" style={{ backgroundImage: `url("${coverImage}")` }}>
         <span className="absolute top-3 left-3 rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white shadow">✓ 숙소</span>
       </div>
       <div className="flex flex-col gap-4 p-5">
@@ -301,25 +425,17 @@ function StayCard({ item, lodgings, days, coverImage, companions }: { item: Item
                 <span key={d.day} className={`h-1.5 flex-1 rounded-full ${mine(d.day) ? "bg-amber-600" : "bg-zinc-200"}`} />
               ))}
             </div>
-            <div className="mt-2 flex justify-between gap-2 text-xs">
-              <span className="font-semibold text-amber-700">지금 보는 숙소{item.address ? ` · ${item.address}` : ""}</span>
-              {stay.next && <span className="truncate text-zinc-500">다음 · {stay.next.name}</span>}
-            </div>
+            {stay.next && <p className="mt-2 truncate text-right text-xs text-zinc-500">다음 숙소 · {stay.next.name}</p>}
           </div>
         )}
+        {/* 예약번호·예약 링크는 소유자에게만(F20). 메모는 메모로만 보인다(예약번호를 메모에 두지 않는다). */}
+        <BookingInfo secret={item.secret} className="border-t border-zinc-200 pt-3" />
         {(item.memo || item.link) && (
           <div className="flex items-center justify-between gap-3 border-t border-zinc-200 pt-3 text-sm">
-            {item.memo ? (
-              <button type="button" onClick={() => setShowMemo((v) => !v)} className="min-w-0 text-left text-zinc-600">
-                <span className="text-zinc-500">메모 · 예약번호 </span>
-                <span className="font-mono">{showMemo ? item.memo : "••••••"}</span>
-              </button>
-            ) : (
-              <span />
-            )}
+            {item.memo ? <p className="min-w-0 whitespace-pre-wrap text-zinc-600">{item.memo}</p> : <span />}
             {item.link && (
               <a href={item.link} target="_blank" rel="noopener noreferrer" className="shrink-0 rounded-full bg-zinc-900 px-3 py-1 text-xs font-semibold text-white">
-                예약 보기 ↗
+                링크 ↗
               </a>
             )}
           </div>
@@ -370,6 +486,59 @@ function WeatherCard({ weather }: { weather: TripWeather }) {
   );
 }
 
+// ───────── 3-1. 승차권 (기차·버스·배) ─────────
+
+function RideTicket({ item, days }: { item: Item; days: TripDay[] }) {
+  const ride = parseRide(item.name);
+  const cost = formatCost(item.cost_amount, item.cost_currency);
+  const Icon = ride?.bus ? BusIcon : TrainIcon;
+  const cell = (label: string, value: string) => (
+    <div className="min-w-0">
+      <p className="text-[11px] text-zinc-500">{label}</p>
+      <p className="truncate text-lg font-bold tabular-nums">{value || "—"}</p>
+    </div>
+  );
+  return (
+    <div className="overflow-hidden rounded-3xl bg-[#eef2f7] shadow-2xl">
+      <div className="flex items-center justify-between gap-3 bg-[#1e3a5f] px-5 py-3.5">
+        <span className="text-xs font-bold tracking-[0.3em] text-sky-300">TICKET</span>
+        <span className="truncate font-bold text-white">{ride ? ride.carrier : ""}</span>
+      </div>
+      <div className="flex flex-col gap-5 px-5 pt-6 pb-5">
+        {ride ? (
+          <div className="flex items-end justify-between gap-2">
+            <p className="min-w-0 text-3xl leading-tight font-black tracking-tight break-keep">{ride.from}</p>
+            <div aria-hidden className="mb-2 flex min-w-10 flex-1 items-center gap-1 text-zinc-500">
+              <span className="flex-1 border-t-2 border-dashed border-zinc-300" />
+              <Icon className="size-4" />
+              <span className="flex-1 border-t-2 border-dashed border-zinc-300" />
+            </div>
+            <p className="min-w-0 text-right text-3xl leading-tight font-black tracking-tight break-keep">{ride.to}</p>
+          </div>
+        ) : (
+          <p className="text-2xl leading-tight font-black tracking-tight break-keep">{item.name}</p>
+        )}
+        <div className="grid grid-cols-2 gap-3">
+          {cell("날짜", md(dateOfDay(days, item.day)))}
+          {cell("출발", formatTime(item.time))}
+        </div>
+        {(item.address || cost) && (
+          <div className="flex items-end justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] text-zinc-500">타는 곳</p>
+              <p className="font-semibold break-words">{item.address || "—"}</p>
+            </div>
+            {cost && <p className="shrink-0 text-lg font-bold tabular-nums">{cost}</p>}
+          </div>
+        )}
+        {item.memo && <p className="rounded-xl bg-black/5 px-3 py-2 text-sm whitespace-pre-wrap">{item.memo}</p>}
+        <BookingInfo secret={item.secret} />
+        {!ride &&<p className="text-xs text-zinc-400">이름을 “KTX 101 서울→부산”처럼 쓰면 출발·도착이 크게 나와요.</p>}
+      </div>
+    </div>
+  );
+}
+
 // ───────── 4. 교통 패스 ─────────
 
 function PassCard({ item, days }: { item: Item; days: TripDay[] }) {
@@ -413,6 +582,7 @@ function PassCard({ item, days }: { item: Item; days: TripDay[] }) {
         </>
       )}
       {lines.length === 0 && <p className="mt-3 text-xs text-zinc-400">메모에 노선을 쉼표로 적으면 여기에 나와요. 예: JR 교토선, 한큐 교토선</p>}
+      <BookingInfo secret={item.secret} className="mt-4" />
     </div>
   );
 }
@@ -420,7 +590,6 @@ function PassCard({ item, days }: { item: Item; days: TripDay[] }) {
 // ───────── 5. 준비물 (이 브라우저에만 저장) ─────────
 
 type Check = { id: string; label: string; done: boolean };
-const DEFAULT_CHECKS = ["여권", "환전·현금", "충전기·어댑터", "접이식 우산", "상비약", "보조배터리"];
 const CHANGE = "stepmap:checklist-change";
 
 function checklistKey(tripId: string) {
@@ -454,7 +623,7 @@ function useChecklist(tripId: string) {
     } catch {
       // 깨진 값이면 기본 목록
     }
-    return DEFAULT_CHECKS.map((label, i) => ({ id: `d${i}`, label, done: false }));
+    return []; // 넣은 준비물이 없으면 비어 있다(F16). 하나 더할 때마다 한 줄씩 생긴다.
   }, [raw]);
   const save = useCallback(
     (next: Check[]) => {
@@ -479,8 +648,13 @@ function dDay(start: string | null): string | null {
   return n > 0 ? `출발까지 D-${n}` : n === 0 ? "오늘 출발" : "여행 중이거나 다녀온 여행";
 }
 
-function ChecklistCard({ tripId, startDate, weather }: { tripId: string; startDate: string | null; weather: TripWeather | null }) {
+// 매거진 BACK의 준비물 (F16). 공유받은 사람에게는 보이지 않는다(B76, 매거진에서 readOnly면 넣지 않음).
+// - 처음에는 비어 있고 제목 옆 "＋ 준비물 추가"로 하나씩 더한다. 하나라도 있으면 반투명 패널(BACK의 다른 칸과 같은 모양)이 생긴다.
+// - 패널은 서랍처럼 접힌다. 접으면 진행률 원과 개수만 보인다.
+export function Checklist({ tripId, startDate, weather, title, panelClassName }: { tripId: string; startDate: string | null; weather: TripWeather | null; title: ReactNode; panelClassName: string }) {
   const [checks, save] = useChecklist(tripId);
+  const [adding, setAdding] = useState(false);
+  const [open, setOpen] = useState(true);
   const [text, setText] = useState("");
   const done = checks.filter((c) => c.done).length;
   const pct = checks.length ? Math.round((done / checks.length) * 100) : 0;
@@ -488,65 +662,111 @@ function ChecklistCard({ tripId, startDate, weather }: { tripId: string; startDa
   const r = 22;
   const circ = 2 * Math.PI * r;
 
+  const form = (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        const label = text.trim();
+        if (!label) return;
+        save([...checks, { id: `u${Date.now()}`, label, done: false }]);
+        setText("");
+      }}
+      className="flex gap-2"
+    >
+      <input
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        maxLength={40}
+        autoFocus
+        placeholder="예: 여권, 보조배터리"
+        aria-label="준비물 더하기"
+        className="min-w-0 flex-1 rounded-full border border-white/20 bg-white/5 px-4 py-2 text-sm text-white placeholder:text-white/40 focus:border-white/50 focus:outline-none"
+      />
+      <button type="submit" className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-zinc-900 transition active:scale-95">
+        더하기
+      </button>
+    </form>
+  );
+
   return (
-    <div className="rounded-3xl bg-white p-5 shadow-2xl">
-      <div className="flex items-center gap-4 border-b border-zinc-200 pb-4">
-        <div className="relative size-14">
-          <svg viewBox="0 0 56 56" className="size-14 -rotate-90">
-            <circle cx="28" cy="28" r={r} fill="none" stroke="#efe9e1" strokeWidth="6" />
-            <circle cx="28" cy="28" r={r} fill="none" stroke="#d97706" strokeWidth="6" strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={circ * (1 - pct / 100)} className="transition-[stroke-dashoffset] duration-500" />
-          </svg>
-          <span className="absolute inset-0 flex items-center justify-center text-xs font-bold">{pct}%</span>
-        </div>
-        <div>
-          <p className="text-xl font-bold tracking-tight">
-            준비물 {done} / {checks.length}
-          </p>
-          <p className="text-sm text-zinc-500" suppressHydrationWarning>
-            {dDay(startDate) ?? "출발일을 넣으면 D-day가 나와요"}
-          </p>
-        </div>
-      </div>
-      <ul className="max-h-72 divide-y divide-zinc-100 overflow-y-auto">
-        {checks.map((c) => (
-          <li key={c.id} className="group flex items-center gap-3 py-2.5">
-            <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
-              <input
-                type="checkbox"
-                checked={c.done}
-                onChange={() => save(checks.map((x) => (x.id === c.id ? { ...x, done: !x.done } : x)))}
-                className="size-5 shrink-0 cursor-pointer accent-zinc-900"
-              />
-              <span className={`truncate ${c.done ? "text-zinc-400 line-through" : ""}`}>{c.label}</span>
-            </label>
-            {rainy && c.label.includes("우산") && <span className="shrink-0 text-xs font-semibold text-blue-600">{md(rainy.date).slice(0, 5)} 비 {weather?.source === "forecast" ? "예보" : "(작년)"}</span>}
-            <button
-              type="button"
-              onClick={() => save(checks.filter((x) => x.id !== c.id))}
-              aria-label={`${c.label} 빼기`}
-              className="shrink-0 rounded-full px-1.5 text-zinc-300 opacity-0 transition group-hover:opacity-100 hover:text-zinc-600 focus:opacity-100"
-            >
-              ✕
-            </button>
-          </li>
-        ))}
-      </ul>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          const label = text.trim();
-          if (!label) return;
-          save([...checks, { id: `u${Date.now()}`, label, done: false }]);
-          setText("");
-        }}
-        className="mt-3 flex gap-2"
-      >
-        <input value={text} onChange={(e) => setText(e.target.value)} maxLength={40} placeholder="준비물 더하기" aria-label="준비물 더하기" className="min-w-0 flex-1 rounded-full border border-zinc-200 px-4 py-2 text-sm focus:border-zinc-400 focus:outline-none" />
-        <button type="submit" className="rounded-full bg-zinc-900 px-4 py-2 text-sm font-semibold text-white transition active:scale-95">
-          더하기
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between gap-2">
+        {title}
+        <button
+          type="button"
+          onClick={() => {
+            setAdding((v) => !v);
+            setOpen(true);
+          }}
+          className="rounded-full border border-white/25 px-3 py-1 text-xs transition hover:bg-white/15 active:scale-95"
+        >
+          {adding ? "다 넣었어요" : "＋ 준비물 추가"}
         </button>
-      </form>
-      <p className="mt-2 text-[11px] text-zinc-400">준비물은 이 브라우저에만 저장돼요.</p>
+      </div>
+
+      {checks.length === 0 ? (
+        adding && <div className={`${panelClassName} p-4`}>{form}</div>
+      ) : (
+        <div className={`${panelClassName} p-4`}>
+          {/* 머리: 진행률 원 + 개수. 누르면 서랍이 접히고 펼쳐진다. */}
+          <button type="button" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="flex w-full items-center gap-4 text-left">
+            <span className="relative size-14 shrink-0">
+              <svg viewBox="0 0 56 56" className="size-14 -rotate-90">
+                <circle cx="28" cy="28" r={r} fill="none" stroke="currentColor" strokeOpacity={0.15} strokeWidth="6" />
+                <circle cx="28" cy="28" r={r} fill="none" stroke="#fbbf24" strokeWidth="6" strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={circ * (1 - pct / 100)} className="transition-[stroke-dashoffset] duration-500" />
+              </svg>
+              <span className="absolute inset-0 flex items-center justify-center text-xs font-bold">{pct}%</span>
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-semibold">
+                준비물 {done} / {checks.length}
+              </span>
+              <span className="block text-xs text-white/60" suppressHydrationWarning>
+                {dDay(startDate) ?? "출발일을 넣으면 D-day가 나와요"}
+              </span>
+            </span>
+            <span aria-hidden className={`flex size-8 shrink-0 items-center justify-center rounded-full bg-white/10 transition duration-300 ${open ? "rotate-180" : ""}`}>
+              <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </span>
+          </button>
+
+          {/* 서랍: 장소 카드와 같은 방식(grid 행 0fr → 1fr) */}
+          <div className={`grid transition-[grid-template-rows] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+            <div className="min-h-0 overflow-hidden">
+              <div className={`flex flex-col gap-3 pt-3 transition-opacity duration-300 ${open ? "opacity-100" : "opacity-0"}`} inert={!open}>
+                <ul className="max-h-72 divide-y divide-white/10 overflow-y-auto">
+                  {checks.map((c) => (
+                    <li key={c.id} className="group flex items-center gap-3 py-2.5">
+                      <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={c.done}
+                          onChange={() => save(checks.map((x) => (x.id === c.id ? { ...x, done: !x.done } : x)))}
+                          className="size-5 shrink-0 cursor-pointer accent-amber-400"
+                        />
+                        <span className={`truncate ${c.done ? "text-white/40 line-through" : ""}`}>{c.label}</span>
+                      </label>
+                      {rainy && c.label.includes("우산") && <span className="shrink-0 text-xs font-semibold text-sky-300">{md(rainy.date).slice(0, 5)} 비 {weather?.source === "forecast" ? "예보" : "(작년)"}</span>}
+                      <button
+                        type="button"
+                        onClick={() => save(checks.filter((x) => x.id !== c.id))}
+                        aria-label={`${c.label} 빼기`}
+                        className="shrink-0 rounded-full px-1.5 text-white/30 opacity-0 transition group-hover:opacity-100 hover:text-white focus:opacity-100"
+                      >
+                        ✕
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                {adding && form}
+                <p className="text-[11px] text-white/45">준비물은 이 브라우저에만 저장돼요.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -584,74 +804,142 @@ function useDialog() {
   return { ref, open: () => ref.current?.showModal(), close: () => ref.current?.close() };
 }
 
-function ItemTile({ item, items, days, readOnly, coverImage, companions }: { item: Item; items: Item[]; days: TripDay[]; readOnly: boolean; coverImage: string; companions: number }) {
-  const d = useDialog();
-  const flight = parseFlight(item);
-  const date = md(dateOfDay(days, item.day));
-  const lodgings = items.filter((i) => i.kind === "lodging");
-  let tile: ReactNode;
-  let body: ReactNode;
-  if (item.kind === "lodging") {
-    const stay = stayRange(item, lodgings, days);
-    tile = <Tile icon={<BedIcon className="size-4" />} kind="숙소" corner={item.address} title={item.name} foot={[stay.nights ? `${stay.nights}박` : null, date || `DAY ${item.day}`].filter(Boolean).join(" · ")} onOpen={d.open} />;
-    body = <StayCard item={item} lodgings={lodgings} days={days} coverImage={coverImage} companions={companions} />;
-  } else if (flight) {
-    tile = <Tile icon={<PlaneIcon className="size-4" />} kind="항공권" corner={flight.flightNo ?? undefined} title={`${flight.from} → ${flight.to}`} foot={[date || `DAY ${item.day}`, formatTime(item.time)].filter(Boolean).join(" · ")} onOpen={d.open} />;
-    body = <BoardingPass item={item} transports={items.filter((i) => i.kind === "transport")} days={days} />;
-  } else {
-    tile = <Tile icon={<TrainIcon className="size-4" />} kind="교통 패스" title={item.name} foot={[date || `DAY ${item.day}`, formatCost(item.cost_amount, item.cost_currency)].filter(Boolean).join(" · ")} onOpen={d.open} />;
-    body = <PassCard item={item} days={days} />;
+// 종류마다 카드 하나 (F16). 같은 종류의 예약(항공권 여러 편, 숙소 여러 곳)은 이 카드 하나로 묶고, 카드 아래 좌우 화살표로 넘겨 본다.
+type GoKind = "flight" | "ticket" | "lodging" | "pass";
+const KIND_LABEL: Record<GoKind, string> = { flight: "항공권", ticket: "승차권", lodging: "숙소", pass: "교통 패스" };
+const KIND_UNIT: Record<GoKind, string> = { flight: "편", ticket: "장", lodging: "곳", pass: "건" };
+
+function dayLabel(days: TripDay[], item: Item): string {
+  return md(dateOfDay(days, item.day)) || `DAY ${item.day}`;
+}
+
+// 카드 아래 줄: 하나면 "날짜 · 시각(또는 박 수·비용)", 여럿이면 "첫 날짜 – 마지막 날짜"
+function groupFoot(kind: GoKind, group: Item[], lodgings: Item[], days: TripDay[]): string {
+  const first = group[0];
+  if (group.length > 1) {
+    const last = group[group.length - 1];
+    const a = dayLabel(days, first);
+    const b = dayLabel(days, last);
+    return a === b ? a : `${a} – ${b}`;
   }
+  if (kind === "lodging") {
+    const stay = stayRange(first, lodgings, days);
+    return [stay.nights ? `${stay.nights}박` : null, dayLabel(days, first)].filter(Boolean).join(" · ");
+  }
+  if (kind === "flight" || kind === "ticket") return [dayLabel(days, first), formatTime(first.time)].filter(Boolean).join(" · ");
+  return [dayLabel(days, first), formatCost(first.cost_amount, first.cost_currency)].filter(Boolean).join(" · ");
+}
+
+function groupTitle(kind: GoKind, group: Item[]): string {
+  const first = group[0];
+  const route = kind === "flight" ? parseFlight(first) : kind === "ticket" ? parseRide(first.name) : null;
+  const base = route ? `${route.from} → ${route.to}` : first.name;
+  return group.length > 1 ? `${base} 외 ${group.length - 1}${KIND_UNIT[kind]}` : base;
+}
+
+function GroupTile({ kind, group, items, days, readOnly, coverImage, companions }: { kind: GoKind; group: Item[]; items: Item[]; days: TripDay[]; readOnly: boolean; coverImage: string; companions: number }) {
+  const d = useDialog();
+  const [picked, setPicked] = useState(0);
+  const guardRef = useRef<(() => boolean) | null>(null);
+  const [opened, setOpened] = useState(0); // 창을 열 때마다 올려 몸통을 새로 그린다(수정 중 나갔다 다시 열어도 수정창이 아니라 카드)
+  const open = () => {
+    setOpened((n) => n + 1);
+    d.open();
+  };
+  const index = Math.min(picked, group.length - 1); // 지워서 줄어들면 마지막 것을 보여 준다
+  const item = group[index];
+  const lodgings = items.filter((i) => i.kind === "lodging");
+  const labels = group.map((g) => `${dayLabel(days, g)} · ${kind === "flight" ? (parseFlight(g)?.flightNo ?? g.name) : kind === "ticket" ? parseRide(g.name)?.carrier || g.name : g.name}`);
+  const icon =
+    kind === "flight" ? <PlaneIcon className="size-4" />
+    : kind === "ticket" ? (group.every((g) => parseRide(g.name)?.bus) ? <BusIcon className="size-4" /> : <TrainIcon className="size-4" />)
+    : kind === "lodging" ? <BedIcon className="size-4" />
+    : <PassIcon className="size-4" />;
+  const corner =
+    group.length > 1 ? `${group.length}건`
+    : kind === "flight" ? (parseFlight(item)?.flightNo ?? undefined)
+    : kind === "ticket" ? parseRide(item.name)?.carrier || undefined
+    : kind === "lodging" ? item.address
+    : undefined;
+
+  const body =
+    kind === "flight" ? (
+      <BoardingPass item={item} transports={items.filter((i) => i.kind === "transport")} days={days} />
+    ) : kind === "ticket" ? (
+      <RideTicket item={item} days={days} />
+    ) : kind === "lodging" ? (
+      <StayCard item={item} lodgings={lodgings} days={days} coverImage={coverImage} companions={companions} />
+    ) : (
+      <PassCard item={item} days={days} />
+    );
+
   return (
     <>
-      {tile}
-      <GoDialog dialogRef={d.ref} label={`${item.name} 자세히`}>
-        <ItemDialogBody key={item.updated_at} item={item} days={days} readOnly={readOnly} close={d.close}>
-          {body}
+      <Tile icon={icon} kind={KIND_LABEL[kind]} corner={corner} title={groupTitle(kind, group)} foot={groupFoot(kind, group, lodgings, days)} onOpen={open} />
+      <GoDialog dialogRef={d.ref} label={`${KIND_LABEL[kind]} 자세히`} beforeClose={() => guardRef.current?.() ?? true}>
+        <ItemDialogBody key={`${item.id}:${item.updated_at}:${opened}`} item={item} days={days} readOnly={readOnly} close={d.close} guardRef={guardRef}>
+          <Pager index={index} labels={labels} onPick={setPicked}>
+            {body}
+          </Pager>
         </ItemDialogBody>
       </GoDialog>
     </>
   );
 }
 
-export function TicketStrip({ tripId, items, days, readOnly, weather, coverImage, companions, startDate }: Props) {
-  const weatherDialog = useDialog();
-  const checkDialog = useDialog();
-  const [checks] = useChecklist(tripId);
-  const done = checks.filter((c) => c.done).length;
-  // 항공권 → 숙소 → 교통 패스 순서
-  const ordered = [...items.filter((i) => parseFlight(i)), ...items.filter((i) => i.kind === "lodging"), ...items.filter(isPass)];
-  const first = weather?.days[0];
+// 여행 제목 오른쪽의 투명 날씨 패널 (F16). 누르면 원래의 날씨 창을 그대로 연다.
+export function WeatherBadge({ weather }: { weather: TripWeather }) {
+  const d = useDialog();
+  const first = weather.days[0];
+  if (!first) return null;
+  return (
+    <>
+      <button
+        type="button"
+        onClick={d.open}
+        aria-label={`날씨 자세히: ${weather.place} ${first.max}° ${weatherLabel(first.code)}`}
+        // 좁은 화면: 아이콘·기온만 작게(제목 오른쪽 위). sm 이상: 날씨 이름과 날짜까지.
+        className="flex shrink-0 items-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-3 py-2 text-left text-white shadow-lg shadow-black/20 backdrop-blur-md transition duration-300 ease-out hover:-translate-y-0.5 hover:border-white/40 hover:bg-white/20 active:scale-[0.98] motion-reduce:transition-none sm:gap-3 sm:px-4 sm:py-2.5"
+      >
+        <WeatherIcon kind={weatherKind(first.code)} className="size-6 sm:size-8" />
+        <span className="flex flex-col leading-tight">
+          <span className="text-lg font-semibold tabular-nums sm:text-xl">
+            {first.max}° <span className="hidden text-sm font-normal text-white/80 sm:inline">{weatherLabel(first.code)}</span>
+          </span>
+          <span className="hidden text-xs text-white/70 sm:block">
+            {md(first.date)} · {weather.source === "forecast" ? "예보" : "작년 기준"}
+          </span>
+        </span>
+      </button>
+      <GoDialog dialogRef={d.ref} label="날씨">
+        <DialogFrame onClose={d.close}>
+          <WeatherCard weather={weather} />
+        </DialogFrame>
+      </GoDialog>
+    </>
+  );
+}
+
+export function TicketStrip({ items, days, readOnly, coverImage, companions }: Props) {
+  // 종류별로 묶고(각 묶음 안은 날짜순, groupItems가 이미 정렬함), 묶음은 가장 이른 예약 날짜순
+  const groups = (
+    [
+      ["flight", items.filter((i) => parseFlight(i))],
+      ["ticket", items.filter(isTicket)],
+      ["lodging", items.filter((i) => i.kind === "lodging")],
+      ["pass", items.filter(isPass)],
+    ] as [GoKind, Item[]][]
+  )
+    .map(([kind, group]) => [kind, [...group].sort(compareItems)] as [GoKind, Item[]])
+    .filter(([, group]) => group.length > 0)
+    .sort((a, b) => compareItems(a[1][0], b[1][0]));
 
   return (
-    <ul aria-label="GO: 교통·숙소·날씨·준비물" className="-mx-1 flex snap-x gap-3 overflow-x-auto px-1 pt-2 pb-4">
-      {ordered.map((item) => (
-        <ItemTile key={item.id} item={item} items={items} days={days} readOnly={readOnly} coverImage={coverImage} companions={companions} />
+    <ul aria-label="GO: 교통·숙소" className="-mx-1 flex snap-x gap-3 overflow-x-auto px-1 pt-2 pb-4">
+      {groups.map(([kind, group]) => (
+        <GroupTile key={kind} kind={kind} group={group} items={items} days={days} readOnly={readOnly} coverImage={coverImage} companions={companions} />
       ))}
-      {weather && first && (
-        <>
-          <Tile
-            icon={<WeatherIcon kind={weatherKind(first.code)} className="size-4" />}
-            kind="날씨"
-            corner={weather.source === "forecast" ? "예보" : "작년 기준"}
-            title={`${first.max}° ${weatherLabel(first.code)}`}
-            foot={`${weather.place} · ${md(first.date)}`}
-            onOpen={weatherDialog.open}
-          />
-          <GoDialog dialogRef={weatherDialog.ref} label="날씨">
-            <WeatherCard weather={weather} />
-          </GoDialog>
-        </>
-      )}
-      {!readOnly && (
-        <>
-          <Tile icon={<CheckIcon className="size-4" />} kind="준비물" title={`${done} / ${checks.length} 챙김`} foot={dDay(startDate) ?? "체크리스트"} onOpen={checkDialog.open} />
-          <GoDialog dialogRef={checkDialog.ref} label="준비물">
-            <ChecklistCard tripId={tripId} startDate={startDate} weather={weather} />
-          </GoDialog>
-        </>
-      )}
-      {ordered.length === 0 && <li className="self-center px-2 text-sm text-white/70">비행기 표·숙소를 넣으면 여기에 카드로 나와요.</li>}
+      {groups.length === 0 && <li className="self-center px-2 text-sm text-white/70">비행기 표·기차표·숙소를 넣으면 여기에 카드로 나와요.</li>}
     </ul>
   );
 }

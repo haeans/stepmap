@@ -9,6 +9,7 @@ import { normalizeChanges, normalizeProposal, type ChangeFields, type ProposalCh
 import { requireUser } from "@/lib/auth/user";
 import { chatWithGemini } from "@/lib/extract/gemini";
 import { maskPersonal } from "@/lib/extract/mask";
+import { hideForAi, stripPlaceholders } from "@/lib/extract/vault";
 import { geocodePlace, geocodeQuery } from "@/lib/items/geocode";
 import { nextPosition, resolvePlace, toRow } from "@/lib/items/store";
 import { GEOCODED_KINDS, ITEM_KINDS } from "@/lib/items/types";
@@ -50,16 +51,23 @@ export async function sendChat(tripId: string, request: ChatRequest): Promise<Ch
   const trip = await loadTripContext(supabase, tripId, user.id);
   if (!trip) return { ok: false, error: "여행을 찾을 수 없습니다." };
 
-  // 보내기 전에 개인정보 모양의 값을 가린다(B18). 대화 기록·기존 일정도 같다.
+  // 보내기 전에 링크·예약번호는 자리표시로 바꾸고(F20 hideForAi), 저장 금지 정보는 가린다(B18). 대화 기록·직전 제안·기존 일정도 같다.
+  // 대화는 예약 정보를 저장하지 않으므로 숨긴 원래 값(vault)은 버린다.
+  const safe = (text: string) => maskPersonal(hideForAi(text).text);
   const input = chatMessage(
     trip,
-    trip.existing.map((i) => ({ ...i, name: maskPersonal(i.name), address: maskPersonal(i.address) })),
-    plan.map((p) => ({ ...p, name: maskPersonal(p.name) })),
-    history.map((t) => ({ role: t.role, text: maskPersonal(t.text) })),
-    maskPersonal(message),
+    trip.existing.map((i) => ({ ...i, name: safe(i.name), address: safe(i.address) })),
+    plan.map((p) => ({ ...p, name: safe(p.name) })),
+    history.map((t) => ({ role: t.role, text: safe(t.text) })),
+    safe(message),
   );
   const result = await chatWithGemini(input);
   if (!result.ok) return { ok: false, error: "답하지 못했습니다. 잠시 뒤 다시 보내 주세요." };
+
+  // 모델이 자리표시("[링크1]")를 그대로 옮겨 쓰면 지운다(F20). 대화에서는 원래 값으로 되돌리지 않는다.
+  const unmark = (text: string | null) => (text === null ? null : stripPlaceholders(text).text);
+  result.items = result.items.map((r) => ({ ...r, name: unmark(r.name)!, address: unmark(r.address)!, memo: unmark(r.memo)! }));
+  result.changes = result.changes.map((c) => ({ ...c, name: unmark(c.name), address: unmark(c.address), memo: unmark(c.memo) }));
 
   const { items, notes } = normalizeProposal(result.items, { dayCount: trip.dayCount, existing: trip.existing });
 

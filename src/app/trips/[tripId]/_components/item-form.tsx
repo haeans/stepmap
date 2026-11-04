@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useRef } from "react";
 import type { ItemActionState } from "@/app/actions/items";
 import type { TripDay } from "@/lib/trips/days";
-import { formatTime, type Item } from "@/lib/items/types";
+import { BOOKING_LINK_KINDS, formatTime, type Item } from "@/lib/items/types";
 import type { ItemInput } from "@/lib/items/validation";
 import { PRIMARY } from "./form-styles";
 import { ItemFields } from "./item-fields";
@@ -27,7 +27,16 @@ function toValues(item: Item): ItemInput {
     link: item.link,
     costAmount: item.cost_amount === null ? null : Number(item.cost_amount),
     costCurrency: item.cost_currency,
+    booking: bookingValues(item),
   };
+}
+
+// 수정 폼의 예약 칸 (F20). 소유자만 보는 링크가 있으면 그 단계, 공개 링크만 있으면 "공유한 사람도 보기".
+function bookingValues(item: Item): ItemInput["booking"] {
+  const s = item.secret;
+  if (s?.booking_link) return { no: s.booking_no, link: s.booking_link, level: s.level };
+  if (BOOKING_LINK_KINDS.includes(item.kind) && item.link) return { no: s?.booking_no ?? "", link: item.link, level: "public" };
+  return { no: s?.booking_no ?? "", link: "", level: "auto" };
 }
 
 // 항목 직접 입력·수정 폼 (R-05). 입력창(새 항목)과 수정 창이 같이 쓴다.

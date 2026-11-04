@@ -67,6 +67,8 @@ const ExtractSchema = z.object({
       address: z.string(),
       memo: z.string(),
       link: z.string(),
+      // F20: 원문의 "[예약번호N]" 자리표시 중 이 항목의 것. 없으면 빈 문자열.
+      booking_ref: z.string(),
       cost_amount: z.number().nullable(),
       cost_currency: z.string().nullable(),
       // F18 추천 칸

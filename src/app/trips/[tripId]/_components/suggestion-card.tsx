@@ -32,6 +32,13 @@ function toForm(item: ItemInput): FormData {
   form.set(`${p}link`, item.link);
   form.set(`${p}costAmount`, item.costAmount === null ? "" : String(item.costAmount));
   form.set(`${p}costCurrency`, item.costCurrency ?? "");
+  // F20: 예약 칸이 있으면 함께 보낸다(소유자만 보는 곳에 저장).
+  if (item.booking) {
+    form.set(`${p}booking`, "1");
+    form.set(`${p}bookingNo`, item.booking.no);
+    form.set(`${p}bookingLink`, item.booking.link);
+    form.set(`${p}linkLevel`, item.booking.level);
+  }
   return form;
 }
 

@@ -34,7 +34,16 @@ export type Item = {
   source: "manual" | "ai";
   created_at: string;
   updated_at: string;
+  // 예약 정보(item_secrets, C8 F20). 소유자에게만 서버가 붙여 보낸다. 공유받은 사람에게는 없다.
+  secret?: ItemSecret | null;
 };
+
+export type ItemSecret = { booking_no: string; booking_link: string; level: "owner" | "secret" };
+export const SECRET_COLUMNS = "item_id, booking_no, booking_link, level";
+
+// 예약번호·예약 링크를 받는 종류. 관광지는 예약번호만 받고 링크는 공개 "링크" 칸 그대로다. 메모는 받지 않는다.
+export const BOOKING_LINK_KINDS: readonly ItemKind[] = ["transport", "lodging", "food"];
+export const BOOKING_NO_KINDS: readonly ItemKind[] = ["transport", "lodging", "food", "sight"];
 
 export const ITEM_COLUMNS =
   "id, trip_id, day, time, position, kind, name, address, lat, lng, memo, link, cost_amount, cost_currency, source, created_at, updated_at";

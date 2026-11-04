@@ -1,6 +1,6 @@
 // Drizzle 테이블 정의와 RLS 정책 정의만 둔다. (decisions.md S2)
 // 앱의 데이터 읽기·쓰기는 여기서 하지 않고 src/lib/supabase의 클라이언트로 한다.
-// 테이블은 사이클마다 추가한다: trips(v0.3), items(v0.5), share_links·trip_members(v0.9), trips 대표 이미지 칸(F08)
+// 테이블은 사이클마다 추가한다: trips(v0.3), items(v0.5), share_links·trip_members(v0.9), trips 대표 이미지 칸(F08), item_secrets(C8 F20)
 // 대표 이미지 Storage 버킷과 정책은 drizzle/ 아래 직접 쓴 마이그레이션에 있다. (F08)
 // 테이블 권한(GRANT)과 트리거는 drizzle/ 아래 직접 쓴 마이그레이션에 있다. (decisions.md B6)
 
@@ -146,6 +146,40 @@ export const items = pgTable(
     }),
     pgPolicy("items_delete_owner", { for: "delete", to: authenticatedRole, using: ownsTrip(t.tripId) }),
   ],
+);
+
+// 예약 정보 (C8 F20). 예약번호와 소유자만 볼 링크를 항목과 따로 둔다.
+// 공유받은 사람도 items는 읽으므로, 원래 값은 소유자만 읽고 쓰는 이 테이블에 둔다(isMember 없음).
+// level: owner(가려서 보여 주고 눌러서 보기) / secret(토큰이 든 링크, 주소를 보여 주지 않음)
+export const itemSecrets = pgTable(
+  "item_secrets",
+  {
+    itemId: uuid("item_id")
+      .primaryKey()
+      .references(() => items.id, { onDelete: "cascade" }),
+    tripId: uuid("trip_id")
+      .notNull()
+      .references(() => trips.id, { onDelete: "cascade" }),
+    bookingNo: text("booking_no").notNull().default(""),
+    bookingLink: text("booking_link").notNull().default(""),
+    level: text("level").notNull().default("owner"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => {
+    // 항목이 그 여행의 것이고, 여행의 소유자일 때만
+    const ownsItem = sql`${ownsTrip(t.tripId)} and exists (select 1 from ${items} where ${items.id} = ${t.itemId} and ${items.tripId} = ${t.tripId})`;
+    return [
+      index("item_secrets_trip_id_idx").on(t.tripId),
+      check("item_secrets_booking_no_length", sql`char_length(${t.bookingNo}) <= 100`),
+      check("item_secrets_booking_link", sql`${t.bookingLink} = '' or (${t.bookingLink} ~* '^https?://' and char_length(${t.bookingLink}) <= 2000)`),
+      check("item_secrets_level", sql`${t.level} in ('owner', 'secret')`),
+      pgPolicy("item_secrets_select_owner", { for: "select", to: authenticatedRole, using: ownsTrip(t.tripId) }),
+      pgPolicy("item_secrets_insert_owner", { for: "insert", to: authenticatedRole, withCheck: ownsItem }),
+      pgPolicy("item_secrets_update_owner", { for: "update", to: authenticatedRole, using: ownsTrip(t.tripId), withCheck: ownsItem }),
+      pgPolicy("item_secrets_delete_owner", { for: "delete", to: authenticatedRole, using: ownsTrip(t.tripId) }),
+    ];
+  },
 );
 
 // 공유 링크 (v0.9, R-08). 여행마다 하나. 식별값은 앱에서 만든 무작위 32바이트(base64url 43자). (B26)

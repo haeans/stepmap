@@ -71,7 +71,13 @@ export function PasteExtract({ tripId, days }: { tripId: string; days: TripDay[]
     const parts = [`항목 ${result.items.length}개를 찾았어요.`];
     if (suggested.length) parts.push(`일차·시각이 없던 ${suggested.length}개는 매거진 DAY에 추천 카드로 띄웠어요. 카드에서 "넣기"를 눌러야 저장돼요.`);
     if (rest.length) parts.push(`${rest.length}개는 아래에서 확인하고 저장해 주세요.`);
-    say({ text: parts.join(" "), extract: rest.length ? { items: rest, status: "open" } : undefined, switchTo: "chat" }, message);
+    // F20: 어느 항목에도 붙지 않은 예약번호는 미리보기에서 직접 넣게 알린다(미리보기가 없으면 말로 알린다).
+    const unassigned = result.unassigned ?? [];
+    if (unassigned.length && !rest.length) parts.push(`어느 항목인지 못 정한 예약번호: ${unassigned.join(", ")} · 일정 카드에서 직접 넣어 주세요.`);
+    say(
+      { text: parts.join(" "), extract: rest.length ? { items: rest, status: "open", unassigned } : undefined, switchTo: "chat" },
+      message,
+    );
   }
 
   async function runChat(message: string) {
@@ -199,7 +205,7 @@ export function PasteExtract({ tripId, days }: { tripId: string; days: TripDay[]
           className={`${FIELD} resize-none leading-relaxed`}
         />
         <p className="text-xs leading-relaxed opacity-55">
-          보낸 내용은 Google AI가 처리하며 사람이 볼 수 있습니다. 이름·예약번호 같은 개인정보는 지우고 보내 주세요. 이메일·전화번호·카드 번호는 자동으로 가립니다.
+          보낸 내용은 Google AI가 처리하며 사람이 볼 수 있습니다. 링크와 “예약번호: …”처럼 적힌 예약번호는 AI에 보내지 않고, 붙여넣기에서는 나만 보는 곳에 저장합니다. 카드번호·주민번호·여권번호·비밀번호는 가려서 보내고 저장하지 않습니다. 사람 이름은 지우고 보내 주세요.
         </p>
         {inputError && <p className="rounded-xl bg-rose-500/15 px-3 py-2 text-sm text-rose-700 dark:text-rose-300">{inputError}</p>}
         <div className="flex items-center justify-between gap-2">
@@ -241,9 +247,14 @@ function AssistantMessage({
 }) {
   const preview = entry.proposal ? { type: "proposal" as const, ...entry.proposal } : entry.extract ? { type: "extract" as const, ...entry.extract } : null;
 
+  // 미리보기를 저장하거나 닫으면 예약 정보(F20)는 이 브라우저 대화 기록에서도 지운다.
   function setStatus(status: PreviewStatus, saved?: number) {
     updateEntry(tripId, entry.id, (e) =>
-      e.proposal ? { ...e, proposal: { ...e.proposal, status, saved } } : e.extract ? { ...e, extract: { ...e.extract, status, saved } } : e,
+      e.proposal
+        ? { ...e, proposal: { ...e.proposal, status, saved } }
+        : e.extract
+          ? { ...e, extract: { items: e.extract.items.map((item) => ({ ...item, booking: undefined })), status, saved } }
+          : e,
     );
   }
 
@@ -266,6 +277,7 @@ function AssistantMessage({
             days={days}
             type={preview.type}
             items={preview.items}
+            unassigned={entry.extract && preview.type === "extract" ? (entry.extract.unassigned ?? []) : []}
             onCancel={() => setStatus("closed")}
             onSaved={(count) => setStatus("saved", count)}
           />
@@ -388,6 +400,7 @@ function ItemsPreview({
   days,
   type,
   items,
+  unassigned,
   onCancel,
   onSaved,
 }: {
@@ -395,6 +408,7 @@ function ItemsPreview({
   days: TripDay[];
   type: "extract" | "proposal";
   items: PreviewItem[];
+  unassigned: string[];
   onCancel: () => void;
   onSaved: (count: number) => void;
 }) {
@@ -418,6 +432,12 @@ function ItemsPreview({
       {type === "proposal" && (
         <p className="rounded-xl bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-900 dark:text-amber-200">
           AI가 추천한 일정이에요. 영업시간·휴무일·폐업 여부는 틀릴 수 있으니 확인해 주세요. 고른 항목만 저장됩니다.
+        </p>
+      )}
+      {/* F20: AI가 어느 항목에도 붙이지 않은 예약번호. 맞는 항목의 예약번호 칸에 직접 넣는다. */}
+      {unassigned.length > 0 && (
+        <p className="rounded-xl bg-amber-500/15 px-3 py-2 text-sm">
+          어느 항목인지 못 정한 예약번호: <span className="font-mono">{unassigned.join(", ")}</span> · 맞는 항목의 예약번호 칸에 넣어 주세요.
         </p>
       )}
       <input type="hidden" name="count" value={items.length} />

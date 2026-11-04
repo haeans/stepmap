@@ -1,8 +1,9 @@
 // 입력창·수정 창의 공용 모양 (F10). 색은 바깥 글자색을 따른다.
+// 선택 칸(select)의 펼친 목록은 바탕이 투명하면 흰 글씨가 안 보여서, 목록만 흰 바탕·검은 글씨로 고정한다(C8 F16).
 // 어두운 입력창(data-tone="dark") 안에서는 강조 버튼·고른 칩이 흰색으로 바뀐다(in-data-[tone=dark]).
 
 export const FIELD =
-  "w-full rounded-xl border border-current/15 bg-current/[0.04] px-3.5 py-2.5 text-sm transition placeholder:text-current placeholder:opacity-40 hover:border-current/30 focus:border-current/50 focus:bg-current/[0.07] focus:outline-none";
+  "w-full rounded-xl border border-current/15 bg-current/[0.04] px-3.5 py-2.5 text-sm transition placeholder:text-current placeholder:opacity-40 hover:border-current/30 focus:border-current/50 focus:bg-current/[0.07] focus:outline-none [&_option]:bg-white [&_option]:text-zinc-900";
 
 export const LABEL = "flex flex-col gap-1.5 text-xs font-medium tracking-wide opacity-90";
 
