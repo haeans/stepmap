@@ -24,9 +24,38 @@ const WIDTH = "min-w-[min(15rem,calc(100vw-4rem))] max-w-[min(20rem,calc(100vw-4
 // 위·왼쪽은 4px만, 오른쪽·아래는 16px를 둔다. 구글 여백 값이 다르면 이 줄만 고친다.
 const PAD = "pt-1 pl-1 pr-4 pb-4";
 
-// 구글맵은 좌표로 연다. 구글 장소 id를 저장하지 않아 이름으로 찾으면 다른 곳이 나올 수 있다.
-export function googleMapsUrl(place: Pick<MapPlace, "lat" | "lng">): string {
-  return `https://www.google.com/maps/search/?api=1&query=${place.lat},${place.lng}`;
+// 구글맵 아이콘: 그 장소의 장소 카드(사진·리뷰·영업시간)가 열리도록 이름·주소로 검색한다.
+// 흔한 이름은 다른 곳이 열릴 수 있다. 그러면 장소 id(items.place_id)로 여는 방식으로 넓힌다.
+export function googleMapsUrl(place: Pick<MapPlace, "name" | "address" | "hub" | "lat" | "lng">): string {
+  const base = "https://www.google.com/maps/search/?api=1&query=";
+  const query = mapsQuery(place);
+  return query ? base + encodeURIComponent(query) : `${base}${place.lat},${place.lng}`;
+}
+
+const MAX_ADDRESS = 80;
+
+// 구글맵 검색어 (F25): 좌표로 열면 이름 없는 빈 위치만 나와서, 장소 카드가 열리도록 이름(+주소)으로 찾는다.
+// 공항·역·터미널은 "간사이 공항"처럼 이름만. 장소·숙소는 "이름, 주소"(주소가 없으면 이름만). 둘 다 없으면 ""(좌표로 연다).
+function mapsQuery({ name, address, hub }: Pick<MapPlace, "name" | "address" | "hub">): string {
+  const title = name.trim();
+  if (hub) return title;
+  const where = tidyAddress(address);
+  if (!where || where === title) return title;
+  return title ? `${title}, ${where}` : where;
+}
+
+// 주소 다듬기: 전각 숫자·공백을 반각으로(NFKC), 우편번호(〒531-6039)를 빼고, 겹친 공백·쉼표를 줄인다.
+// 너무 길면 80자 안의 마지막 쉼표에서 자른다(나라·도시·구는 남기고 뒤쪽 번지를 버림). 건물 이름·나라 이름은 남긴다.
+function tidyAddress(address: string): string {
+  const text = address
+    .normalize("NFKC")
+    .replace(/〒\s*[\d-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/\s*,\s*(,\s*)*/g, ", ")
+    .replace(/^[\s,]+|[\s,]+$/g, "");
+  if (text.length <= MAX_ADDRESS) return text;
+  const cut = text.lastIndexOf(",", MAX_ADDRESS);
+  return (cut > 0 ? text.slice(0, cut) : text.slice(0, MAX_ADDRESS)).trim();
 }
 
 export function PinPopup({ place, anchor, onClose }: Props) {
