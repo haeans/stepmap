@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Item } from "@/lib/items/types";
-import { isPass, isTicket, parseFlight, parseRide, passLines, returnFlight, stayRange } from "./go-info";
+import { isFlight, isPass, isTicket, parseFlight, parseRide, passLines, returnFlight, stayRange } from "./go-info";
 
 function item(over: Partial<Item>): Item {
   return {
@@ -20,6 +20,34 @@ describe("parseFlight", () => {
 
   it("비행기가 아니면 null", () => {
     expect(parseFlight(item({ name: "간사이 레일패스 2일권" }))).toBeNull();
+  });
+
+  // regression C8-1: 한글 공항 이름·편명으로 들어온 비행기가 승차권으로 나오던 문제 (C9 F26 결정 3)
+  it("편명 + 한글 공항 이름도 비행기", () => {
+    expect(parseFlight(item({ name: "KE723 인천 → 간사이" }))).toEqual({ from: "ICN", to: "KIX", fromName: "인천", toName: "간사이", flightNo: "KE723" });
+    expect(parseFlight(item({ name: "KE081 인천 → JFK" }))).toMatchObject({ from: "ICN", to: "JFK", flightNo: "KE081" });
+    expect(parseFlight(item({ name: "KE1101 김포 → 김해" }))).toMatchObject({ from: "GMP", to: "PUS", flightNo: "KE1101" });
+    expect(parseFlight(item({ name: "7C1301 인천→오사카" }))).toMatchObject({ from: "ICN", to: "오사카", toName: "오사카" });
+    expect(parseFlight(item({ name: "대한항공 인천 → 오사카" }))).toMatchObject({ from: "ICN", to: "오사카" });
+  });
+  it("편명이 없어도 양쪽이 아는 공항이면 비행기", () => {
+    expect(parseFlight(item({ name: "인천 → 간사이" }))).toMatchObject({ from: "ICN", to: "KIX" });
+    expect(parseFlight(item({ name: "김포공항 → 제주공항" }))).toMatchObject({ from: "GMP", to: "CJU" });
+  });
+  it("기차·버스·공항철도는 비행기가 아니다", () => {
+    expect(parseFlight(item({ name: "KTX 101 서울→부산" }))).toBeNull();
+    expect(parseFlight(item({ name: "공항철도 서울역 -> 인천공항 T1" }))).toBeNull();
+    expect(parseFlight(item({ name: "G1234 상하이 → 베이징 열차" }))).toBeNull();
+    expect(parseFlight(item({ name: "인천공항 → 서울역 공항버스" }))).toBeNull();
+    expect(parseFlight(item({ name: "서울 → 부산" }))).toBeNull();
+  });
+});
+
+describe("isFlight", () => {
+  it("교통 항목만 비행기가 될 수 있다", () => {
+    expect(isFlight(item({ name: "KE723 인천 → 간사이" }))).toBe(true);
+    expect(isFlight(item({ kind: "lodging", name: "ICN → KIX" }))).toBe(false);
+    expect(isTicket(item({ name: "KE723 인천 → 간사이" }))).toBe(false);
   });
 });
 

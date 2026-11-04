@@ -36,14 +36,15 @@ export default async function Home() {
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-6">
       <AppHeader email={user.email} />
       <div className="flex flex-col gap-2 pt-4">
-        <h2 className="text-4xl md:text-5xl">내 여행</h2>
-        <p className="text-muted">{data?.length ? `여행 ${data.length}개` : "흩어진 여행 정보를 한 곳에"}</p>
+        {/* 목록 화면에서는 "여행" 대신 "발자국"이라 부르고, 여행 개수는 보이지 않는다(C9 F24). */}
+        <h2 className="text-4xl md:text-5xl">발자국</h2>
+        <p className="text-muted">흩어진 여행 정보를 한 곳에</p>
       </div>
       <NewTripForm />
       {error ? (
         <p className="text-red-600">여행 목록을 불러오지 못했습니다.</p>
       ) : data.length === 0 ? (
-        <p className="rounded-3xl border border-dashed border-zinc-300 p-10 text-center text-muted dark:border-zinc-700">아직 여행이 없습니다. 새 여행을 만들어 보세요.</p>
+        <p className="rounded-3xl border border-dashed border-zinc-300 p-10 text-center text-muted dark:border-zinc-700">아직 발자국이 없습니다. 새 발자국을 남겨 보세요.</p>
       ) : (
         <ul className="flex flex-col gap-5">
           {data.map((trip) => (
