@@ -315,18 +315,25 @@ function ItemDialogBody({ item, days, readOnly, close, guardRef, children }: { i
 const airportClass = (v: string) => `leading-none font-black tracking-tight ${/^[A-Z]{3}$/.test(v) ? "text-5xl" : "text-2xl break-keep"}`;
 
 // 떼는 쪽의 바코드 (꾸밈, 웹 항공권 창). 편명으로 무늬를 정하고 옆으로 눕힌다(가로 줄을 세로로 쌓음).
-function SideBarcode({ seed }: { seed: string }) {
+function SideBarcode({ seed, label }: { seed: string; label: string }) {
   const bars: number[] = [];
   let h = 7;
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < 44; i++) {
     h = (h * 31 + seed.charCodeAt(i % Math.max(1, seed.length)) + i) % 97;
     bars.push(1 + (h % 3));
   }
+  // 칸 없이 떼는 쪽 높이를 채운다. 줄 굵기를 비율(flex-grow)로 줘서 창 높이가 달라도 위아래로 꽉 찬다. 옆에 편명을 세로로.
   return (
-    <div aria-hidden className="flex h-full w-14 flex-col justify-center gap-[3px]">
-      {bars.map((w, i) => (
-        <span key={i} className="w-full bg-zinc-900" style={{ height: w }} />
-      ))}
+    <div aria-hidden className="flex h-full items-stretch gap-3">
+      <div className="flex w-14 flex-col">
+        {bars.map((w, i) => (
+          <span key={i} className="flex flex-col" style={{ flexGrow: w + 2 }}>
+            <span className="w-full bg-zinc-900/85" style={{ flexGrow: w }} />
+            <span style={{ flexGrow: 2 }} />
+          </span>
+        ))}
+      </div>
+      <span className="font-mono text-[11px] font-bold tracking-[0.3em] text-zinc-900/55 [writing-mode:vertical-rl]">{label}</span>
     </div>
   );
 }
@@ -352,21 +359,39 @@ function TicketBookingNo({ code, align = "right", className = "mt-2", labelClass
 // - 그 아래 편명·날짜·출발·일차, 맨 아래 메모와 "예약 링크 열기"
 // - 좁은 화면은 세로 카드. 웹(md 이상)은 가로 표이고, 점선 오른쪽 떼는 쪽은 내용 없이 누운 바코드(꾸밈)만
 // 돌아오는 편은 따로 항공권 카드로 넘겨 본다.
-function BoardingPass({ item, days }: { item: Item; days: TripDay[] }) {
+// 뒤에는 대표 이미지를 흐리게 깔고(TicketBackdrop, 승차권과 같음), 칸은 둥근 상자, 글씨는 세 단계로 맞춘다.
+// 항공권 본문·떼는 쪽 사이 홈 (C10 F30). 덧댄 동그라미가 아니라 실제로 잘라 뒤 배경이 보이게 한다(웹만, 승차권과 같은 방식).
+const FLIGHT_MAIN_SHAPE =
+  "md:[mask-image:radial-gradient(circle_at_100%_0,transparent_12px,#000_12.5px),radial-gradient(circle_at_100%_100%,transparent_12px,#000_12.5px)] md:[mask-composite:intersect]";
+const FLIGHT_STUB_SHAPE =
+  "md:[mask-image:radial-gradient(circle_at_0_0,transparent_12px,#000_12.5px),radial-gradient(circle_at_0_100%,transparent_12px,#000_12.5px)] md:[mask-composite:intersect]";
+
+// 항공권 칸 사이 선: 좁은 화면 열 수(3칸이면 3, 4칸이면 2)와 넓은 화면(한 줄)에 맞춰 왼쪽·위 선을 붙인다
+function cellLines(i: number, n: number): string {
+  if (n !== 4) return i > 0 ? "border-l" : "";
+  const narrow = [i % 2 === 1 ? "border-l" : "", i >= 2 ? "border-t" : ""];
+  const wide = i > 0 ? "sm:border-l" : "sm:border-l-0";
+  return [...narrow, wide, "sm:border-t-0"].filter(Boolean).join(" ");
+}
+
+function BoardingPass({ item, days, coverImage }: { item: Item; days: TripDay[]; coverImage: string }) {
   const f = parseFlight(item)!;
   const date = md(dateOfDay(days, item.day));
   const time = formatTime(item.time);
   const bookingNo = item.secret?.booking_no ?? "";
-  const cell = (label: string, value: string) => (
-    <div className="min-w-0">
-      <p className="text-[11px] tracking-wide text-zinc-500">{label}</p>
-      <p className="truncate text-lg font-bold tabular-nums md:text-xl">{value || "—"}</p>
-    </div>
-  );
+  // 글씨는 승차권과 같은 세 단계: 작은 이름표 · 값 · 공항 코드(크게)
+  const eyebrow = "text-[11px] font-semibold tracking-[0.12em] text-zinc-900/50";
+  const value = "text-lg leading-tight font-bold tabular-nums";
+  const cells: [string, string][] = [
+    ["편명", f.flightNo ?? "—"],
+    ...(date ? ([["날짜", date]] as [string, string][]) : []),
+    ["출발", time || "시각 미정"],
+    ["일차", `DAY ${item.day}`],
+  ];
   return (
-    <div className="overflow-hidden rounded-3xl bg-[#f5f1ea] shadow-2xl md:flex">
+    <div className="drop-shadow-2xl md:flex">
       {/* 본문 */}
-      <div className="min-w-0 md:flex-1">
+      <div className={`min-w-0 overflow-hidden rounded-3xl bg-[#f5f1ea] md:flex-1 md:rounded-r-none ${FLIGHT_MAIN_SHAPE}`}>
         <div className="flex items-center justify-between gap-3 bg-zinc-900 px-5 py-3.5 md:h-14 md:px-7 md:py-0">
           <span className="flex items-center gap-2 text-xs font-bold tracking-[0.3em] text-amber-400 md:text-sm">
             <PlaneIcon className="size-4" />
@@ -374,50 +399,59 @@ function BoardingPass({ item, days }: { item: Item; days: TripDay[] }) {
           </span>
           <span className="font-bold text-white">{f.flightNo ?? ""}</span>
         </div>
-        <div className="relative flex flex-col gap-5 px-5 pt-6 pb-5 md:px-7 md:pt-7">
-          {/* 뒤에 흐린 비행기 */}
-          <PlaneIcon className="pointer-events-none absolute top-6 left-1/2 size-24 -translate-x-1/2 text-zinc-900/[0.06] md:size-32" />
-          <div className="relative flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold tracking-[0.2em] text-zinc-500">FROM</p>
-              <p className={`mt-1 ${airportClass(f.from)} md:text-6xl`}>{f.from || "—"}</p>
-              <p className="mt-1 truncate text-sm font-semibold text-amber-700">{f.fromName}</p>
-              {(date || time) && <p className="mt-2 text-sm text-zinc-700 tabular-nums">{[date, time].filter(Boolean).join(" · ")}</p>}
+        <div className="relative [&>*:not(:first-child)]:relative">
+          <TicketBackdrop image={coverImage} part="main" paper="flight" />
+          <div className="flex flex-col gap-5 px-5 pt-6 pb-6 text-zinc-900 md:px-7 md:pt-7">
+            <div className="relative flex items-start justify-between gap-3">
+              {/* 가운데 흐린 비행기 */}
+              <PlaneIcon className="pointer-events-none absolute top-2 left-1/2 size-24 -translate-x-1/2 text-zinc-900/[0.06] md:size-28" />
+              <div className="relative min-w-0">
+                <p className={eyebrow}>FROM</p>
+                <p className={`mt-1 ${airportClass(f.from)} md:text-6xl`}>{f.from || "—"}</p>
+                <p className="mt-1 truncate text-sm font-semibold text-amber-700">{f.fromName}</p>
+                {(date || time) && <p className="mt-2 text-sm font-medium text-zinc-700 tabular-nums">{[date, time].filter(Boolean).join(" · ")}</p>}
+              </div>
+              <div aria-hidden className="relative mt-12 flex flex-1 items-center text-amber-600 md:mt-14">
+                <span className="flex-1 border-t-2 border-dashed border-zinc-900/15" />
+                <svg viewBox="0 0 24 24" className="size-4 shrink-0" fill="currentColor">
+                  <path d="M8 5l9 7-9 7z" />
+                </svg>
+              </div>
+              <div className="relative min-w-0 text-right">
+                <p className={eyebrow}>TO</p>
+                <p className={`mt-1 ${airportClass(f.to)} md:text-6xl`}>{f.to || "—"}</p>
+                <p className="mt-1 truncate text-sm font-semibold text-amber-700">{f.toName}</p>
+                {bookingNo && <TicketBookingNo code={bookingNo} labelClass={eyebrow} />}
+              </div>
             </div>
-            <div aria-hidden className="mt-12 flex flex-1 items-center text-amber-600 md:mt-14">
-              <span className="flex-1 border-t-2 border-dashed border-zinc-300" />
-              <svg viewBox="0 0 24 24" className="size-4 shrink-0" fill="currentColor">
-                <path d="M8 5l9 7-9 7z" />
-              </svg>
+            <div className="overflow-hidden rounded-2xl border border-zinc-900/10 bg-white/55">
+              {/* 칸 3개(날짜 없음)면 한 줄 3칸, 4개면 좁은 화면 2×2·넓은 화면 한 줄. 칸 사이 선은 칸마다 직접 정한다 */}
+              <div className={`grid ${cells.length === 4 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}>
+                {cells.map(([name, v], i) => (
+                  <div key={name} className={`min-w-0 border-zinc-900/10 px-4 py-3 ${cellLines(i, cells.length)}`}>
+                    <p className={eyebrow}>{name}</p>
+                    <p className={`mt-1 truncate ${value}`}>{v}</p>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="min-w-0 text-right">
-              <p className="text-[11px] font-semibold tracking-[0.2em] text-zinc-500">TO</p>
-              <p className={`mt-1 ${airportClass(f.to)} md:text-6xl`}>{f.to || "—"}</p>
-              <p className="mt-1 truncate text-sm font-semibold text-amber-700">{f.toName}</p>
-              {bookingNo && <TicketBookingNo code={bookingNo} />}
-            </div>
+            {item.memo && (
+              <div className="flex items-start gap-3 rounded-2xl bg-amber-100/60 px-4 py-3">
+                <span className={`${eyebrow} mt-0.5 shrink-0`}>MEMO</span>
+                <p className="min-w-0 flex-1 text-sm font-medium whitespace-pre-wrap">{item.memo}</p>
+              </div>
+            )}
+            {item.secret?.booking_link && <BookingLinkButton secret={item.secret} className="self-start" />}
           </div>
-          <div className="relative grid grid-cols-2 gap-3 border-t border-zinc-300 pt-4 sm:grid-cols-4">
-            {cell("편명", f.flightNo ?? "")}
-            {cell("날짜", date)}
-            {cell("출발", time)}
-            {cell("일차", `DAY ${item.day}`)}
-          </div>
-          {(item.memo || item.secret?.booking_link) && (
-            <div className="relative flex flex-col gap-2">
-              {item.memo && <p className="rounded-xl bg-black/5 px-3 py-2 text-sm whitespace-pre-wrap">{item.memo}</p>}
-              <BookingLinkButton secret={item.secret} className="self-start" />
-            </div>
-          )}
         </div>
       </div>
       {/* 웹: 점선 오른쪽 떼는 쪽(꾸밈) */}
-      <div className="relative hidden w-36 shrink-0 flex-col border-l-2 border-dashed border-zinc-300 md:flex">
-        <span aria-hidden className="absolute -top-3 -left-3 size-6 rounded-full bg-black/55" />
-        <span aria-hidden className="absolute -bottom-3 -left-3 size-6 rounded-full bg-black/55" />
-        <div aria-hidden className="h-14 bg-zinc-900" />
-        <div className="flex flex-1 items-center justify-center py-6">
-          <SideBarcode seed={f.flightNo ?? item.id} />
+      {/* -ml-0.5: 잘라 낸 가장자리 사이에 어두운 틈이 보이지 않게 살짝 겹친다 */}
+      <div className={`relative hidden w-36 shrink-0 flex-col overflow-hidden rounded-r-3xl md:-ml-0.5 border-l-2 border-dashed border-zinc-900/15 bg-[#f5f1ea] md:flex ${FLIGHT_STUB_SHAPE}`}>
+        <div aria-hidden className="h-14 shrink-0 bg-zinc-900" />
+        <div className="relative flex flex-1 justify-center px-5 py-7 [&>*:not(:first-child)]:relative">
+          <TicketBackdrop image={coverImage} part="stub" paper="flight" />
+          <SideBarcode seed={f.flightNo ?? item.id} label={f.flightNo ?? "FLIGHT"} />
         </div>
       </div>
     </div>
@@ -438,7 +472,7 @@ function StayCard({ item, lodgings, days, coverImage, companions, photoUrl }: { 
     return d >= item.day && d < out;
   };
   return (
-    <div className="overflow-hidden rounded-3xl bg-white shadow-2xl">
+    <div className="overflow-hidden rounded-3xl bg-[#f7f5f1] shadow-2xl">
       <div ref={photoRef as RefObject<HTMLDivElement>} className="relative h-36 bg-cover bg-center" style={photo ? undefined : { backgroundImage: `url("${coverImage}")` }}>
         {photo && (
           // eslint-disable-next-line @next/next/no-img-element -- 외부 사진 주소를 그대로 쓴다(이미지 최적화를 쓰지 않음, B49)
@@ -447,49 +481,53 @@ function StayCard({ item, lodgings, days, coverImage, companions, photoUrl }: { 
         <span className="absolute top-3 left-3 rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white shadow">✓ 숙소</span>
         {!photoUrl && placePhoto && <PhotoInfo photo={placePhoto} name={item.name} />}
       </div>
-      <div className="flex flex-col gap-4 p-5">
-        <div>
-          <h3 className="text-xl font-bold tracking-tight break-keep">{item.name}</h3>
-          <p className="text-sm text-zinc-500">{[item.address, `${companions}인`].filter(Boolean).join(" · ")}</p>
-        </div>
-        <div className="flex items-center justify-between">
+      {/* 아래: 숙소 사진(없으면 대표 이미지)을 흐리게 깔고 종이색으로 덮는다(뒷배경만, 배치는 전과 같음) */}
+      <div className="relative [&>*:not(:first-child)]:relative">
+        <TicketBackdrop image={photo ?? coverImage} part="main" paper="stay" />
+        <div className="flex flex-col gap-4 p-5">
           <div>
-            <p className="text-[11px] font-semibold tracking-[0.2em] text-zinc-500">CHECK-IN</p>
-            <p className="text-lg font-bold">{md(stay.checkIn) || `DAY ${item.day}`}</p>
+            <h3 className="text-xl font-bold tracking-tight break-keep">{item.name}</h3>
+            <p className="text-sm text-zinc-500">{[item.address, `${companions}인`].filter(Boolean).join(" · ")}</p>
           </div>
-          {stay.nights && <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-800">{stay.nights}박</span>}
-          <div className="text-right">
-            <p className="text-[11px] font-semibold tracking-[0.2em] text-zinc-500">CHECK-OUT</p>
-            <p className="text-lg font-bold">{md(stay.checkOut) || "—"}</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[11px] font-semibold tracking-[0.2em] text-zinc-500">CHECK-IN</p>
+              <p className="text-lg font-bold">{md(stay.checkIn) || `DAY ${item.day}`}</p>
+            </div>
+            {stay.nights && <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-800">{stay.nights}박</span>}
+            <div className="text-right">
+              <p className="text-[11px] font-semibold tracking-[0.2em] text-zinc-500">CHECK-OUT</p>
+              <p className="text-lg font-bold">{md(stay.checkOut) || "—"}</p>
+            </div>
           </div>
+          {nights.length > 0 && (
+            <div>
+              <div className="flex justify-between text-[11px] text-zinc-400">
+                {days.map((d) => (
+                  <span key={d.day}>{d.date ? d.date.slice(5).replace("-", ".") : `D${d.day}`}</span>
+                ))}
+              </div>
+              <div className="mt-1 flex gap-1">
+                {nights.map((d) => (
+                  <span key={d.day} className={`h-1.5 flex-1 rounded-full ${mine(d.day) ? "bg-amber-600" : "bg-zinc-200"}`} />
+                ))}
+              </div>
+              {stay.next && <p className="mt-2 truncate text-right text-xs text-zinc-500">다음 숙소 · {stay.next.name}</p>}
+            </div>
+          )}
+          {/* 예약번호·예약 링크는 소유자에게만(F20). 메모는 메모로만 보인다(예약번호를 메모에 두지 않는다). */}
+          <BookingInfo secret={item.secret} className="border-t border-zinc-200 pt-3" />
+          {(item.memo || item.link) && (
+            <div className="flex items-center justify-between gap-3 border-t border-zinc-200 pt-3 text-sm">
+              {item.memo ? <p className="min-w-0 whitespace-pre-wrap text-zinc-600">{item.memo}</p> : <span />}
+              {item.link && (
+                <a href={item.link} target="_blank" rel="noopener noreferrer" className="shrink-0 rounded-full bg-zinc-900 px-3 py-1 text-xs font-semibold text-white">
+                  링크 ↗
+                </a>
+              )}
+            </div>
+          )}
         </div>
-        {nights.length > 0 && (
-          <div>
-            <div className="flex justify-between text-[11px] text-zinc-400">
-              {days.map((d) => (
-                <span key={d.day}>{d.date ? d.date.slice(5).replace("-", ".") : `D${d.day}`}</span>
-              ))}
-            </div>
-            <div className="mt-1 flex gap-1">
-              {nights.map((d) => (
-                <span key={d.day} className={`h-1.5 flex-1 rounded-full ${mine(d.day) ? "bg-amber-600" : "bg-zinc-200"}`} />
-              ))}
-            </div>
-            {stay.next && <p className="mt-2 truncate text-right text-xs text-zinc-500">다음 숙소 · {stay.next.name}</p>}
-          </div>
-        )}
-        {/* 예약번호·예약 링크는 소유자에게만(F20). 메모는 메모로만 보인다(예약번호를 메모에 두지 않는다). */}
-        <BookingInfo secret={item.secret} className="border-t border-zinc-200 pt-3" />
-        {(item.memo || item.link) && (
-          <div className="flex items-center justify-between gap-3 border-t border-zinc-200 pt-3 text-sm">
-            {item.memo ? <p className="min-w-0 whitespace-pre-wrap text-zinc-600">{item.memo}</p> : <span />}
-            {item.link && (
-              <a href={item.link} target="_blank" rel="noopener noreferrer" className="shrink-0 rounded-full bg-zinc-900 px-3 py-1 text-xs font-semibold text-white">
-                링크 ↗
-              </a>
-            )}
-          </div>
-        )}
       </div>
     </div>
   );
@@ -558,6 +596,40 @@ const RIDE_STUB_SHAPE = [
   "md:[mask-image:radial-gradient(circle_at_100%_50%,transparent_16px,#000_16.5px)]",
 ].join(" ");
 
+// 승차권 뒷배경 (C10 F30). 그린 그림 대신 여행 대표 이미지를 흐리게(블러·채도 낮춤) 깔고 종이색으로 덮어,
+// 교통 패스(CITY PASS)·매거진과 같은 사진 느낌을 내면서 글씨는 그대로 읽히게 한다.
+// - main: 위쪽(글씨 자리)은 종이색을 짙게, 아래로 갈수록 사진이 조금 더 비친다
+// - stub: 떼는 쪽 위쪽에 사진이 비치고 아래로 종이색
+// 항공권·숙소·교통 패스도 같은 방식을 쓴다(paper: 창마다 종이색).
+const BACKDROP_WASH = {
+  ride: {
+    main: "bg-gradient-to-b from-[#eef2f7]/95 via-[#eef2f7]/88 to-[#eef2f7]/65",
+    stub: "bg-gradient-to-b from-[#eef2f7]/45 via-[#eef2f7]/85 to-[#eef2f7]/95",
+  },
+  flight: {
+    main: "bg-gradient-to-b from-[#f5f1ea]/95 via-[#f5f1ea]/88 to-[#f5f1ea]/65",
+    stub: "bg-gradient-to-b from-[#f5f1ea]/45 via-[#f5f1ea]/85 to-[#f5f1ea]/95",
+  },
+  stay: {
+    main: "bg-gradient-to-b from-[#f7f5f1]/95 via-[#f7f5f1]/88 to-[#f7f5f1]/70",
+    stub: "bg-gradient-to-b from-[#f7f5f1]/45 via-[#f7f5f1]/85 to-[#f7f5f1]/95",
+  },
+  pass: {
+    main: "bg-gradient-to-b from-[#e6efe9]/90 via-[#e6efe9]/85 to-[#e6efe9]/70",
+    stub: "bg-gradient-to-b from-[#e6efe9]/45 via-[#e6efe9]/85 to-[#e6efe9]/95",
+  },
+} as const;
+
+function TicketBackdrop({ image, part, paper = "ride" }: { image: string; part: "main" | "stub"; paper?: keyof typeof BACKDROP_WASH }) {
+  const wash = BACKDROP_WASH[paper][part];
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+      <div className="absolute inset-0 scale-110 bg-cover bg-center blur-[6px] saturate-[0.6]" style={{ backgroundImage: `url("${image}")` }} />
+      <div className={`absolute inset-0 ${wash}`} />
+    </div>
+  );
+}
+
 // 승차권 창 (C10 F30, 레퍼런스 기차표 모양). 색은 지금 그대로(남색 #1e3a5f·하늘색·연회색 종이).
 // 한 값은 한 곳에만 둔다. 값이 없는 칸은 "—" 대신 칸을 숨긴다.
 // - 본문: 왼쪽 남색 띠와 빗금 → 기차/버스 그림·TICKET·열차 이름 → 출발 → 도착(고정폭 글씨)
@@ -565,94 +637,104 @@ const RIDE_STUB_SHAPE = [
 // - 머리 줄 오른쪽 아래: 예약번호(있을 때, 배경 없이)
 // - 떼는 쪽(웹은 오른쪽, 모바일은 아래, 점선으로 나눔): 도착지를 크게, 일차 도장(날짜를 알 때)
 // 날짜를 모르면(출발일 없는 여행) 날짜 칸에 일차를 쓴다.
-function RideTicket({ item, days }: { item: Item; days: TripDay[] }) {
+// 상자·메모 띠·도장은 둥근 모서리, 선은 얇고 흐리게. 글씨는 이름표·값·도착지 세 단계만 쓴다.
+function RideTicket({ item, days, coverImage }: { item: Item; days: TripDay[]; coverImage: string }) {
   const ride = parseRide(item.name);
   const cost = formatCost(item.cost_amount, item.cost_currency);
   const Icon = ride?.bus ? BusIcon : TrainIcon;
   const date = md(dateOfDay(days, item.day));
   const time = formatTime(item.time);
   const bookingNo = item.secret?.booking_no ?? "";
+  // 글씨 크기는 세 단계만 쓴다: 작은 이름표(11px) · 값(18px) · 도착지(크게). 이름표는 모두 같은 모양.
   const navy = "text-[#1e3a5f]";
-  const line = "border-[#1e3a5f]";
-  const label = "text-[11px] tracking-wide text-zinc-500";
-  const box = (name: string, value: string, big = false) => (
-    <div className="min-w-0 px-3 py-2.5">
-      <p className={label}>{name}</p>
-      <p className={`mt-0.5 truncate font-bold tabular-nums ${big ? "text-2xl" : "text-lg"}`}>{value}</p>
+  const eyebrow = "text-[11px] font-semibold tracking-[0.12em] text-[#1e3a5f]/55";
+  const value = "text-lg leading-tight font-bold tabular-nums";
+  const cell = (name: string, v: string) => (
+    <div className="min-w-0 px-4 py-3">
+      <p className={eyebrow}>{name}</p>
+      <p className={`mt-1 truncate ${value}`}>{v}</p>
     </div>
   );
   return (
     <div className="drop-shadow-2xl">
       <div className="md:flex">
         {/* 본문 */}
-        <div className={`flex min-w-0 bg-[#eef2f7] md:flex-1 ${RIDE_MAIN_SHAPE}`}>
+        <div className={`relative flex min-w-0 bg-[#eef2f7] md:flex-1 [&>*:not(:first-child)]:relative ${RIDE_MAIN_SHAPE}`}>
+          <TicketBackdrop image={coverImage} part="main" />
           <div aria-hidden className="flex shrink-0">
-            <span className="w-4 bg-[#1e3a5f] md:w-6" />
-            <span className="w-3 md:w-4" style={{ backgroundImage: "repeating-linear-gradient(135deg, #7dd3fc 0 3px, transparent 3px 8px)" }} />
+            <span className="w-4 bg-[#1e3a5f] md:w-5" />
+            <span className="w-3" style={{ backgroundImage: "repeating-linear-gradient(135deg, #7dd3fc 0 3px, transparent 3px 8px)" }} />
           </div>
-          <div className="flex min-w-0 flex-1 flex-col gap-4 py-6 pr-6 pl-5 md:pl-7">
-            <div className="flex items-center gap-4 border-b-2 border-sky-300 pb-3">
-              <Icon className="size-12 shrink-0 text-sky-400 md:size-14" />
+          <div className={`flex min-w-0 flex-1 flex-col gap-5 py-6 pr-6 pl-5 md:pl-6 ${navy}`}>
+            {/* 머리: 그림 · TICKET · 열차 이름 | 예약번호 */}
+            <div className="flex items-center gap-3 border-b border-sky-300/80 pb-4">
+              <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-white/70 text-sky-500 shadow-sm">
+                <Icon className="size-7" />
+              </span>
               <div className="min-w-0 flex-1">
-                <p className={`text-xs font-bold tracking-[0.2em] whitespace-nowrap italic ${navy}`}>{ride?.bus ? "BUS TICKET" : "TRAIN TICKET"}</p>
-                <p className={`truncate text-lg font-black tracking-wide md:text-xl ${navy}`}>{ride?.carrier || item.name}</p>
+                <p className={`${eyebrow} whitespace-nowrap`}>{ride?.bus ? "BUS TICKET" : "TRAIN TICKET"}</p>
+                <p className={`mt-1 truncate ${value}`}>{ride?.carrier || item.name}</p>
               </div>
-              {/* 예약번호: 머리 줄 오른쪽 아래, 배경 없이 표 글씨 그대로 */}
-              {bookingNo && <TicketBookingNo code={bookingNo} className={`shrink-0 self-end ${navy}`} labelClass="text-[#1e3a5f]/60" />}
+              {bookingNo && <TicketBookingNo code={bookingNo} className="shrink-0 self-end" labelClass={eyebrow} />}
             </div>
-            {ride && <p className="font-mono text-base font-bold tracking-[0.15em] break-keep text-sky-700 md:text-lg">{`${ride.from} → ${ride.to}`}</p>}
-            <div className={`border-2 ${line} ${navy}`}>
-              <div className={`grid grid-cols-2 divide-x-2 ${line.replace("border", "divide")}`}>
-                {box(date ? "날짜" : "일차", date || `DAY ${item.day}`)}
-                {box("출발", time || "시각 미정", !!time)}
+            {ride && (
+              <p className="flex items-center gap-2 text-base font-semibold break-keep text-sky-700">
+                {ride.from}
+                <span aria-hidden className="text-sky-400">→</span>
+                {ride.to}
+              </p>
+            )}
+            {/* 날짜·출발 | 타는 곳 */}
+            <div className="overflow-hidden rounded-2xl border border-[#1e3a5f]/20 bg-white/55">
+              <div className="grid grid-cols-2 divide-x divide-[#1e3a5f]/15">
+                {cell(date ? "날짜" : "일차", date || `DAY ${item.day}`)}
+                {cell("출발", time || "시각 미정")}
               </div>
               {item.address && (
-                <div className={`border-t-2 ${line}`}>
-                  <div className="px-3 py-2.5">
-                    <p className={label}>타는 곳</p>
-                    <p className="mt-0.5 font-semibold break-words">{item.address}</p>
-                  </div>
+                <div className="border-t border-[#1e3a5f]/15 px-4 py-3">
+                  <p className={eyebrow}>타는 곳</p>
+                  <p className="mt-1 text-sm font-semibold break-words">{item.address}</p>
                 </div>
               )}
             </div>
             {cost && (
-              <p className="flex items-baseline gap-2">
-                <span className={label}>요금</span>
-                <span className="font-mono text-lg font-bold text-sky-700 tabular-nums">{cost}</span>
+              <p className="flex items-baseline gap-3">
+                <span className={eyebrow}>요금</span>
+                <span className={`${value} text-sky-700`}>{cost}</span>
               </p>
             )}
             {item.memo && (
-              <div className="flex items-stretch gap-3 bg-sky-300 p-1.5">
-                <span className={`flex shrink-0 items-center gap-1.5 pl-2 text-xs font-bold tracking-widest ${navy}`}>
-                  <Icon className="size-4" />
+              <div className="flex items-start gap-3 rounded-2xl bg-sky-200/70 px-4 py-3">
+                <span className={`${eyebrow} mt-0.5 flex shrink-0 items-center gap-1.5`}>
+                  <Icon className="size-3.5" />
                   MEMO
                 </span>
-                <p className={`min-w-0 flex-1 px-1 py-1.5 text-sm font-medium whitespace-pre-wrap ${navy}`}>{item.memo}</p>
+                <p className="min-w-0 flex-1 text-sm font-medium whitespace-pre-wrap">{item.memo}</p>
               </div>
             )}
             {item.secret?.booking_link && <BookingLinkButton secret={item.secret} className="self-start" />}
-            {!ride && <p className="text-xs text-zinc-400">이름을 “KTX 101 서울→부산”처럼 쓰면 출발·도착이 크게 나와요.</p>}
           </div>
         </div>
 
         {/* 떼는 쪽 */}
-        <div className={`flex flex-col justify-between gap-5 border-t-2 border-dashed border-zinc-400 bg-[#eef2f7] px-6 py-6 md:w-56 md:shrink-0 md:border-t-0 md:border-l-2 ${RIDE_STUB_SHAPE}`}>
+        <div className={`relative flex flex-col justify-between gap-6 border-t-2 border-dashed border-[#1e3a5f]/25 bg-[#eef2f7] px-6 py-6 md:w-56 md:shrink-0 md:border-t-0 md:border-l-2 [&>*:not(:first-child)]:relative ${RIDE_STUB_SHAPE} ${navy}`}>
+          <TicketBackdrop image={coverImage} part="stub" />
           <div className="min-w-0">
-            <p className={label}>{ride ? "도착" : "승차권"}</p>
+            <p className={eyebrow}>{ride ? "도착" : "승차권"}</p>
             {ride ? (
-              <p className={`mt-1 leading-none font-black tracking-tight break-keep ${destClass(ride.to)} ${navy}`}>{ride.to}</p>
+              <p className={`mt-2 leading-none font-black tracking-tight break-keep ${destClass(ride.to)}`}>{ride.to}</p>
             ) : (
-              <Icon className="mt-2 size-14 text-sky-400" />
+              <Icon className="mt-2 size-14 text-sky-500" />
             )}
           </div>
           <div className="flex items-end justify-between gap-3">
-            <p className="text-[11px] leading-snug tracking-wide text-zinc-500">
+            <p className="text-[11px] leading-relaxed text-[#1e3a5f]/55">
               도착할 때까지
               <br />
               표를 챙겨 주세요
             </p>
             {/* 일차 도장: 날짜 칸에 이미 일차가 있으면(출발일 없음) 넣지 않는다 */}
-            {date && <span className="shrink-0 border-2 border-sky-400 px-2.5 py-1 font-mono text-lg font-bold text-sky-600">DAY {item.day}</span>}
+            {date && <span className="shrink-0 rounded-xl border-2 border-sky-400/80 px-3 py-1 text-sm font-bold tracking-wide text-sky-600">DAY {item.day}</span>}
           </div>
         </div>
       </div>
@@ -662,48 +744,54 @@ function RideTicket({ item, days }: { item: Item; days: TripDay[] }) {
 
 // ───────── 4. 교통 패스 ─────────
 
-function PassCard({ item, days }: { item: Item; days: TripDay[] }) {
+// 교통 패스 창 (C10 F30, 레퍼런스 교통카드 모양). 색은 지금 그대로(짙은 초록 #173a2c·연초록).
+// - 위: 대표 이미지를 배경으로 깔고 "CITY PASS", 그 아래 패스 이름과 사용일·비용 한 줄(같은 흰 글씨, 조금 작게, 시각은 넣지 않음)
+// - 아래 얇은 띠: 메모(이름표 없이. 쉼표·줄바꿈 목록이면 칩으로), 예약 정보(있을 때)
+function PassCard({ item, days, coverImage }: { item: Item; days: TripDay[]; coverImage: string }) {
   const lines = passLines(item.memo);
   const cost = formatCost(item.cost_amount, item.cost_currency);
   const date = md(dateOfDay(days, item.day));
+  const use = [`사용일 ${date || `DAY ${item.day}`}`, cost].filter(Boolean).join(" · ");
+  const shadow = "drop-shadow-[0_2px_8px_rgba(0,0,0,0.55)]";
+  const showBar = lines.length > 0 || !!item.memo || !!item.secret;
   return (
-    <div className="rounded-3xl bg-white p-5 shadow-2xl">
-      <div className="relative overflow-hidden rounded-2xl bg-[#173a2c] p-5 text-white">
-        <svg aria-hidden viewBox="0 0 200 200" className="absolute -top-10 -right-10 size-56 text-white/10" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <circle cx="100" cy="100" r="40" />
-          <circle cx="100" cy="100" r="65" />
-          <circle cx="100" cy="100" r="90" />
-        </svg>
-        <p className="relative text-2xl leading-tight font-black tracking-tight break-keep">{item.name}</p>
-        <p className="relative mt-1 text-[11px] font-semibold tracking-[0.25em] text-emerald-300">TRANSIT PASS</p>
-        <div className="relative mt-10 flex items-end justify-between">
-          <div>
-            <p className="text-xs text-white/70">사용일</p>
-            <p className="text-xl font-bold">{date || `DAY ${item.day}`}</p>
+    <div className="overflow-hidden rounded-3xl bg-[#e6efe9] shadow-2xl">
+      {/* 위: 대표 이미지 + CITY PASS + 패스 이름·사용일 */}
+      <div className="relative aspect-[16/9] bg-[#173a2c] bg-cover bg-center" style={{ backgroundImage: `url("${coverImage}")` }}>
+        <div aria-hidden className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/10 to-[#173a2c]/60" />
+        <div className="relative flex h-full flex-col justify-between p-5">
+          <p className="text-4xl leading-none font-black tracking-tight text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.45)]">CITY PASS</p>
+          <div className="min-w-0">
+            <p className={`text-lg leading-tight font-bold break-keep text-white ${shadow}`}>{item.name}</p>
+            <p className={`mt-1 truncate text-sm font-bold text-white/90 tabular-nums ${shadow}`}>{use}</p>
           </div>
-          {cost && <p className="text-xl font-bold">{cost}</p>}
         </div>
       </div>
-      <p className="mt-4 text-xs text-zinc-500">개시하는 날</p>
-      <p className="font-bold">
-        {date || `DAY ${item.day}`}
-        {formatTime(item.time) && ` · ${formatTime(item.time)}`}
-        {item.address && ` · ${item.address}`}
-      </p>
-      {lines.length > 0 && (
-        <>
-          <p className="mt-4 text-xs text-zinc-500">탈 수 있는 노선</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {lines.map((l) => (
-              <span key={l} className="rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-900">
-                {l}
-              </span>
-            ))}
+
+      {/* 아래 얇은 띠: 메모 */}
+      {showBar && (
+        <div className="relative [&>*:not(:first-child)]:relative">
+          <TicketBackdrop image={coverImage} part="stub" paper="pass" />
+          <div className="flex flex-col gap-2 px-5 py-3 text-[#173a2c]">
+            {(lines.length > 0 || item.memo) && (
+              <div>
+                {lines.length > 0 ? (
+                  <div className="flex min-w-0 flex-wrap gap-1.5">
+                    {lines.map((l) => (
+                      <span key={l} className="rounded-full bg-[#173a2c] px-2.5 py-0.5 text-xs font-semibold text-white">
+                        {l}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="min-w-0 text-sm whitespace-pre-wrap">{item.memo}</p>
+                )}
+              </div>
+            )}
+            <BookingInfo secret={item.secret} />
           </div>
-        </>
+        </div>
       )}
-      {lines.length === 0 && <p className="mt-3 text-xs text-zinc-400">메모에 노선을 쉼표로 적으면 여기에 나와요. 예: JR 교토선, 한큐 교토선</p>}
-      <BookingInfo secret={item.secret} className="mt-4" />
     </div>
   );
 }
@@ -972,13 +1060,13 @@ function GroupTile({ kind, group, items, days, readOnly, coverImage, companions,
 
   const body =
     kind === "flight" ? (
-      <BoardingPass item={item} days={days} />
+      <BoardingPass item={item} days={days} coverImage={coverImage} />
     ) : kind === "ticket" ? (
-      <RideTicket item={item} days={days} />
+      <RideTicket item={item} days={days} coverImage={coverImage} />
     ) : kind === "lodging" ? (
       <StayCard key={item.id} item={item} lodgings={lodgings} days={days} coverImage={coverImage} companions={companions} photoUrl={photos[item.id] ?? null} />
     ) : (
-      <PassCard item={item} days={days} />
+      <PassCard item={item} days={days} coverImage={coverImage} />
     );
 
   return (
