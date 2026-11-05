@@ -234,22 +234,29 @@ export function PasteExtract({ tripId, days }: { tripId: string; days: TripDay[]
           placeholder={'티켓·예약 메일을 붙여넣거나 "둘째 날 일정 짜 줘"처럼 말해 보세요'}
           className={`${FIELD} resize-none leading-relaxed`}
         />
-        <p className="text-xs leading-relaxed opacity-55">
-          보낸 내용은 Google AI가 처리하며 사람이 볼 수 있습니다. 링크와 “예약번호: …”처럼 적힌 예약번호는 AI에 보내지 않고, 붙여넣기에서는 나만 보는 곳에 저장합니다. 카드번호·주민번호·여권번호·비밀번호는 가려서 보내고 저장하지 않습니다. 사람 이름은 지우고 보내 주세요.
-        </p>
         {inputError && <p className="rounded-xl bg-rose-500/15 px-3 py-2 text-sm text-rose-700 dark:text-rose-300">{inputError}</p>}
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 pl-3">
+          {/* 개인정보 안내(B18, F20 문구). 평소에는 "지침"만 보이고 마우스를 올리거나 누르면(포커스) 전체가 뜬다. */}
+          <span tabIndex={0} aria-describedby="paste-guide" className="group relative cursor-help rounded px-1 py-1 text-xs underline decoration-dotted underline-offset-2 opacity-55 outline-none hover:opacity-90 focus-visible:opacity-90">
+            지침
+            <span
+              id="paste-guide"
+              role="tooltip"
+              className="pointer-events-none invisible absolute bottom-full left-0 z-30 mb-2 w-72 max-w-[calc(100vw-3rem)] rounded-xl bg-zinc-900/95 px-3 py-2 text-xs leading-relaxed text-white no-underline opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100 group-focus:visible group-focus:opacity-100"
+            >
+              보낸 내용은 Google AI가 처리하며 사람이 볼 수 있습니다. 링크와 “예약번호: …”처럼 적힌 예약번호는 AI에 보내지 않고, 붙여넣기에서는 나만 보는 곳에 저장합니다. 카드번호·주민번호·여권번호·비밀번호는 가려서 보내고 저장하지 않습니다. 사람 이름은 지우고 보내 주세요. 원문은 저장하지 않습니다.
+            </span>
+          </span>
           <div className="flex items-center gap-1">
-            <p className="text-xs opacity-55">{text.length.toLocaleString()}자 · 원문은 저장하지 않습니다.</p>
             {entries.length > 0 && (
               <button type="button" onClick={() => clearChat(tripId)} disabled={pending} className={`${GHOST} px-2 py-1 text-xs`}>
                 대화 지우기
               </button>
             )}
+            <button type="submit" disabled={pending || !text.trim()} className={BUTTON}>
+              {pending ? "보내는 중…" : "보내기"}
+            </button>
           </div>
-          <button type="submit" disabled={pending || !text.trim()} className={BUTTON}>
-            {pending ? "보내는 중…" : "보내기"}
-          </button>
         </div>
       </form>
     </div>

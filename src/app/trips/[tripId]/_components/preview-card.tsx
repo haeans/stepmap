@@ -3,7 +3,7 @@
 // C9 F28: 매거진 DAY 안의 "미리보기" 카드. 붙여넣기로 뽑았지만 아직 저장하지 않은 항목이다.
 // 모양은 F18 추천 카드와 같은 계열(점선 테두리, 흐리게)이고, 사진도 저장된 장소 카드처럼 보인다.
 // 사진 상태를 글로 보여 사용자가 판단하게 한다: 찾는 중 / 사진 있음(출처) / "사진 없음" / "지도에서 찾지 못함". 교통은 로고.
-// 누르면 서랍이 열려 자세한 내용과 [빼기][고치기][넣기]가 나온다. ([hyunw0000-f28-magazine-preview] 결정 1·4·5)
+// [빼기][넣기]는 사진 오른쪽 위에 늘 보이고, 누르면 서랍이 열려 자세한 내용과 [고치기]가 나온다. ([hyunw0000-f28-magazine-preview] 결정 1·4·5)
 
 import { useActionState, useEffect, useId, useRef, useState, useTransition, type ReactNode } from "react";
 import { saveExtractedItems } from "@/app/actions/extract";
@@ -177,8 +177,34 @@ export function PreviewCard({ tripId, preview, color, days }: Props) {
             </div>
           </div>
         </button>
-        {photo && <PhotoInfo photo={photo} name={item.name} />}
+        {/* 빼기·넣기는 서랍을 열지 않아도 사진 오른쪽 위에 늘 보인다. 사진 출처(ⓘ)는 그 아래로 내린다. */}
+        <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5 text-xs">
+          <button
+            type="button"
+            onClick={() => removePreviews(tripId, [preview.id])}
+            disabled={saving}
+            aria-label={`${item.name} 미리보기 빼기`}
+            className="rounded-full bg-black/55 px-3 py-1.5 font-semibold text-rose-200 backdrop-blur-md transition hover:bg-rose-500/70 hover:text-white active:scale-95 disabled:opacity-50"
+          >
+            빼기
+          </button>
+          <button
+            type="button"
+            onClick={onAccept}
+            disabled={saving}
+            aria-label={`${item.name} 일정에 넣기`}
+            className="rounded-full bg-white px-3 py-1.5 font-semibold text-zinc-900 shadow transition hover:bg-white/85 active:scale-95 disabled:opacity-50"
+          >
+            {saving ? "넣는 중…" : "넣기"}
+          </button>
+        </div>
+        {photo && (
+          <div className="absolute inset-x-0 top-8">
+            <PhotoInfo photo={photo} name={item.name} />
+          </div>
+        )}
       </div>
+      {error && <p className="px-4 pt-2 text-xs text-rose-300">{error}</p>}
 
       {/* 서랍 */}
       <div
@@ -205,22 +231,10 @@ export function PreviewCard({ tripId, preview, color, days }: Props) {
             </dl>
             <p className="mt-2 text-xs text-white/55">아직 저장 전이에요. &ldquo;넣기&rdquo;를 눌러야 일정에 들어가요.</p>
             <div className="mt-3 flex flex-wrap items-center justify-end gap-1 text-sm">
-              <button
-                type="button"
-                onClick={() => removePreviews(tripId, [preview.id])}
-                disabled={saving}
-                className="rounded-full px-3 py-1.5 text-rose-300 transition hover:bg-rose-500/20 active:scale-95 disabled:opacity-50"
-              >
-                빼기
-              </button>
               <button type="button" onClick={() => dialogRef.current?.showModal()} disabled={saving} className="rounded-full px-3 py-1.5 transition hover:bg-white/15 active:scale-95 disabled:opacity-50">
                 고치기
               </button>
-              <button type="button" onClick={onAccept} disabled={saving} className="rounded-full bg-white px-4 py-1.5 font-semibold text-zinc-900 transition hover:bg-white/85 active:scale-95 disabled:opacity-50">
-                {saving ? "넣는 중…" : "넣기"}
-              </button>
             </div>
-            {error && <p className="mt-2 text-xs text-rose-300">{error}</p>}
           </div>
         </div>
       </div>
