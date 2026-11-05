@@ -4,7 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { getOrCreateShareLink } from "@/app/actions/share";
 
 // 공유 창 (R-08). 소유자에게만 보인다. 링크를 만들거나 있던 링크를 보여 주고 복사한다.
-// className: 지도 로고 메뉴(F14)처럼 버튼 모양을 바꿔 쓸 때
+// className: 프로필 메뉴(F23)처럼 버튼 모양을 바꿔 쓸 때
 export function ShareButton({ tripId, className }: { tripId: string; className?: string }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [url, setUrl] = useState<string | null>(null);

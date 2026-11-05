@@ -1,10 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
+import { Logo } from "@/app/_components/app-header";
+import { ProfileMenu } from "@/app/_components/profile-menu";
 import { formatTime, ITEM_KIND_LABELS } from "@/lib/items/types";
 import { nearestPlaceId } from "@/lib/map/nearest";
 import { dayColor, hubLabel, type MapPlace } from "@/lib/map/places";
-import { MapMenu } from "./map-menu";
 import { RouteMap, type MapPadding } from "./route-map";
 import { Segmented } from "./segmented";
 import { ViewSwitch } from "./view-switch";
@@ -56,7 +58,7 @@ export function MapView({ places, days, missing, initialId, trip, email, readOnl
     setSelectedId(place.id);
   }, []);
 
-  // 패널에 가린 만큼 지도 여백을 둔다. PC는 왼쪽(접으면 여유만), 모바일은 아래. 위는 로고, 오른쪽은 확대 버튼 자리.
+  // 패널에 가린 만큼 지도 여백을 둔다. PC는 왼쪽(접으면 여유만), 모바일은 아래. 위는 프로필 버튼, 오른쪽은 확대 버튼 자리.
   useEffect(() => {
     const panel = panelRef.current;
     if (!panel) return;
@@ -137,9 +139,17 @@ export function MapView({ places, days, missing, initialId, trip, email, readOnl
         />
       </div>
 
-      <MapMenu tripId={trip.id} email={email} readOnly={readOnly} />
+      {/* 일정/지도 전환과 프로필: 일정 화면 상단바와 같은 자리(오른쪽 위 16px). 패널·시트를 접어도 보인다 (C9 F23) */}
+      <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+        {/* 반투명 바탕 + 아주 약한 흐림: 지도가 비쳐 보이면서도 글자는 읽히게.
+            Segmented 자체의 흐림(backdrop-blur-md)이 겹치면 불투명해 보여서 끈다. */}
+        <div className="rounded-full bg-white/35 shadow-md shadow-black/10 backdrop-blur-[3px] dark:bg-zinc-950/40 [&>div]:backdrop-blur-none">
+          <ViewSwitch tripId={trip.id} current="map" />
+        </div>
+        <ProfileMenu email={email} trip={{ id: trip.id, readOnly }} />
+      </div>
 
-      {/* PC에서 패널을 접으면 왼쪽 끝에 다시 펴기 탭만 남는다. 전환 버튼은 패널을 펴야 보인다 (결정 7·10) */}
+      {/* PC에서 패널을 접으면 왼쪽 끝에 다시 펴기 탭만 남는다 (결정 10) */}
       {collapsed && (
         <button
           type="button"
@@ -180,15 +190,14 @@ export function MapView({ places, days, missing, initialId, trip, email, readOnl
           <span aria-hidden className="h-1.5 w-10 rounded-full bg-zinc-300 dark:bg-zinc-700" />
         </button>
 
-        {/* 모바일은 시트를 펼쳤을 때만 제목 줄·전환 버튼·일차 고르기가 보인다. 접으면 손잡이만 남는다 (결정 7·11) */}
+        {/* 모바일은 시트를 펼쳤을 때만 제목 줄·일차 고르기가 보인다. 접으면 손잡이만 남는다 (결정 11) */}
         <div className={`flex flex-col gap-3 px-4 pt-0 pb-3 md:pt-3 ${expanded ? "" : "max-md:hidden"}`}>
-          {/* 맨 윗줄 오른쪽에 전환 버튼 (결정 7) */}
-          <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-bold tracking-tight">ROUTE</h2>
-            <span className="text-xs text-zinc-500">장소 {visible.length}곳</span>
-            <div className="ml-auto">
-              <ViewSwitch tripId={trip.id} current="map" />
-            </div>
+          {/* 맨 윗줄: 로고 그림 · PINS (C9 F23) */}
+          <div className="flex items-center gap-2">
+            <Link href="/" aria-label="Stepmap 여행 목록" className="shrink-0">
+              <Logo className="h-8" />
+            </Link>
+            <h2 className="text-2xl font-bold tracking-tight">PINS</h2>
           </div>
           {/* 일차 고르기: 미끄러지는 알약 버튼. 일차가 많으면 옆으로 넘긴다. */}
           <div className="-mx-1 overflow-x-auto px-1 py-1">
