@@ -23,6 +23,9 @@ import { HubCard } from "./hub-card";
 import { ItemCard } from "./item-card";
 import { NoteComposer } from "./note-composer";
 import { PlaceCard } from "./place-card";
+import { PreviewBar } from "./preview-bar";
+import { PreviewCard } from "./preview-card";
+import { usePreviews, type PendingPreview } from "./previews";
 import { SuggestionCard } from "./suggestion-card";
 import { useSuggestions, type PendingSuggestion } from "./suggestions";
 import { CostSection } from "./cost-section";
@@ -195,6 +198,7 @@ function DayBlock({
   readOnly,
   tripId,
   suggestions,
+  previews,
 }: {
   day: TripDay;
   places: Item[]; // 그날의 관광지·식당 (지역 이름과 개수)
@@ -206,19 +210,21 @@ function DayBlock({
   readOnly: boolean;
   tripId: string;
   suggestions: PendingSuggestion[]; // F18: 아직 저장 안 한 추천 일정
+  previews: PendingPreview[]; // C9 F28: 붙여넣기로 뽑았지만 아직 저장 안 한 일정
 }) {
   const [open, setOpen] = useState(false);
-  // F18: 추천이 새로 들어오면 서랍을 연다(렌더 중에 이전 개수와 비교).
-  const [seen, setSeen] = useState(suggestions.length);
-  if (seen !== suggestions.length) {
-    setSeen(suggestions.length);
-    if (suggestions.length > seen) setOpen(true);
+  // F18·F28: 추천·미리보기가 새로 들어오면 서랍을 연다(렌더 중에 이전 개수와 비교).
+  const pendingCount = suggestions.length + previews.length;
+  const [seen, setSeen] = useState(pendingCount);
+  if (seen !== pendingCount) {
+    setSeen(pendingCount);
+    if (pendingCount > seen) setOpen(true);
   }
   const drawerId = useId();
   const color = dayColor(day.day);
   const { areas, more } = dayAreas(places.map((p) => p.address), destination);
   const toggle = () => setOpen((v) => !v);
-  const empty = entries.length === 0 && suggestions.length === 0;
+  const empty = entries.length === 0 && pendingCount === 0;
   const end = entries.at(-1)?.role === "end" ? entries.at(-1) : undefined;
   const body = end ? entries.slice(0, -1) : entries;
   const card = (e: DayEntry) =>
@@ -246,7 +252,7 @@ function DayBlock({
               {more > 0 && <span className="text-white/55"> 외 {more}곳</span>}
             </p>
           )}
-          <p className={`mt-1 ${MUTED}`}>{empty ? "아직 일정이 없습니다" : `장소 ${places.length}곳${suggestions.length ? ` · 추천 ${suggestions.length}` : ""} · ${open ? "접기 ↑" : "펼치기 ↓"}`}</p>
+          <p className={`mt-1 ${MUTED}`}>{empty ? "아직 일정이 없습니다" : `장소 ${places.length}곳${previews.length ? ` · 미리보기 ${previews.length}` : ""}${suggestions.length ? ` · 추천 ${suggestions.length}` : ""} · ${open ? "접기 ↑" : "펼치기 ↓"}`}</p>
         </button>
       </Reveal>
 
@@ -265,7 +271,12 @@ function DayBlock({
                       {card(e)}
                     </Reveal>
                   ))}
-                  {/* F18 추천은 그날 끝(숙소·출발 거점) 앞에 둔다 */}
+                  {/* F28 미리보기와 F18 추천은 그날 끝(숙소·출발 거점) 앞에 둔다. 미리보기는 저장 전이라 하루 일정 규칙(F26)을 적용하지 않는다. */}
+                  {previews.map((p) => (
+                    <li key={p.id}>
+                      <PreviewCard tripId={tripId} preview={p} color={color} days={dayOptions} />
+                    </li>
+                  ))}
                   {suggestions.map((s) => (
                     <li key={s.id}>
                       <SuggestionCard tripId={tripId} suggestion={s} color={color} days={dayOptions} />
@@ -296,11 +307,14 @@ export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = n
   // F18: 추천 일정(이 브라우저에만 있음). 공유받은 사람에게는 보이지 않는다.
   const stored = useSuggestions(trip.id);
   const suggestions = readOnly ? [] : stored;
-  // 추천이 여행 기간 뒤 일차에 있으면 그 일차까지 늘려 보인다.
+  // C9 F28: 붙여넣기 미리보기(이 브라우저에만 있음). 공유받은 사람에게는 보이지 않는다.
+  const storedPreviews = usePreviews(trip.id);
+  const previews = readOnly ? [] : storedPreviews;
+  // 추천·미리보기가 여행 기간 뒤 일차에 있으면 그 일차까지 늘려 보인다.
   const days = [...grouped.days];
   // 하루 일정 규칙(C9 F26)은 다른 날의 숙소(전날 밤)와 교통도 봐야 해서 전체 항목으로 계산한다. 메모는 쓰지 않는다.
   const allItems = [...grouped.transport, ...grouped.lodging, ...grouped.days.flatMap((d) => d.places)];
-  const lastSuggested = Math.max(0, ...suggestions.map((s) => s.item.day));
+  const lastSuggested = Math.max(0, ...suggestions.map((s) => s.item.day), ...previews.map((p) => p.item.day));
   for (let d = days.length + 1; d <= lastSuggested; d++) days.push({ day: { day: d, date: null }, places: [] });
 
   return (
@@ -329,6 +343,7 @@ export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = n
       {/* DAY 1~N: 기준선 */}
       <section aria-labelledby="m-days" className="flex flex-col gap-10">
         <Heading id="m-days">DAY BY DAY</Heading>
+        <PreviewBar tripId={trip.id} previews={previews} />
         <ol className="relative">
           <span aria-hidden className="absolute top-2 bottom-0 left-3 w-px bg-gradient-to-b from-white/50 via-white/25 to-transparent md:left-1/2" />
           {days.map(({ day, places: dayPlaces }, index) => (
@@ -344,6 +359,7 @@ export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = n
               readOnly={readOnly}
               tripId={trip.id}
               suggestions={suggestions.filter((s) => s.item.day === day.day)}
+              previews={previews.filter((p) => p.item.day === day.day)}
             />
           ))}
         </ol>

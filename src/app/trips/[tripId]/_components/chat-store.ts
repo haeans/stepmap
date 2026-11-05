@@ -29,6 +29,8 @@ export type ChatEntry =
       // 붙여넣기 추출 결과 중 미리보기로 확인할 항목(F18 추천 항목은 매거진 추천 카드로 간다)
       // unassigned: 어느 항목에도 붙지 않은 예약번호(F20). 이 브라우저에만 남는다(원래 화면에 보이던 값).
       extract?: { items: ExtractedItem[]; status: PreviewStatus; saved?: number; unassigned?: string[] };
+      // C9 F28: 매거진 DAY BY DAY에 미리보기로 띄운 개수. 있으면 "매거진에서 보기" 버튼을 둔다(위 extract는 F28 전 대화 기록용).
+      previews?: number;
       // 저장된 일정 고치기·지우기 제안. 카드마다 "반영"·"삭제"를 눌러야 반영된다.
       changes?: ChangeCard[];
       // 판단이 틀렸을 때 다른 쪽으로 다시 보내는 버튼(원문은 화면 메모리에서 id로 찾는다)

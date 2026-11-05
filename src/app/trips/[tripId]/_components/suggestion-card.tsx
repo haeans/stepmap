@@ -7,8 +7,9 @@
 
 import { useActionState, useId, useRef, useState, useTransition, type ReactNode } from "react";
 import { saveExtractedItems } from "@/app/actions/extract";
+import { itemsForm } from "@/lib/items/save-form";
 import { formatCost, ITEM_KIND_LABELS } from "@/lib/items/types";
-import { parseItemForm, type ItemInput } from "@/lib/items/validation";
+import { parseItemForm } from "@/lib/items/validation";
 import type { TripDay } from "@/lib/trips/days";
 import { EDIT_DIALOG, EditHeader } from "./edit-sheet";
 import { PRIMARY } from "./form-styles";
@@ -16,31 +17,6 @@ import { ItemFields } from "./item-fields";
 import { removeSuggestion, updateSuggestion, type PendingSuggestion } from "./suggestions";
 
 type Props = { tripId: string; suggestion: PendingSuggestion; color: string; days: TripDay[] };
-
-// 저장 액션이 읽는 미리보기 폼 모양(items.0.*)으로 바꾼다.
-function toForm(item: ItemInput): FormData {
-  const form = new FormData();
-  const p = "items.0.";
-  form.set("count", "1");
-  form.set(`${p}include`, "on");
-  form.set(`${p}kind`, item.kind);
-  form.set(`${p}day`, String(item.day));
-  form.set(`${p}time`, item.time ?? "");
-  form.set(`${p}name`, item.name);
-  form.set(`${p}address`, item.address);
-  form.set(`${p}memo`, item.memo);
-  form.set(`${p}link`, item.link);
-  form.set(`${p}costAmount`, item.costAmount === null ? "" : String(item.costAmount));
-  form.set(`${p}costCurrency`, item.costCurrency ?? "");
-  // F20: 예약 칸이 있으면 함께 보낸다(소유자만 보는 곳에 저장).
-  if (item.booking) {
-    form.set(`${p}booking`, "1");
-    form.set(`${p}bookingNo`, item.booking.no);
-    form.set(`${p}bookingLink`, item.booking.link);
-    form.set(`${p}linkLevel`, item.booking.level);
-  }
-  return form;
-}
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -66,7 +42,7 @@ export function SuggestionCard({ tripId, suggestion, color, days }: Props) {
 
   function onAccept() {
     startSave(async () => {
-      const result = await saveExtractedItems(tripId, { error: null, saved: null }, toForm(item));
+      const result = await saveExtractedItems(tripId, { error: null, saved: null }, itemsForm([item]));
       if (result.error) setError(result.error);
       else removeSuggestion(tripId, suggestion.id);
     });

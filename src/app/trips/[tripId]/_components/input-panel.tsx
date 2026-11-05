@@ -7,6 +7,7 @@ import { BUBBLE_IN, BUBBLE_OUT } from "./form-styles";
 import { ItemForm } from "./item-form";
 import { PasteExtract } from "./paste-extract";
 import { PawIcon } from "./paw-icon";
+import { SHOW_PREVIEWS_EVENT } from "./previews";
 
 // R-03: 평소에는 닫혀 있고 버튼을 누르면 열리는 채팅 모양 입력창.
 // F17: 밝은 한지 톤 패널(PC는 오른쪽에 떠 있는 카드, 모바일은 아래에서 올라오는 시트), 곰발바닥 버튼으로 연다.
@@ -42,6 +43,13 @@ export function InputPanel({ tripId, days, defaultOpen = false }: { tripId: stri
     }
     wasOpen.current = open;
   }, [open, tab]);
+
+  // C9 F28: 붙여넣기 결과의 "매거진에서 보기"를 누르면 닫아 매거진 미리보기가 보이게 한다.
+  useEffect(() => {
+    const close = () => setOpen(false);
+    window.addEventListener(SHOW_PREVIEWS_EVENT, close);
+    return () => window.removeEventListener(SHOW_PREVIEWS_EVENT, close);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
