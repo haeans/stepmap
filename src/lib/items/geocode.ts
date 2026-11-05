@@ -4,7 +4,8 @@
 import { GEOCODED_KINDS, type ItemKind } from "./types";
 
 // placeId: Google Places 장소 ID (C8 F22, 장소 사진). Text Search에 places.id를 더 받아도 요금 단계는 그대로다.
-export type GeocodeResult = { lat: number; lng: number; address: string; placeId: string | null };
+// name: 구글 장소의 한국어 이름(languageCode ko). 거점 카드가 영어·코드 이름을 한국어로 보일 때 쓴다(C10 F33).
+export type GeocodeResult = { lat: number; lng: number; address: string; placeId: string | null; name?: string };
 
 type PlaceFields = Pick<ItemFieldsForGeocode, "kind" | "name" | "address">;
 export type ItemFieldsForGeocode = {
@@ -62,7 +63,8 @@ export async function searchPlace(query: string): Promise<GeocodeResult | null> 
     headers: {
       "Content-Type": "application/json",
       "X-Goog-Api-Key": key,
-      "X-Goog-FieldMask": "places.id,places.formattedAddress,places.location,places.types",
+      // displayName은 formattedAddress·location과 같은 요금 단계(Text Search Pro)라 더해도 비용이 늘지 않는다.
+      "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.location,places.types",
     },
     body: JSON.stringify({ textQuery: query, languageCode: "ko", pageSize: 1 }),
     signal: AbortSignal.timeout(5000),
@@ -70,9 +72,21 @@ export async function searchPlace(query: string): Promise<GeocodeResult | null> 
   });
   if (!res.ok) throw new Error(`geocode ${res.status}`);
   const data = (await res.json()) as {
-    places?: { id?: string; formattedAddress?: string; location?: { latitude: number; longitude: number }; types?: string[] }[];
+    places?: {
+      id?: string;
+      displayName?: { text?: string };
+      formattedAddress?: string;
+      location?: { latitude: number; longitude: number };
+      types?: string[];
+    }[];
   };
   const place = data.places?.[0];
   if (!place?.location || isAreaResult(place.types)) return null;
-  return { lat: place.location.latitude, lng: place.location.longitude, address: place.formattedAddress ?? "", placeId: place.id ?? null };
+  return {
+    lat: place.location.latitude,
+    lng: place.location.longitude,
+    address: place.formattedAddress ?? "",
+    placeId: place.id ?? null,
+    ...(place.displayName?.text ? { name: place.displayName.text } : {}),
+  };
 }

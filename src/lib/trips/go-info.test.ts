@@ -93,3 +93,22 @@ describe("승차권", () => {
     expect(parseRide("KTX-산천 부산")).toBeNull();
   });
 });
+
+describe("비행기: 출발지 없는 편명·화살표 없는 공항 (C10 F33)", () => {
+  it("편명이 출발지 자리에 있으면 도착 공항만 있는 비행기", () => {
+    expect(parseFlight(item({ name: "MM702 →KIX" }))).toMatchObject({ from: "", to: "KIX", toName: "간사이", flightNo: "MM702" });
+  });
+  it("화살표 없이 공항 + 출발·도착 말", () => {
+    expect(parseFlight(item({ name: "KIX 간사이공항 출발" }))).toMatchObject({ from: "KIX", to: "" });
+    expect(parseFlight(item({ name: "간사이공항 도착" }))).toMatchObject({ from: "", to: "KIX" });
+    expect(parseFlight(item({ name: "간사이공항 공항철도 출발" }))).toBeNull();
+    expect(parseFlight(item({ name: "간사이공항 출발 도착" }))).toBeNull();
+  });
+  it("공항 목록에 없는 공항도 알아본다(코드·○○공항·Airport)", () => {
+    expect(parseFlight(item({ name: "TP1234 →LIS" }))).toMatchObject({ from: "", to: "LIS", toName: "LIS", flightNo: "TP1234" });
+    expect(parseFlight(item({ name: "LIS 리스본공항 출발" }))).toMatchObject({ from: "LIS", fromName: "리스본" });
+    expect(parseFlight(item({ name: "치앙라이 국제공항 도착" }))).toMatchObject({ from: "", to: "치앙라이", toName: "치앙라이" });
+    expect(parseFlight(item({ name: "Lisbon Airport departure" }))).toMatchObject({ from: "Lisbon", fromName: "Lisbon" });
+    expect(parseFlight(item({ name: "KTX 부산역 출발" }))).toBeNull();
+  });
+});

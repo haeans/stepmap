@@ -48,8 +48,11 @@ export function daySchedule(day: number, items: Item[], pendingDays: number[] = 
 
   let start: DayEntry | null = null;
   let end: DayEntry | null = null;
+  // 첫날은 비행기로 도착한 공항, 마지막 날은 비행기로 떠나는 공항을 먼저 쓴다. 비행기 시각이 비어 있으면
+  // 정렬상 공항철도·라피트보다 뒤에 오기 때문이다("MM702 →KIX"보다 "라피트 간사이공항→난바"가 먼저). (C10 F33)
+  const flights = today.filter((i) => isMove(i) && hubKind(i) === "airport");
   if (day === firstDay) {
-    const arrival = today.find((i) => isMove(i) && dayHub(i, "to"));
+    const arrival = flights.find((i) => dayHub(i, "to")) ?? today.find((i) => isMove(i) && dayHub(i, "to"));
     if (arrival) start = { role: "start", item: arrival, side: "to" };
   }
   // 그날 체크인한 숙소로 하루를 끝낸다. 첫날뿐 아니라 숙소를 옮기는 가운데 날도 같다(마지막 날은 아래에서 출발 거점으로 끝).
@@ -62,7 +65,7 @@ export function daySchedule(day: number, items: Item[], pendingDays: number[] = 
     const movedMidTrip = sorted.some((i) => i.kind === "lodging" && i.day > firstDay && i.day < lastDay);
     const lastNight = movedMidTrip ? undefined : sorted.findLast((i) => i.kind === "lodging" && i.day < day);
     if (lastNight && !start) start = { role: "start", item: lastNight, side: null };
-    const departure = today.findLast((i) => isMove(i) && dayHub(i, "from"));
+    const departure = flights.findLast((i) => dayHub(i, "from")) ?? today.findLast((i) => isMove(i) && dayHub(i, "from"));
     // 하루짜리 여행에서 도착한 교통 하나뿐이면 그것을 다시 출발로 쓰지 않는다
     if (departure && departure !== start?.item) end = { role: "end", item: departure, side: "from" };
   }

@@ -8,7 +8,7 @@ import type { ItemInput } from "@/lib/items/validation";
 
 export const MAX_PROPOSAL = 12;
 
-// 모델이 돌려주는 제안 항목(gemini.ts 대화 스키마와 같은 모양)
+// 모델이 돌려주는 제안 항목(ai.ts 대화 스키마와 같은 모양)
 export type RawProposalItem = {
   kind: string;
   day: number | null;
@@ -161,7 +161,7 @@ export function normalizeProposal(raw: RawProposalItem[], ctx: ProposalContext):
 
 export const MAX_CHANGES = 10;
 
-// 모델이 돌려주는 고치기·지우기(gemini.ts 대화 스키마와 같은 모양). 바꾸지 않는 칸은 null
+// 모델이 돌려주는 고치기·지우기(ai.ts 대화 스키마와 같은 모양). 바꾸지 않는 칸은 null
 export type RawChange = {
   ref: string;
   action: "update" | "delete";

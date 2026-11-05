@@ -6,6 +6,7 @@
 import { useSyncExternalStore } from "react";
 import type { ProposalChange, ProposalItem } from "@/lib/assistant/proposal";
 import type { ExtractedItem } from "@/lib/extract/normalize";
+import type { Period } from "@/lib/extract/period";
 
 const MAX_ENTRIES = 40;
 
@@ -25,7 +26,8 @@ export type ChatEntry =
       quickReplies?: string[];
       notes?: string[];
       // 대화 제안(F19)
-      proposal?: { items: ProposalItem[]; status: PreviewStatus; saved?: number };
+      // previewIds: C10 F33부터 제안은 대화창 폼이 아니라 매거진 미리보기 카드로 띄운다. 그 카드들의 id. 없으면 예전 방식(대화창 폼)
+      proposal?: { items: ProposalItem[]; status: PreviewStatus; saved?: number; previewIds?: string[] };
       // 붙여넣기 추출 결과 중 미리보기로 확인할 항목(F18 추천 항목은 매거진 추천 카드로 간다)
       // unassigned: 어느 항목에도 붙지 않은 예약번호(F20). 이 브라우저에만 남는다(원래 화면에 보이던 값).
       extract?: { items: ExtractedItem[]; status: PreviewStatus; saved?: number; unassigned?: string[] };
@@ -33,6 +35,15 @@ export type ChatEntry =
       previews?: number;
       // 저장된 일정 고치기·지우기 제안. 카드마다 "반영"·"삭제"를 눌러야 반영된다.
       changes?: ChangeCard[];
+      // C10 F33: 원문 기간이 여행과 달라 맞출지 묻는 카드. previewIds는 이번 추출로 띄운 미리보기(다시 뽑을 때 내린다).
+      period?: {
+        to: Period;
+        current: { startDate: string | null; endDate: string | null };
+        status: "open" | "done" | "kept";
+        chosen?: Period; // 사용자가 고른 기간(모두·날짜만·기간만)
+        previewIds: string[];
+        error?: string;
+      };
       // 판단이 틀렸을 때 다른 쪽으로 다시 보내는 버튼(원문은 화면 메모리에서 id로 찾는다)
       switchTo?: "extract" | "chat";
     };
