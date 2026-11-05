@@ -8,6 +8,7 @@ import { ITEM_COLUMNS, type Item } from "@/lib/items/types";
 import { findHubs } from "@/lib/map/hub-lookup";
 import { scheduleHubItems, schedulePins } from "@/lib/map/places";
 import { createClient } from "@/lib/supabase/server";
+import { readChecks } from "@/lib/trips/checks";
 import { tripWeather } from "@/lib/weather/open-meteo";
 import { dayChoices, tripDays } from "@/lib/trips/days";
 import { TRIP_COLUMNS, type Trip } from "@/lib/trips/types";
@@ -31,6 +32,8 @@ export default async function TripPage({ params, searchParams }: PageProps<"/tri
   const { data: rows } = await supabase.from("items").select(ITEM_COLUMNS).eq("trip_id", trip.id).returns<Item[]>();
   // 예약 정보(F20)는 소유자에게만 붙인다. 공유받은 사람에게는 서버가 원래 값을 보내지 않는다.
   const items = readOnly ? (rows ?? []) : await attachSecrets(supabase, trip.id, rows ?? []);
+  // 준비물(C10 F31). 매거진 BACK에만 보이고, 공유받은 사람도 읽는다. 읽지 못하면 빈 목록.
+  const checks = view === "schedule" ? ((await readChecks(supabase, trip.id)) ?? []) : [];
   const grouped = groupItems(items ?? [], tripDays(trip.start_date, trip.end_date));
   const choices = dayChoices(
     grouped.days.map((d) => d.day),
@@ -54,6 +57,7 @@ export default async function TripPage({ params, searchParams }: PageProps<"/tri
           count={items?.length ?? 0}
           dayOptions={choices}
           readOnly={readOnly}
+          checks={checks}
           // GO 패널 날씨: 숙소(없으면 첫 장소) 좌표로 Open-Meteo에서 구한다 (3시간 캐시)
           weather={await tripWeather({
             place: trip.destination || trip.title,

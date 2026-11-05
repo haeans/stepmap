@@ -1,11 +1,12 @@
 // Drizzle 테이블 정의와 RLS 정책 정의만 둔다. (decisions.md S2)
 // 앱의 데이터 읽기·쓰기는 여기서 하지 않고 src/lib/supabase의 클라이언트로 한다.
-// 테이블은 사이클마다 추가한다: trips(v0.3), items(v0.5), share_links·trip_members(v0.9), trips 대표 이미지 칸(F08), item_secrets(C8 F20), items.place_id(C8 F22)
+// 테이블은 사이클마다 추가한다: trips(v0.3), items(v0.5), share_links·trip_members(v0.9), trips 대표 이미지 칸(F08), item_secrets(C8 F20), items.place_id(C8 F22), trip_checks(C10 F31)
 // 대표 이미지 Storage 버킷과 정책은 drizzle/ 아래 직접 쓴 마이그레이션에 있다. (F08)
 // 테이블 권한(GRANT)과 트리거는 drizzle/ 아래 직접 쓴 마이그레이션에 있다. (decisions.md B6)
 
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   check,
   date,
   doublePrecision,
@@ -232,5 +233,35 @@ export const tripMembers = pgTable(
     index("trip_members_user_id_idx").on(t.userId),
     check("trip_members_role", sql`${t.role} = 'viewer'`),
     pgPolicy("trip_members_select_self", { for: "select", to: authenticatedRole, using: sql`${t.userId} = ${authUid}` }),
+  ],
+);
+
+// 준비물 체크리스트 (C10 F31). C9까지는 브라우저(localStorage)에만 두던 것을 DB로 옮겼다.
+// 소유자만 더하고 체크하고 뺀다. 공유받은 사람은 보기만 한다(같이 챙기는 목록, 체크는 소유자만).
+// 여행 하나에 30개까지(직접 쓴 마이그레이션의 트리거가 막는다).
+export const tripChecks = pgTable(
+  "trip_checks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tripId: uuid("trip_id")
+      .notNull()
+      .references(() => trips.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    done: boolean("done").notNull().default(false),
+    position: integer("position").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("trip_checks_trip_order_idx").on(t.tripId, t.position),
+    check("trip_checks_label_length", sql`char_length(${t.label}) between 1 and 40`),
+    pgPolicy("trip_checks_select_owner", {
+      for: "select",
+      to: authenticatedRole,
+      using: sql`${ownsTrip(t.tripId)} or ${isMember(t.tripId)}`,
+    }),
+    pgPolicy("trip_checks_insert_owner", { for: "insert", to: authenticatedRole, withCheck: ownsTrip(t.tripId) }),
+    pgPolicy("trip_checks_update_owner", { for: "update", to: authenticatedRole, using: ownsTrip(t.tripId), withCheck: ownsTrip(t.tripId) }),
+    pgPolicy("trip_checks_delete_owner", { for: "delete", to: authenticatedRole, using: ownsTrip(t.tripId) }),
   ],
 );

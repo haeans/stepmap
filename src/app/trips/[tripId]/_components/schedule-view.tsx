@@ -2,6 +2,7 @@
 
 import type { GroupedItems } from "@/lib/items/group";
 import type { TripDay } from "@/lib/trips/days";
+import type { Check } from "@/lib/trips/packing";
 import type { Trip } from "@/lib/trips/types";
 import type { TripWeather } from "@/lib/weather/codes";
 import { MagazineView } from "./magazine-view";
@@ -15,6 +16,7 @@ type Props = {
   count: number;
   dayOptions: TripDay[];
   readOnly: boolean;
+  checks: Check[]; // 준비물 (C10 F31)
   coverUrl?: string | null;
   photos?: Record<string, string>;
   weather?: TripWeather | null;

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useRef, useState, useTransition, type KeyboardEvent } from "react";
 import { applyChange, sendChat } from "@/app/actions/assistant";
+import type { ChecklistResult } from "@/app/actions/checklist";
 import { extractItems, saveExtractedItems, type SaveExtractedState } from "@/app/actions/extract";
 import { CHANGE_FIELD_LABELS, changedFields, type ChangeFields, type ProposalItem } from "@/lib/assistant/proposal";
 import { ITEM_KIND_LABELS } from "@/lib/items/types";
@@ -10,7 +11,7 @@ import { MAX_CHAT_LENGTH, pasteScore, routeMessage, type Route } from "@/lib/ass
 import { MAX_TEXT_LENGTH, type ExtractedItem } from "@/lib/extract/normalize";
 import type { ItemInput } from "@/lib/items/validation";
 import type { TripDay } from "@/lib/trips/days";
-import { packingFromMessage } from "@/lib/trips/packing";
+import { CHECKLIST_MAX, packingFromMessage } from "@/lib/trips/packing";
 import {
   appendEntry,
   clearChat,
@@ -46,10 +47,12 @@ function withoutSuggest(extracted: ExtractedItem): ItemInput {
   return item;
 }
 
-function packingNote(added: number): string {
-  return added
-    ? `준비물 ${added}개를 매거진 BACK의 준비물에 넣었어요. 준비물은 이 브라우저에만 저장돼요.`
-    : "준비물은 이미 매거진 BACK의 준비물에 있어요.";
+// C10 F31: 준비물은 DB에 저장한다. 여행 하나에 30개까지라 다 차서 못 넣은 것도 알린다.
+function packingNote(result: ChecklistResult): string {
+  if (!result.ok) return result.error;
+  const full = result.full ? ` 준비물은 ${CHECKLIST_MAX}개까지라 ${result.full}개는 넣지 못했어요.` : "";
+  if (result.added) return `준비물 ${result.added}개를 매거진 BACK의 준비물에 넣었어요.${full}`;
+  return result.full ? full.trim() : "준비물은 이미 매거진 BACK의 준비물에 있어요.";
 }
 
 export function PasteExtract({ tripId, days }: { tripId: string; days: TripDay[] }) {
@@ -88,10 +91,10 @@ export function PasteExtract({ tripId, days }: { tripId: string; days: TripDay[]
       suggested.map(({ suggest, ...item }) => ({ item, suggest: suggest! })),
     );
     addPreviews(tripId, rest.map(withoutSuggest));
-    // C9 F27: 준비물은 메모 항목이 아니라 BACK 준비물 체크리스트(이 브라우저)에 바로 더한다.
+    // C9 F27: 준비물은 메모 항목이 아니라 BACK 준비물 체크리스트에 바로 더한다(C10 F31부터 DB).
     const packing = result.packing ?? [];
     const parts = result.items.length ? [`항목 ${result.items.length}개를 찾았어요.`] : [];
-    if (packing.length) parts.push(packingNote(addToChecklist(tripId, packing)));
+    if (packing.length) parts.push(packingNote(await addToChecklist(tripId, packing)));
     if (suggested.length) parts.push(`일차·시각이 없던 ${suggested.length}개는 매거진 DAY에 추천 카드로 띄웠어요. 카드에서 "넣기"를 눌러야 저장돼요.`);
     if (rest.length) parts.push(`${rest.length}개는 매거진 DAY BY DAY에 미리보기로 띄웠어요. 사진과 함께 확인하고 "넣기"나 "모두 저장"을 눌러 주세요.`);
     // F20: 어느 항목에도 붙지 않은 예약번호는 말로 알린다. 미리보기 카드의 "고치기"나 저장 뒤 일정 카드에서 넣는다.
@@ -140,7 +143,7 @@ export function PasteExtract({ tripId, days }: { tripId: string; days: TripDay[]
       appendEntry(tripId, { id: newId(), role: "user", pasted: false, text: message });
       if (raw === text) setText("");
       setInputError(null);
-      say({ text: packingNote(addToChecklist(tripId, packing)) }, message);
+      void addToChecklist(tripId, packing).then((result) => say({ text: packingNote(result), error: !result.ok }, message));
       return;
     }
     const route = forced ?? (packing === "ai" ? "extract" : routeMessage(message));

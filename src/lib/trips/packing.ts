@@ -1,4 +1,4 @@
-// 준비물 목록 다루기 (C9 F27). 준비물 체크리스트는 브라우저에만 저장한다(B76, B100). 여기는 저장과 상관없는 순수 함수만 둔다.
+// 준비물 목록 다루기 (C9 F27). 저장은 DB trip_checks(C10 F31, src/app/actions/checklist.ts). 여기는 저장과 상관없는 순수 함수만 둔다.
 // - 붙여넣기 추출: AI가 준비물을 메모 항목이 아니라 packing 목록으로 돌려준다 → cleanPackingLabels로 다듬어 체크리스트에 더한다.
 // - "준비물: 여권, 충전기"처럼 준비물만 적은 말은 AI를 부르지 않고 packingFromMessage로 바로 나눈다(대화로 가면 준비물을 다루지 않는다, B116).
 
@@ -6,6 +6,7 @@ export type Check = { id: string; label: string; done: boolean };
 
 export const PACKING_LABEL_MAX = 40; // 준비물 입력 칸(maxLength)과 같다
 export const PACKING_MAX = 30; // 한 번에 더하는 개수
+export const CHECKLIST_MAX = 30; // 여행 하나의 준비물 개수 (C10 F31, DB 트리거 0013과 같다)
 
 // 글머리표(-, •, ☐ …)나 "1." "2)" 같은 번호만 뗀다. "110V 어댑터"의 숫자는 그대로 둔다.
 const BULLET = /^\s*(?:[-–—•·*▪◦☐☑✓✔□■]+|\d{1,2}[.)])\s*/;
@@ -45,9 +46,11 @@ export function packingFromMessage(text: string): string[] | "ai" | null {
   return labels.length ? labels : null;
 }
 
-// 지금 목록에 없는 것만 뒤에 더한다. added: 새로 더한 개수.
-export function mergePacking(checks: Check[], labels: string[], makeId: (i: number) => string): { next: Check[]; added: number } {
+// 지금 목록에 없는 것만 뒤에 더한다. 목록은 CHECKLIST_MAX개까지(C10 F31).
+// added: 새로 더한 개수, full: 목록이 꽉 차서 못 더한 개수.
+export function mergePacking(checks: Check[], labels: string[], makeId: (i: number) => string): { next: Check[]; added: number; full: number } {
   const have = new Set(checks.map((c) => c.label.toLowerCase().replace(/\s/g, "")));
   const fresh = cleanPackingLabels(labels).filter((l) => !have.has(l.toLowerCase().replace(/\s/g, "")));
-  return { next: [...checks, ...fresh.map((label, i) => ({ id: makeId(i), label, done: false }))], added: fresh.length };
+  const kept = fresh.slice(0, Math.max(0, CHECKLIST_MAX - checks.length));
+  return { next: [...checks, ...kept.map((label, i) => ({ id: makeId(i), label, done: false }))], added: kept.length, full: fresh.length - kept.length };
 }
