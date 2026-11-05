@@ -4,6 +4,7 @@ import { pickPreviewDays, type PreviewDay, type PreviewItem } from "@/lib/trips/
 import { TRIP_COLUMNS, type Trip } from "@/lib/trips/types";
 import { AppHeader } from "./_components/app-header";
 import { NewTripForm } from "./_components/new-trip-form";
+import { SkyBackground } from "./_components/sky-background";
 import { TripRow } from "./_components/trip-row";
 
 export default async function Home() {
@@ -34,7 +35,10 @@ export default async function Home() {
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-6">
-      <AppHeader email={user.email} />
+      {/* 목록 뒷배경: 하늘 그림 + 하늘색 반투명 막 (C9 F21) */}
+      <SkyBackground tone="veil" />
+      {/* 상단바 띠 없이 하늘 배경 위에 로고·프로필만 둔다(C9 F21, 매거진과 같은 floating) */}
+      <AppHeader email={user.email} floating />
       <div className="flex flex-col gap-2 pt-4">
         {/* 목록 화면에서는 "여행" 대신 "발자국"이라 부르고, 여행 개수는 보이지 않는다(C9 F24). */}
         <h2 className="text-4xl md:text-5xl">발자국</h2>
