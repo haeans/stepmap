@@ -160,10 +160,11 @@ export function MapView({ places, days, initialId, trip, email, readOnly }: Prop
         </button>
       )}
 
+      {/* 모바일 시트는 화면 절반까지만(max-h-[50%], F32 ⑨): 목록 줄을 눌러 연 팝업이 시트에 가리지 않게 한다. PC 패널은 높이 제한 없음 */}
       <div
         ref={panelRef}
         inert={collapsed}
-        className={`absolute inset-x-0 bottom-0 z-10 flex max-h-[75%] flex-col rounded-t-3xl border-t border-zinc-200 bg-white/90 shadow-2xl shadow-black/20 backdrop-blur-xl transition-transform duration-300 md:inset-y-4 md:right-auto md:left-4 md:max-h-none md:w-[22rem] md:rounded-3xl md:border dark:border-zinc-800 dark:bg-zinc-950/90 ${collapsed ? "md:-translate-x-[calc(100%+2rem)]" : ""}`}
+        className={`absolute inset-x-0 bottom-0 z-10 flex max-h-[50%] flex-col rounded-t-3xl border-t border-zinc-200 bg-white/90 shadow-2xl shadow-black/20 backdrop-blur-xl transition-transform duration-300 md:inset-y-4 md:right-auto md:left-4 md:max-h-none md:w-[22rem] md:rounded-3xl md:border dark:border-zinc-800 dark:bg-zinc-950/90 ${collapsed ? "md:-translate-x-[calc(100%+2rem)]" : ""}`}
       >
         {/* PC 여닫이 탭: 패널 오른쪽 가장자리 세로 가운데 (결정 10) */}
         <button
