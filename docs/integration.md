@@ -130,5 +130,6 @@ v1.0을 AI 하나가 만든 뒤, 세 명이 수정·확장을 나눠 맡아 합�
 - 로컬 개발에 필요한 값은 haeans가 보안 공유(비밀번호 관리자 공유, 만료 링크)로 준다. Slack 채널에 올리지 않는다.
 - 주는 값: `NEXT_PUBLIC_*` 4개, `GOOGLE_MAPS_SERVER_KEY`, `GEMINI_API_KEY`, `UNSPLASH_ACCESS_KEY`(C7, B83), `DEV_LOGIN=true`, `DEV_*` 4개
 - `UNSPLASH_ACCESS_KEY`는 Demo 한도(앱 전체 시간당 50번)를 배포본과 같이 쓴다. 새 여행 만들기 시험은 필요한 만큼만 한다.
-- 주지 않는 값: `DATABASE_URL`(마이그레이션은 haeans만), `ANTHROPIC_API_KEY`(쓰지 않음)
+- 주지 않는 값: `DATABASE_URL`(마이그레이션은 haeans만)
+- `ANTHROPIC_API_KEY`: C10 F33(#78)부터 준다(배포 받은 Claude 키). F33 머지 전에는 작업자(hyunw0000)에게만 준다
 - 로컬 개발도 배포본과 같은 Supabase DB와 API 할당량을 쓴다.
