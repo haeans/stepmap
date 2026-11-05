@@ -2,13 +2,13 @@
 
 // 1화면 매거진 (F10). C8에서 "종이"를 지워 1화면은 이 형식 하나다(F13). 영역 순서는 02-FRONTEND.md 3-1(맨 위 → GO → DAY 1~N → BACK)을 지킨다.
 // GO(교통·숙소)는 제목 바로 아래 예약 카드 줄로 올렸다. 카드를 누르면 팝업으로 자세히 보고 고친다.
-// - 대표 사진이 페이지 맨 위(머리글·전환 버튼 뒤)부터 제목 영역까지 깔리고, 사진 톤의 배경색이 페이지 전체를 채운다.
+// - 대표 사진이 화면 전체 뒤에 고정되어 깔리고(C9 F21), 아래로 내려가면 사진 톤의 막이 짙어진다.
 // - DAY는 가운데 기준선을 두고 PC는 좌우 번갈아, 모바일은 기준선 왼쪽에 두고 한쪽으로 정렬한다.
 // - 카드는 화면에 들어올 때 차례로 떠오르고, 마우스를 올리면 살짝 뜬다(움직임 줄이기 설정이면 움직이지 않음).
 // 대표 이미지(F08)가 들어오기 전에는 목적지로 색을 정한 임시 그림을 쓴다.
 // 이 화면이 열려 있는 동안 <html data-cover>를 붙인다. 머리글·전환 버튼이 이 표시를 보고 사진 위 글자색(흰색)으로 바뀐다.
 
-import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import type { GroupedItems } from "@/lib/items/group";
 import { daySchedule, type DayEntry } from "@/lib/items/day-plan";
@@ -96,28 +96,50 @@ function useCoverPage(background: string) {
   }, [background]);
 }
 
-// 대표 사진 층. 페이지 맨 위부터 제목 영역 아래까지 화면 폭 전체에 깐다(머리글·전환 버튼 뒤).
+const noSubscribe = () => () => {};
+
+// 대표 사진 층 (C9 F21: 대표 사진 전체를 배경으로, B61·B64 고침). 사진을 화면 전체 뒤에 고정해 깔고(머리글·전환 버튼 뒤),
+// 제목 영역에서는 사진이 잘 보이게 막을 옅게, 아래로 내려 DAY·BACK 카드가 올라오면 사진 톤 막을 짙게 해 글자가 읽히게 한다.
 function CoverLayer({ image, background, heroRef }: { image: string; background: string; heroRef: RefObject<HTMLElement | null> }) {
-  const [height, setHeight] = useState<number | null>(null);
+  // 서버 렌더링에서는 document가 없으므로 브라우저에서만 그린다.
+  const mounted = useSyncExternalStore(
+    noSubscribe,
+    () => true,
+    () => false,
+  );
+  // 0: 맨 위(제목 영역), 1: 제목 영역을 다 지나 내려감
+  const [depth, setDepth] = useState(0);
 
   useEffect(() => {
     const hero = heroRef.current;
     if (!hero) return;
-    const measure = () => setHeight(Math.round(hero.getBoundingClientRect().bottom + window.scrollY));
-    const observer = new ResizeObserver(measure);
-    observer.observe(document.body);
-    observer.observe(hero);
-    return () => observer.disconnect();
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const height = Math.max(1, hero.offsetHeight);
+      setDepth(Math.min(1, Math.max(0, window.scrollY / height)));
+    };
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
   }, [heroRef]);
 
-  if (height === null) return null;
+  if (!mounted) return null;
   return createPortal(
-    <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 -z-10 overflow-hidden" style={{ height }}>
+    <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
       <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url("${image}")` }} />
-      <div
-        className="absolute inset-0"
-        style={{ background: `linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0) 28%, rgba(0,0,0,0) 50%, ${background} 100%)` }}
-      />
+      {/* 위쪽 머리글 자리만 살짝 어둡게(흰 글씨 로고·버튼이 보이게) */}
+      <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0) 28%)" }} />
+      {/* 사진 톤 막: 맨 위 25% → 내려가면 80% */}
+      <div className="absolute inset-0" style={{ background, opacity: 0.25 + 0.55 * depth }} />
     </div>,
     document.body,
   );
