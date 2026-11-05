@@ -15,7 +15,7 @@
 | 권한 | Supabase RLS | "내 여행만 수정, 공유받은 사람은 보기만"을 DB에서 막는다. |
 | ORM | Drizzle | 계획서에 기록 없음 |
 | 지도 | Google Maps | 지도 표시, 장소 검색·지오코딩 (실제 경로 계산은 C9 F25에서 뺌, B175) |
-| AI 추출 | Gemini API (무료 등급) | Claude API는 무료 플랜이 없어 E1에 따라 Gemini로 바꿨다(B14). → C10 F33(#78)에서 배포 받은 Claude 키로 Claude API(`claude-sonnet-5-5`)를 더할 예정(키가 있으면 Claude 먼저, 실패하면 Gemini). |
+| AI 추출 | Claude API(`claude-sonnet-5-5`) 먼저 + Gemini API (무료 등급) | Claude API는 무료 플랜이 없어 E1에 따라 Gemini로 바꿨다(B14). → C10 F33(#78)부터 배포 받은 Claude 키로 Claude API를 먼저 부르고, 키가 없거나 실패하면 Gemini(B218, B219). |
 | 공유 | 공유 링크 + Supabase Auth 로그인 + RLS 보기 전용 | 아래 3절 |
 | 대표 이미지 (C7) | Unsplash API + Supabase Storage | 자동 이미지는 무료 사진 API, 직접 올린 사진은 이미 쓰는 Supabase에 둔다(B38, B47~B51). |
 | 장소 사진 (C8) | Wikimedia(위키백과·Commons API) + Google Places 사진 | 관광지는 무료·키 없는 Wikimedia를 먼저, 그 밖은 이미 쓰는 Google Places(B136~B143). |
@@ -40,7 +40,7 @@
 
 | 서비스 | 비용 | 조건·주의 | 초과 방지 |
 |---|---|---|---|
-| AI 추출 – Claude | C10 F33(#78)부터 사용 예정 (`claude-sonnet-5-5`) | 배포 받은 키, 한도·토큰 제한 없음(C10 킥오프). 키는 haeans가 관리(B30) | 키는 서버 쪽에만, 원문 길이 제한·가리기(B18)는 그대로 |
+| AI 추출 – Claude | C10 F33(#78)부터 사용 (`claude-sonnet-5-5`, 먼저 부름) | 배포 받은 키, 한도·토큰 제한 없음(C10 킥오프). 키는 haeans가 관리(B30) | 키는 서버 쪽에만, 원문 길이 제한·가리기(B18)는 그대로 |
 | AI 추출 – Gemini (`gemini-3.5-flash-lite`, `gemini-3.1-flash-lite`) | 0원 (무료 등급, 결제 계정 연결 안 함. 모델마다 RPM 15, TPM 25만, RPD 500) | 무료 등급은 보낸 내용을 서비스 개선에 쓰고 사람이 볼 수 있다(공식 약관 확인). 한도는 프로젝트 단위이고 하루 한도는 태평양 시간 자정에 초기화된다. | 원문 길이 제한, 개인정보 가리기(B18), 재시도 없음(B17), 키는 서버 쪽에만 |
 | 구글맵 (지도 표시, 경로, 장소 검색·지오코딩) | 조건부 무료. API마다 월 무료 호출 수가 있다 [가정]. 개발·검수 규모라면 0원 | 결제 계정에 카드 등록이 필요하다. 3명 중 1명이 합의하에 등록한다. | API별 일일 할당량을 낮게 제한, 예산 알림 설정, 키를 배포 도메인에서만 쓰도록 제한 |
 | 로그인 (Supabase Auth) | 무료 등급 | — | — |
@@ -67,6 +67,7 @@
 | ORM | drizzle-orm / drizzle-kit (+ postgres, 마이그레이션 전용) | 0.45.4 / 0.31.11 |
 | 테스트 | vitest | 5.0.5 |
 | AI 추출 (v0.6) | @google/genai / zod | 2.32.0 / 4.6.7 |
+| AI 추출 – Claude (C10 F33) | @anthropic-ai/sdk | ^1.5.0 |
 
 - **Next.js 16 주의**: 미들웨어는 `proxy`(`src/proxy.ts`)라는 이름으로 바뀌었다. 구현 전에 `node_modules/next/dist/docs/`의 해당 문서를 확인한다. (`AGENTS.md`)
 - **cacheComponents는 끈다**: 대부분의 화면이 로그인 쿠키를 읽는 사용자별 화면이라 정적 셸 이점이 작고, Supabase 쿠키 처리만 복잡해진다.
