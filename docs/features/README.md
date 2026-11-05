@@ -67,14 +67,14 @@ v1.0 이후 분담은 ① 시작 회의에서 정하고, haeans가 킥오프 PR�
 | F18 | AI 일정 도우미 1: 일차·시각 없는 일정 추천 (1단계, F17 위에 쌓기) | [#38](https://github.com/haeans/stepmap/issues/38) | hyunw0000 | `hyunw0000/f18-ai-suggest` | [작업 파일](../work/hyunw0000-f18-ai-suggest.md) | 없음 | 반영 완료 (PR #46) |
 | F19 | AI 일정 도우미 2: 대화로 새 일정 짜기·저장된 일정 고치기·지우기 → 허락하면 반영 (1단계) | [#39](https://github.com/haeans/stepmap/issues/39) | hyunw0000 | `hyunw0000/f19-ai-planner` | [작업 파일](../work/hyunw0000-f19-ai-planner.md) | 없음 | 반영 완료 (PR #51) |
 | F20 | 예약 정보 보호: 예약번호·링크 마스킹 (1단계) | [#40](https://github.com/haeans/stepmap/issues/40) | haeans | `haeans/f20-booking-mask` | [작업 파일](../work/haeans-f20-booking-mask.md) | **있음** (0009, 0010 반영됨) | 반영 완료 (PR #50) |
-| F21 | 디자인 마무리: 로고·첫 화면·목록 배경·매거진 배경·새 여행 버튼 (C9 2단계, C9 킥오프에서 범위 고침) | [#41](https://github.com/haeans/stepmap/issues/41) | 미정 (디자인 담당) | `<담당>/f21-design-finish` | | 없음 | 킥오프 |
+| F21 | 디자인 마무리: 첫 화면·목록 배경·매거진 배경·새 여행 버튼·파비콘 (C9 2단계, C9 킥오프에서 범위 고침. 상단바·지도 로고 교체는 F23에서 함, B182) | [#41](https://github.com/haeans/stepmap/issues/41) | 미정 (디자인 담당) | `<담당>/f21-design-finish` | | 없음 | 킥오프 |
 | F22 | 매거진 장소 사진: 관광지는 Wikimedia, 그 밖은 Google Places 사진·출처 표시 (1단계, F15·F16 머지 후) | [#47](https://github.com/haeans/stepmap/issues/47) | haeans | `haeans/f22-place-photos` | [작업 파일](../work/haeans-f22-place-photos.md) | **있음** (0011 반영됨) | 반영 완료 (PR #54) |
-| F23 | 상단바·프로필 버튼 통일 (C9 2단계, F21과 같은 담당 추천) | [#56](https://github.com/haeans/stepmap/issues/56) | 미정 (디자인 담당) | `<담당>/f23-top-bar` | | 없음 | 킥오프 |
+| F23 | 상단바·프로필 버튼 통일, 로고 교체, 일정/지도 버튼 (C9 2단계, 팀 결정으로 F21보다 먼저, B182) | [#56](https://github.com/haeans/stepmap/issues/56) | haeans | `haeans/f23-top-bar` | [작업 파일](../work/haeans-f23-top-bar.md) | 없음 | 반영 완료 (PR #68) |
 | F24 | 여행 목록 정리: 미리보기 첫 일정·⋯ 메뉴·"발자국"·새 여행 필수 칸 (C9 1단계) | [#57](https://github.com/haeans/stepmap/issues/57) | haeans | `haeans/f24-trip-list` | [작업 파일](../work/haeans-f24-trip-list.md) | 없음 | 반영 완료 (PR #63) |
-| F25 | 지도 탭 단순화: 핀만·핀 팝업과 구글맵 버튼·거리/이동수단·곰발바닥 버튼 삭제 (C9 1단계) | [#58](https://github.com/haeans/stepmap/issues/58) | leedaekeon578 | `leedaekeon578/f25-map-pins` | | 없음 | 킥오프 |
-| F26 | 하루 일정 규칙·사진 대체(로고)·항공권/승차권 기준·예약 링크 열기 버튼 (C9 1단계, **가장 먼저**) | [#59](https://github.com/haeans/stepmap/issues/59) | hyunw0000 | `hyunw0000/f26-day-rules` | | 없음 | 킥오프 |
-| F27 | BACK 정리: 준비물 붙여넣기 버그·쓴 돈 합계와 정산 버튼·쓴 돈 수정 버그 (C9 1단계) | [#60](https://github.com/haeans/stepmap/issues/60) | hyunw0000 | `hyunw0000/f27-back-fixes` | | 없음 | 킥오프 |
-| F28 | 추출 미리보기를 매거진 DAY BY DAY로, 사진 포함 (C9 1단계, F27 위에 쌓기) | [#61](https://github.com/haeans/stepmap/issues/61) | hyunw0000 | `hyunw0000/f28-magazine-preview` | | 없음 | 킥오프 |
+| F25 | 지도 탭 단순화: 핀만·핀 팝업과 구글맵 버튼·거리/이동수단·곰발바닥 버튼 삭제 (C9 1단계) | [#58](https://github.com/haeans/stepmap/issues/58) | leedaekeon578 | `leedaekeon578/f25-map-simplify` | [작업 파일](../work/leedaekeon578-f25-map-simplify.md) | 없음 | 반영 완료 (PR #67) |
+| F26 | 하루 일정 규칙·사진 대체(로고)·항공권/승차권 기준·예약 링크 열기 버튼 (C9 1단계, **가장 먼저**) | [#59](https://github.com/haeans/stepmap/issues/59) | hyunw0000 | `hyunw0000/f26-day-rules` | [작업 파일](../work/hyunw0000-f26-day-rules.md) | 없음 | 반영 완료 (PR #65) |
+| F27 | BACK 정리: 준비물 붙여넣기 버그·쓴 돈 합계와 정산 버튼·쓴 돈 수정 버그 (C9 1단계) | [#60](https://github.com/haeans/stepmap/issues/60) | haeans (hyunw0000에서 바뀜) | `haeans/f27-back-fixes` | [작업 파일](../work/haeans-f27-back-fixes.md) | 없음 | 반영 완료 (PR #66) |
+| F28 | 추출 미리보기를 매거진 DAY BY DAY로, 사진 포함 (C9 1단계, F27 위에 쌓기) | [#61](https://github.com/haeans/stepmap/issues/61) | hyunw0000 | `hyunw0000/f28-magazine-preview` | [작업 파일](../work/hyunw0000-f28-magazine-preview.md) | 없음 | 반영 완료 (PR #69) |
 
 > C7 (2026-11-02 킥오프, 2026-11-03 최신화): 범위는 `01-PRD.md` 4절 "C7". F07~F11은 머지 후 공통 문서에 반영했다(`decisions.md` B39~B83). DB 변경은 F08 하나뿐이었다(B34, 마이그레이션 0007·0008). F11 "리스트 탭"은 별도 탭이 아니라 매거진 "종이" 개편으로 진행했고(B77, B78), 유지 여부는 팀이 써 본 뒤 정한다(`open-questions.md`). F12는 보류다.
 
@@ -86,7 +86,9 @@ v1.0 이후 분담은 ① 시작 회의에서 정하고, haeans가 킥오프 PR�
 
 > C9 (2026-11-04 킥오프): 범위는 `01-PRD.md` 4절 "C9". 회의 안건 17개를 작업 6개(F23~F28)와 F21 범위 고침으로 묶었다. 1단계는 기능(F24~F28), 2단계는 디자인(F21·F23)이고 2단계는 1단계를 모두 배포한 뒤 시작한다. C8 F21은 C9 2단계로 옮겼다. 디자인 담당(F21·F23)은 아직 정하지 않았다. DB 변경은 없다. 브랜드 이미지(로고, 하늘 배경)는 `public/brand/`에 있다(`02-FRONTEND.md` 7절). 진행 순서와 선행 조건은 아래 "C9 진행 순서".
 
-> C9 F24 최신화 (2026-11-04, `haeans/sync-c9-f24`): F24를 머지 후 공통 문서에 반영했다(`decisions.md` B144~B150). 작업 중 목적지 확인(글자 규칙, 지역일 때만 대표 사진)을 더했다. 남은 1단계: F26(가장 먼저) → F27 → F28, F25.
+> C9 F24 최신화 (2026-11-04, `haeans/sync-c9-f24`, PR #64는 닫고 아래 최신화에 합침): F24를 머지 후 공통 문서에 반영했다(`decisions.md` B144~B150). 작업 중 목적지 확인(글자 규칙, 지역일 때만 대표 사진)을 더했다. 남은 1단계: F26(가장 먼저) → F27 → F28, F25.
+
+> C9 1단계 끝·F23 최신화 (2026-11-05, `haeans/sync-c9`): F26·F27·F25·F23·F28을 머지 후 공통 문서에 반영했다(`decisions.md` B151~B189). F27 담당은 작업 중 hyunw0000에서 haeans로 바뀌었다(이슈 #60). F23은 팀 결정으로 F21보다 먼저 했고(담당 haeans), 상단바·지도의 로고 교체도 F23에서 했다(B181, B182). 하루 일정 규칙 고침(매일 숙소로 시작·끝, 첫날 경유 버그)은 보류다(`open-questions.md`). 남은 작업: 2단계 F21(담당 미정). 테스트에서 나온 자잘한 고침은 다음 킥오프에서 한꺼번에 정한다.
 
 ### C9 진행 순서
 
@@ -94,7 +96,7 @@ v1.0 이후 분담은 ① 시작 회의에서 정하고, haeans가 킥오프 PR�
 |---|---|---|---|
 | 1단계 (킥오프 머지 후 동시에 시작) | ① F24 | ① F26 (가장 먼저) → ② F27 → ③ F28 (F27 위에 쌓기) | ① F25 (삭제 작업부터) |
 | 2단계 (1단계 모두 배포 후) | 검수 | 검수 | — |
-| 2단계 디자인 담당 (미정) | F21 → F23 (같은 사람) | | |
+| 2단계 디자인 | F23 (haeans, 먼저 함, B182) → F21 (담당 미정) | | |
 
 **먼저 끝나야 시작(또는 마무리)할 수 있는 작업**
 
@@ -104,7 +106,7 @@ v1.0 이후 분담은 ① 시작 회의에서 정하고, haeans가 킥오프 PR�
 | F28 전체 | F27 머지 (또는 F27 브랜치 위에 쌓기, B81) | `paste-extract.tsx`와 추출 지시문을 둘 다 고친다 | — |
 | F28 매거진에 보일 일정 | F26 머지 | 하루 일정 규칙 함수를 쓴다 | 미리보기 자리 옮기기, 사진 표시 |
 | F21 | 1단계(F24~F28) 모두 머지·배포 | 목록(`trip-row.tsx`)·매거진(`magazine-view.tsx`)을 1단계가 먼저 바꾼다 | 레퍼런스 정하기 |
-| F23 | F21의 로고 교체, F25 머지 | 상단바에 새 로고를 쓰고, 지도 메뉴(`map-menu.tsx`)를 바꾼다 | — |
+| F23 | F25 머지 (F21 로고 교체는 F23에서 함, B182) | 지도 메뉴(`map-menu.tsx`)를 바꾼다 | — |
 
 **같은 파일을 고치지만 기다리지 않는 작업** (나중에 머지하는 쪽이 최신 `main`을 받아 맞춘다)
 
