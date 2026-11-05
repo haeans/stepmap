@@ -196,7 +196,7 @@ export function TripRow({ trip, shared, preview }: { trip: Trip; shared: boolean
 }
 
 // 카드 오른쪽 위 반투명 ⋯ 버튼과 메뉴 (C9 F24, B53 고침). 대표 이미지 바꾸기 → 이름 수정 → 삭제.
-// 지도 메뉴(MapMenu)처럼 바깥을 누르거나 Esc로 닫는다. 열면 첫 항목에, Esc로 닫으면 ⋯ 버튼에 포커스.
+// 프로필 메뉴(ProfileMenu)처럼 바깥을 누르거나 Esc로 닫는다. 열면 첫 항목에, Esc로 닫으면 ⋯ 버튼에 포커스.
 // 카드 링크와 겹치지 않는 형제 요소라 메뉴를 눌러도 여행으로 들어가지 않는다.
 function TripMenu({ title, open, setOpen, busy, onCover, onRename, onDelete }: {
   title: string;

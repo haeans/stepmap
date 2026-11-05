@@ -1,48 +1,48 @@
 import Link from "next/link";
-import { signOut } from "@/app/actions/auth";
+import type { ReactNode } from "react";
+import { ProfileMenu } from "./profile-menu";
 
-// 앱 머리글 (F07). 혼자 쓰일 때는 스크롤해도 위에 붙어 있고, 뒤 내용이 흐리게 비친다.
-// 페이지의 main이 p-6이라 -mx-6 -mt-6으로 바깥 여백까지 덮는다. 흐린 바탕(before)은 화면 폭 전체로 깐다.
-// className: 여행 상세는 넓은 화면에서 머리글을 다른 버튼들과 한 줄로 펼친다(xl:contents, F10).
-//   이때는 사진 위에 놓일 수 있으므로 붙는 바탕 없이 바깥 글자색을 따른다.
-// order: 그렇게 펼쳤을 때 로고는 맨 왼쪽, 이메일·로그아웃은 오른쪽 묶음 앞에 온다. 혼자 쓰일 때는 순서가 그대로다.
-export function AppHeader({ email, className = "" }: { email: string; className?: string }) {
-  const inline = className !== "";
+// 상단바 (C9 F23). 어느 화면에서나 로고는 화면 왼쪽 위, 프로필 버튼은 화면 오른쪽 위(위·옆 16px)에 온다.
+// 페이지의 main이 p-6이고 가운데 놓여 있어, 화면 폭 전체로 넓히고(mx-[calc(50%-50vw)]) 위 여백(-mt-6)을 덮는다.
+// floating: 매거진처럼 바 없이 사진 위에 로고와 버튼만 놓는다. 없으면 스크롤해도 위에 붙고 뒤가 흐리게 비친다(B44).
+// trip: 여행 화면이면 프로필 메뉴에 여행 목록·공유 줄이 생긴다. children은 프로필 왼쪽에 놓는다(매거진/지도 버튼).
+export function AppHeader({
+  email,
+  trip,
+  floating = false,
+  children,
+}: {
+  email: string;
+  trip?: { id: string; readOnly: boolean };
+  floating?: boolean;
+  children?: ReactNode;
+}) {
   return (
     <header
-      className={
-        inline
-          ? `flex items-center justify-between gap-4 ${className}`
-          : "sticky top-0 z-10 -mx-6 -mt-6 flex items-center justify-between gap-4 px-6 py-4 before:absolute before:inset-y-0 before:left-1/2 before:-z-10 before:w-screen before:-translate-x-1/2 before:border-b before:border-line/70 before:bg-background/75 before:backdrop-blur-md"
-      }
+      className={`relative -mt-6 mx-[calc(50%-50vw)] flex items-center justify-between gap-3 px-4 py-4 ${
+        floating
+          ? "z-20"
+          : "sticky top-0 z-20 before:absolute before:inset-0 before:-z-10 before:border-b before:border-line/70 before:bg-background/75 before:backdrop-blur-md"
+      }`}
     >
-      <Link href="/" className="flex items-center gap-2.5 font-serif text-xl font-bold tracking-tight xl:order-1">
-        {/* 낙관(도장) 모양 로고. 步 = 걸음 */}
-        <span aria-hidden className="flex size-7 -rotate-3 items-center justify-center rounded-md bg-accent font-serif text-sm leading-none text-[#fbf7ef] shadow-sm">
-          步
-        </span>
-        stepmap
+      <Link href="/" aria-label="Stepmap 여행 목록" className="flex shrink-0 items-center gap-2">
+        <Logo className="h-10" />
+        <span className="font-serif text-2xl font-bold tracking-tight text-[#603820] dark:text-white [html[data-cover]_&]:text-white">Stepmap</span>
       </Link>
-      <div className="flex min-w-0 items-center gap-2 text-sm xl:order-3 xl:ml-auto">
-        {inline ? (
-          <span className="truncate opacity-70">{email}</span>
-        ) : (
-          <span className="hidden truncate rounded-full border border-line bg-surface/70 px-3 py-1.5 text-muted sm:inline">{email}</span>
-        )}
-        <form action={signOut}>
-          <button
-            type="submit"
-            className={
-              inline
-                ? "whitespace-nowrap rounded-full border border-current/25 px-3 py-1.5 hover:bg-current/10"
-                : "whitespace-nowrap rounded-full px-3 py-1.5 text-muted hover:bg-zinc-200/60 hover:text-foreground dark:hover:bg-zinc-800"
-            }
-          >
-            로그아웃
-          </button>
-        </form>
+      <div className="flex min-w-0 items-center gap-2">
+        {children}
+        <ProfileMenu email={email} trip={trip} />
       </div>
     </header>
   );
 }
-export const LogoMark = () => <span aria-hidden className="flex size-7 -rotate-3 items-center justify-center rounded-md bg-accent font-serif text-sm leading-none text-[#fbf7ef] shadow-sm">步</span>;
+
+// 로고 그림(public/brand/logo-mark.png: 발자국·핀만, 투명 바탕). 글자 "Stepmap"은 그림이 아니라 글꼴로 쓴다(대문자 S).
+// 갈색이라 어두운 바탕에서는 안 보이므로 매거진 사진 위(<html data-cover>)와 다크 모드에서는 흰색 한 가지로 바꾼다.
+// 지도 탭은 PINS 패널 안에서 그림만 쓴다.
+export function Logo({ className = "h-8" }: { className?: string }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- 브랜드 이미지는 <img>로 쓴다(B49)
+    <img src="/brand/logo-mark.png" alt="" width={67} height={60} className={`w-auto dark:brightness-0 dark:invert [html[data-cover]_&]:brightness-0 [html[data-cover]_&]:invert ${className}`} />
+  );
+}
