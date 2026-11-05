@@ -134,7 +134,13 @@ export function periodChoices(to: Period, current: { startDate: string | null; e
   });
 }
 
-// 기간을 바꿀 때 저장된 일정의 새 일차. 날짜를 지킨다(11/21 일정은 기간이 바뀌어도 11/21). 날짜가 없던 여행은 일차를 그대로 둔다.
-export function shiftForPeriod(oldStart: string | null, newStart: string): number {
-  return oldStart ? daysBetween(newStart, oldStart) : 0;
+// 기간을 바꿀 때 저장된 일정을 옮길 일차 수.
+// 원래 기간과 새 기간이 겹치면 날짜를 지킨다(11/21 일정은 기간이 바뀌어도 11/21).
+// 겹치지 않으면(2월 여행을 11월로 옮김) 날짜를 지킬 수 없으니 DAY 번호를 지킨다(1일차는 계속 1일차). 날짜가 없던 여행도 그대로.
+export function shiftForPeriod(oldPeriod: { startDate: string | null; endDate: string | null }, next: Period): number {
+  const oldStart = oldPeriod.startDate;
+  if (!oldStart) return 0;
+  const oldEnd = oldPeriod.endDate && oldPeriod.endDate >= oldStart ? oldPeriod.endDate : oldStart;
+  const overlaps = next.startDate <= oldEnd && next.endDate >= oldStart;
+  return overlaps ? daysBetween(next.startDate, oldStart) : 0;
 }

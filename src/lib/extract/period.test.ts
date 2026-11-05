@@ -115,9 +115,13 @@ describe("periodChoices", () => {
 });
 
 describe("shiftForPeriod", () => {
-  it("날짜를 지키도록 일차를 옮긴다", () => {
-    // 11/18 시작 → 11/20 시작: 11/21(3일차)은 2일차가 된다
-    expect(shiftForPeriod("2026-11-18", "2026-11-20")).toBe(-2);
-    expect(shiftForPeriod(null, "2026-11-20")).toBe(0);
+  it("기간이 겹치면 날짜를 지키도록 일차를 옮긴다", () => {
+    // 11/18~11/22 → 11/20~11/23: 11/21(3일차)은 2일차가 된다
+    expect(shiftForPeriod({ startDate: "2026-11-18", endDate: "2026-11-22" }, { startDate: "2026-11-20", endDate: "2026-11-23" })).toBe(-2);
+    expect(shiftForPeriod({ startDate: null, endDate: null }, { startDate: "2026-11-20", endDate: "2026-11-23" })).toBe(0);
+  });
+
+  it("기간이 겹치지 않으면(멀리 옮김) DAY 번호를 지킨다", () => {
+    expect(shiftForPeriod({ startDate: "2027-02-21", endDate: "2027-02-25" }, { startDate: "2026-11-20", endDate: "2026-11-23" })).toBe(0);
   });
 });

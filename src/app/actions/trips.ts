@@ -93,6 +93,7 @@ export async function setUploadedCover(tripId: string): Promise<ActionState> {
 
 // C10 F33: 붙여넣은 원문에 맞춰 여행 기간을 바꾼다(사용자가 "맞추기"를 눌렀을 때만). ([hyunw0000-f33-claude-api] 결정 7)
 // 저장된 일정은 날짜를 지킨다: 시작일이 옮겨지면 일차 번호를 그만큼 옮긴다(11/21 일정은 계속 11/21).
+// 원래 기간과 새 기간이 겹치지 않으면(멀리 옮김) DAY 번호를 지킨다(shiftForPeriod).
 // 새 기간 밖으로 나가는 일정이 있으면 바꾸지 않고 알린다(모르는 사이에 일정이 기간 밖으로 밀리지 않게). 메모는 일차별로 보이지 않아 기간 안으로 당긴다.
 // shift: 일차를 옮긴 수. 화면이 저장 전 미리보기 카드도 같은 만큼 옮긴다.
 export type PeriodState = { error: string | null; shift?: number };
@@ -105,12 +106,12 @@ export async function setTripPeriod(tripId: string, startDate: string, endDate: 
   if (dayCount > MAX_DAYS) return { error: `여행은 ${MAX_DAYS}일까지 정할 수 있습니다.` };
 
   const supabase = await createClient();
-  const { data: trip } = await supabase.from("trips").select("start_date").eq("id", tripId).maybeSingle();
+  const { data: trip } = await supabase.from("trips").select("start_date, end_date").eq("id", tripId).maybeSingle();
   if (!trip) return { error: "여행을 찾을 수 없습니다." };
   const { data: items, error: itemsError } = await supabase.from("items").select("id, day, kind").eq("trip_id", tripId);
   if (itemsError) return { error: "일정을 불러오지 못했습니다." };
 
-  const shift = shiftForPeriod(trip.start_date, startDate);
+  const shift = shiftForPeriod({ startDate: trip.start_date, endDate: trip.end_date }, { startDate, endDate });
   const moves = (items ?? []).map((i) => ({ ...i, next: i.day + shift }));
   const outside = moves.filter((m) => m.kind !== "memo" && (m.next < 1 || m.next > dayCount));
   if (outside.length) {
