@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppHeader } from "@/app/_components/app-header";
 import { requireUser } from "@/lib/auth/user";
@@ -14,7 +13,6 @@ import { dayChoices, tripDays } from "@/lib/trips/days";
 import { TRIP_COLUMNS, type Trip } from "@/lib/trips/types";
 import { InputPanel } from "./_components/input-panel";
 import { MapView } from "./_components/map-view";
-import { ShareButton } from "./_components/share-button";
 import { ScheduleView } from "./_components/schedule-view";
 import { parseTripView, ViewSwitch } from "./_components/view-switch";
 
@@ -41,27 +39,13 @@ export default async function TripPage({ params, searchParams }: PageProps<"/tri
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 p-6 pb-28">
-      {/* 매거진에서는 사진 위에 놓이므로 흰 글씨로 바뀐다(<html data-cover>, F10).
-          넓은 화면(xl)에서는 화면 폭 전체로 펼쳐 한 줄로 놓는다: 로고 · 여행 목록 …… 이메일 · 로그아웃 · 공유 · 매거진/지도 */}
-      {/* 지도 탭에는 머리글이 없다. 로고 메뉴와 전환 버튼은 지도 화면 안에 있다 (F14 결정 6~8). */}
+      {/* 매거진: 바 없이 사진 위에 로고(왼쪽 위)와 매거진/지도·프로필(오른쪽 위)만 놓는다 (C9 F23).
+          여행 목록·공유·로그아웃은 프로필 메뉴에 있다. 사진 위에서는 흰색으로 바뀐다(<html data-cover>, F10). */}
+      {/* 지도 탭에는 머리글이 없다. 로고는 PINS 패널, 일정/지도 전환과 프로필은 지도 오른쪽 위에 있다 (F14 결정 6, F23). */}
       {view === "schedule" && (
-      <div className="flex flex-col gap-6 [html[data-cover]_&]:text-white xl:mx-[calc(50%-50vw)] xl:flex-row xl:items-center xl:gap-4 xl:px-8">
-      <AppHeader email={user.email} className="xl:contents" />
-      <div className="flex flex-wrap items-center justify-between gap-3 xl:contents">
-        <Link href="/" className="text-sm opacity-70 transition hover:underline hover:opacity-100 xl:order-2 xl:ml-2">
-          ← 여행 목록
-        </Link>
-        <div className="flex items-center gap-2 xl:order-4">
-          {readOnly ? (
-            <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">공유받음 · 보기 전용</span>
-          ) : (
-            <ShareButton tripId={trip.id} />
-          )}
-          {/* 넓은 화면(xl)에서는 머리글 줄 오른쪽 끝. */}
+        <AppHeader email={user.email} trip={{ id: trip.id, readOnly }} floating>
           <ViewSwitch tripId={trip.id} current={view} />
-        </div>
-      </div>
-      </div>
+        </AppHeader>
       )}
       {view === "schedule" ? (
         <ScheduleView
@@ -108,7 +92,7 @@ type TripMapProps = {
   days: number[];
   itemId: string | null;
   trip: { id: string; startDate: string | null; endDate: string | null }; // 전환 버튼·공유, 가까운 일정 찾기 (F14)
-  email: string; // 로고 메뉴 (F14 결정 8)
+  email: string; // 프로필 메뉴 (F23)
   readOnly: boolean;
 };
 

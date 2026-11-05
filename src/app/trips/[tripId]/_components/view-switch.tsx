@@ -14,7 +14,7 @@ export function ViewSwitch({ tripId, current }: { tripId: string; current: TripV
       label="여행 화면"
       value={current}
       options={[
-        { value: "schedule", label: "매거진", href: `/trips/${tripId}` },
+        { value: "schedule", label: "일정", href: `/trips/${tripId}` },
         { value: "map", label: "지도", href: `/trips/${tripId}?view=map` },
       ]}
     />
