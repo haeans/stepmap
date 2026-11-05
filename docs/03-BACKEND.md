@@ -18,12 +18,14 @@ API 경로, 로그인·권한 확인, 외부 API(Claude·Gemini·구글맵·Unsp
 | `createItem(tripId)` | 서버 액션 | 항목 넣기. 좌표 찾기 후 저장. 폼이 `booking=1`을 보내면 예약 정보를 `item_secrets`에 따로 저장한다(B128) | v0.5, C8 |
 | `updateItem(itemId, tripId)` | 서버 액션 | 항목 고치기. 이름·주소·종류가 바뀌었을 때만 좌표를 다시 찾는다. `booking=1`이면 예약 정보도 저장·지운다(B128). | v0.5, C8 |
 | `deleteItem(itemId, tripId)` | 서버 액션 | 항목 지우기. 예약 정보는 cascade로 같이 지워진다 | v0.5 |
-| `extractItems(tripId, text)` | 서버 액션 | 원문에서 항목 추출. 저장하지 않고 미리보기 항목(추천 표시 포함)과 못 정한 예약번호만 돌려준다. | v0.6, C8 |
-| `saveExtractedItems(tripId, form)` | 서버 액션 | 미리보기·추천 카드·대화 제안에서 고른 항목 저장. 좌표 찾기 후 `source = ai` | v0.6, C8 |
+| `extractItems(tripId, text)` | 서버 액션 | 원문에서 항목 추출. 저장하지 않고 미리보기 항목(추천 표시 포함), 준비물(`packing`), 못 정한 예약번호만 돌려준다. 항목이 없고 준비물만 있어도 성공(B157) | v0.6, C8, C9 |
+| `saveExtractedItems(tripId, form)` | 서버 액션 | 미리보기 카드·추천 카드·대화 제안에서 고른 항목 저장(폼은 `src/lib/items/save-form.ts`, 예약 칸 포함). 좌표 찾기 후 `source = ai` | v0.6, C8, C9 (F28) |
+| `setCompanions(tripId, n)` | 서버 액션 | 정산 인원 저장(`trips.companions`, 1~99 정수, RLS로 소유자만, B159) | C9 (F27) |
 | `sendChat(tripId, request)` | 서버 액션 | 대화 도우미 한 턴. 답장·일정 제안·고치기·지우기 제안·추천 칩을 돌려준다. 저장하지 않는다(3절, B114) | C8 (F19) |
 | `applyChange(tripId, request)` | 서버 액션 | 대화의 고치기·지우기 카드에서 "반영"·"삭제"를 눌렀을 때만 그 일정을 고치거나 지운다(B120) | C8 (F19) |
 | `getOrCreateShareLink(tripId)` | 서버 액션 | 공유 링크가 있으면 돌려주고 없으면 만든다(소유자만, RLS). | v0.9 |
 | `GET /trips/{tripId}/photo/{itemId}` | 라우트 핸들러 | 매거진 장소 카드 사진(JSON). Wikimedia(저장된 값, 없으면 소유자일 때 찾아 저장) → Google Places(장소 ID, 없으면 소유자일 때 찾아 저장). 성공·없음은 `Cache-Control: private, max-age=1209600`(14일), 실패는 `no-store`. 볼 권한은 RLS(7-3절) | C8 (F22) |
+| `GET /trips/{tripId}/photo/preview?kind&name` | 라우트 핸들러 | 저장 전 미리보기 카드 사진(JSON). Text Search로 위치·장소 ID → 관광지는 Wikimedia 먼저, 그 밖은 Google Places. 소유자만, 아무것도 저장하지 않음, 교통·메모는 찾지 않음. 캐시는 위 경로와 같다(B187) | C9 (F28) |
 | `GET /share/{token}` | 화면 | 로그인 후 `accept_share`로 등록하고 `/trips/{id}`로 보낸다. | v0.9 |
 
 - 데이터를 쓰는 서버 액션은 입력값만 검사한다. 누가 무엇을 고칠 수 있는지는 RLS가 정한다. RLS에 막히면 바뀐 행이 0개이므로 실패로 처리한다.
@@ -61,6 +63,7 @@ API 경로, 로그인·권한 확인, 외부 API(Claude·Gemini·구글맵·Unsp
   - 지시문에 여행 목적지, 시작일·종료일, 일차 수를 넣는다. 원문은 사용자 메시지로 따로 넘기고, 원문 속 지시는 따르지 않도록 한다.
   - 결과는 `normalize.ts`에서 다시 다듬고, 저장 때는 직접 입력과 같은 검사(`validation.ts`)를 거친다.
   - 추천(C8, F18): 스키마에 `suggested_day`·`suggested_time`·`reason`을 더했다. 소유자 확인과 함께 `loadTripContext`가 기존 일정(최대 150개)의 종류·일차·시각·이름·주소를 읽어 `<existing>`으로 보낸다(메모·링크·비용 제외, B111). 일차는 원문 날짜 → 원문 일차 → AI 추천 → 일정이 가장 적은 날, 시각은 원문 → AI 추천(메모 제외) 순이고, 원문에서 온 값이 아니면 `suggest`로 표시한다(B16).
+- C9 추출 지시문(F26·F27): 교통 이름은 비행기 `KE723 ICN→KIX`(코드를 모르면 공항 이름), 열차·버스 `KTX 101 서울→부산`, 교통 패스는 화살표 없이(B155, 대화 도우미 지시문도 같음). 준비물은 memo 항목이 아니라 출력의 `packing: string[]`(말로 이어 적으면 물건마다 나눔, B157, B161). 그 일정에 내는 금액은 결제 전이어도 비용 칸, 비용을 메모에 다시 쓰지 않음(B158). 숙소 메모에 체크인·체크아웃 날짜를 쓰지 않고, 정리 단계 `dropStayDates`가 날짜만 있는 조각을 뺀다(B162).
 - 대화 도우미(C8, F19, `src/app/actions/assistant.ts`, `src/lib/assistant/`)
   - 붙여넣기/대화 고르기는 화면에서 `routeMessage`(`route.ts`, 점수제)가 한다. 추출은 지금처럼 `extractItems`로 간다(B113).
   - `sendChat`: 입력 검사(zod, 말 1,000자, 대화 기록 최근 10턴, 직전 제안 30개) → `loadTripContext`(소유자만, 기존 일정 150개) → 이번 말·대화 기록·직전 제안·기존 일정 이름/주소를 `hideForAi` → `maskPersonal` → `chatWithGemini`(호출 한 번) → 자리표시 지우기(`stripPlaceholders`) → `normalizeProposal`(새 일정: 범위·중복·시간 겹침·최대 12개) · `normalizeChanges`(고치기·지우기: 번호 확인·쪽지 제외·최대 10건) → Places 확인. 저장하지 않는다(B114~B118).
@@ -99,6 +102,7 @@ API 경로, 로그인·권한 확인, 외부 API(Claude·Gemini·구글맵·Unsp
   - 교통 거점(`src/lib/map/hubs.ts`, `hub-lookup.ts`): 교통 이름에서 출발지·도착지를 뽑아 "○○ 공항/역/터미널"로 Places Text Search(목적지 안 붙임). 검색어별 `unstable_cache` `["hub-geocode-v1", 검색어]` 30일, 못 찾음도 캐시, 실패는 캐시 안 함. 교통 항목 앞 20개, 여행당 처음 열 때 최대 40번(B129, B131).
   - 결과는 `unstable_cache`로 30일 둔다. 캐시 키는 좌표 목록(소수점 6자리)이라 장소가 바뀌면 새로 구한다(B21).
   - 실패(키 없음, 5초 초과)하면 그 일차는 직선으로 잇고 화면은 그대로 보여 준다.
+- **C9 F25(#67)부터 지도 탭은 Routes API를 부르지 않는다**(b안, 동선 삭제, B175). 위 `routes.ts`·`route-plan.ts`는 남아 있고 앱은 쓰지 않는다(정리 여부는 `open-questions.md`). 교통 거점 좌표는 하루 일정 규칙(B151)의 시작·끝 교통 항목만 `findHubs`로 찾는다(`scheduleHubItems`, 캐시·검색 방식은 위 그대로, B163). 경로 호출이 없어져 구글 경로 비용이 줄었다(할당량 담당 haeans).
 - 국내 경로: 한국에서는 구글의 도보·자동차 경로가 제한될 수 있다 [가정].
   - 국내도 a안으로 시도한다. 이동 수단을 바꿔(예: 대중교통) 시도한다.
   - 그래도 안 되는 구간의 처리는 C4 계획 단계에서 정한다.
@@ -128,6 +132,7 @@ API 경로, 로그인·권한 확인, 외부 API(Claude·Gemini·구글맵·Unsp
 ### 7-1. Unsplash (대표 이미지, F08)
 
 - 여행을 만들 때만 부른다: 목적지로 검색 1번(가로, 1장, `content_filter=high`) + 쓰기로 한 사진에 다운로드 알림 1번(B47). 기존 여행은 한꺼번에 받지 않는다.
+- 검색 전에 목적지가 실제 지역인지 Google Places Text Search로 확인한다(C9 F24, B149). 첫 결과가 지역(`political`)이면 그 영어 이름으로 Unsplash를 검색하고, 아니면 여러 낱말일 때 첫 낱말로 한 번 더 확인한다. 지역이 아니거나 실패하면 Unsplash를 부르지 않고 사진 없이 만든다. 서버 키 `GOOGLE_MAPS_SERVER_KEY`, 많아야 2번(`src/lib/cover/destination.ts`).
 - 사진 파일은 복사하지 않고 주소(`urls.raw`)·대표 색·작가 이름·작가 링크만 저장한다(B48). 화면 크기는 주소 파라미터로 정한다(`coverSrc`, B49).
 - 키 `UNSPLASH_ACCESS_KEY`는 서버 전용이다. 없거나 호출이 실패·시간 초과하면 자동 이미지를 건너뛰고 여행은 그대로 만든다.
 - 파일: `src/lib/cover/unsplash.ts`, `src/lib/cover/cover.ts`
@@ -146,3 +151,4 @@ API 경로, 로그인·권한 확인, 외부 API(Claude·Gemini·구글맵·Unsp
 - Google(`src/lib/places/photo.ts`): Place Details `photos`만(무료 단계) → 가로 사진 첫 장 → Place Photo `skipHttpRedirect` 폭 800(과금). 사진 이름·주소는 저장·캐시하지 않는다(B139).
 - 기존 항목은 소유자가 볼 때만 찾아 저장한다(Wikimedia 결과, 좌표 1km 안의 장소 ID). 공유받은 사람은 찾거나 저장하지 않는다(B141).
 - 실패(키 없음·시간 초과·4xx·5xx)는 `no-store`로 사진 없이 돌려주고 서버 로그 `place photo error`.
+- 저장 전 미리보기 사진(C9, F28): `src/app/trips/[tripId]/photo/preview/route.ts`. 소유자 확인 후 종류·이름(`src/lib/places/preview-photo.ts`가 대상·검색어를 정함)으로 Text Search → 위와 같은 순서로 사진을 찾고 아무것도 저장하지 않는다. 카드마다 검색 한 번과 사진 한 장(Google이면 과금)이 더 들고, 저장하면 같은 장소를 다시 찾는다(B187, 호출 수는 `open-questions.md`).

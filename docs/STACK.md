@@ -14,7 +14,7 @@
 | 로그인 | Supabase Auth (구글 로그인) | 계획서에 기록 없음 |
 | 권한 | Supabase RLS | "내 여행만 수정, 공유받은 사람은 보기만"을 DB에서 막는다. |
 | ORM | Drizzle | 계획서에 기록 없음 |
-| 지도 | Google Maps | 지도 표시, 실제 경로 계산, 장소 검색·지오코딩 |
+| 지도 | Google Maps | 지도 표시, 장소 검색·지오코딩 (실제 경로 계산은 C9 F25에서 뺌, B175) |
 | AI 추출 | Gemini API (무료 등급) | Claude API는 무료 플랜이 없어 E1에 따라 Gemini로 바꿨다(B14). |
 | 공유 | 공유 링크 + Supabase Auth 로그인 + RLS 보기 전용 | 아래 3절 |
 | 대표 이미지 (C7) | Unsplash API + Supabase Storage | 자동 이미지는 무료 사진 API, 직접 올린 사진은 이미 쓰는 Supabase에 둔다(B38, B47~B51). |
