@@ -102,8 +102,9 @@ export function schedulePins(days: number[], items: Item[], hubs: Map<string, Tr
         hub: null,
         name: item.name,
         address: item.address,
-        // 마지막 날 아침의 숙소는 체크인 시각이 전날 것이라 숨긴다 (F26 결정 2)
-        time: role === "start" ? null : item.time,
+        // 시작·끝 숙소는 시각을 숨긴다. 마지막 날 아침 숙소는 체크인 시각이 전날 것이고(F26 결정 2),
+        // 하루 끝 숙소는 체크인 시각이 그날 뒤 일정보다 앞설 수 있다(fix-day-lodging).
+        time: role === "start" || role === "end" ? null : item.time,
         memo: item.memo,
         lat: Number(item.lat),
         lng: Number(item.lng),

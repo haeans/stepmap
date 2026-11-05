@@ -95,7 +95,7 @@ export function PlaceCard({ item, photoUrl = null, color, days, readOnly, role }
               <div aria-hidden className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${color}aa, ${color}33 60%, transparent)` }} />
             )}
             <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" />
-            {time && role !== "start" && <span className="absolute top-3 left-3 rounded-full bg-black/45 px-2.5 py-1 font-mono text-xs backdrop-blur-md">{time}</span>}
+            {time && !role && <span className="absolute top-3 left-3 rounded-full bg-black/45 px-2.5 py-1 font-mono text-xs backdrop-blur-md">{time}</span>}
             <div className="absolute inset-x-3 bottom-3 flex items-end justify-between gap-2">
               <div className="min-w-0">
                 <p className="text-xs text-white/70">

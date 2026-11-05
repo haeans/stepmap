@@ -89,8 +89,8 @@ describe("schedulePins", () => {
   it("같은 숙소가 첫날 끝과 마지막 날 시작에 나오면 핀을 둘 다 그리고 id는 다르다", () => {
     const hotel = pins().places.filter((p) => p.itemId === "hotel");
     expect(hotel.map((p) => p.id)).toEqual(["1:hotel", "3:hotel"]);
-    // 마지막 날 아침 숙소는 전날 체크인 시각을 숨긴다
-    expect(hotel.map((p) => p.time)).toEqual(["15:00:00", null]);
+    // 시작·끝 숙소는 시각을 숨긴다: 첫날 끝(체크인 시각이 뒤 일정보다 앞설 수 있음), 마지막 날 아침(전날 시각)
+    expect(hotel.map((p) => p.time)).toEqual([null, null]);
   });
 
   it("거점 핀: 종류와 쪽을 넘기고, 도착은 시각 없이 출발은 출발 시각", () => {
