@@ -76,6 +76,10 @@ v1.0 이후 분담은 ① 시작 회의에서 정하고, haeans가 킥오프 PR�
 | F27 | BACK 정리: 준비물 붙여넣기 버그·쓴 돈 합계와 정산 버튼·쓴 돈 수정 버그 (C9 1단계) | [#60](https://github.com/haeans/stepmap/issues/60) | haeans (hyunw0000에서 바뀜) | `haeans/f27-back-fixes` | [작업 파일](../work/haeans-f27-back-fixes.md) | 없음 | 반영 완료 (PR #66) |
 | F28 | 추출 미리보기를 매거진 DAY BY DAY로, 사진 포함 (C9 1단계, F27 위에 쌓기) | [#61](https://github.com/haeans/stepmap/issues/61) | hyunw0000 | `hyunw0000/f28-magazine-preview` | [작업 파일](../work/hyunw0000-f28-magazine-preview.md) | 없음 | 반영 완료 (PR #69) |
 | F29 | 하루 일정 숙소 규칙 고침: 끝 숙소 시각 숨김·숙소를 옮기는 날·미리보기 자리 유지·기간 넘는 일차 (C9 1단계 뒤 고침, 킥오프 표 밖에서 먼저 한 작업) | [#73](https://github.com/haeans/stepmap/issues/73) | hyunw0000 | `hyunw0000/fix-day-lodging` | [작업 파일](../work/hyunw0000-fix-day-lodging.md) | 없음 | 반영 완료 (PR #72) |
+| F30 | GO 티켓·핀 팝업 세부 수정, 교통 패스/승차권 구분 고침 (C10) | [#75](https://github.com/haeans/stepmap/issues/75) | haeans | `haeans/f30-ticket-pass` | | 없음 | 킥오프 |
+| F31 | 준비물을 DB에 저장, 안내 문구 삭제 (C10) | [#76](https://github.com/haeans/stepmap/issues/76) | haeans | `haeans/f31-checklist-db` | | **있음** (새 테이블 + RLS) | 킥오프 |
+| F32 | C10 자잘한 고침 묶음: 지도 사이드바(주소 삭제·누르면 팝업·점선)·쓴 돈 서랍·문구 삭제·새 발자국 버튼·핀 팝업 순서·모바일 시트 절반 (C10) | [#77](https://github.com/haeans/stepmap/issues/77) | leedaekeon578 | `leedaekeon578/f32-c10-fixes` | | 없음 | 킥오프 |
+| F33 | AI 추출·대화 도우미에 Claude API 추가, Gemini 유지 (C10, 패키지 추가) | [#78](https://github.com/haeans/stepmap/issues/78) | hyunw0000 | `hyunw0000/f33-claude-api` | | 없음 | 킥오프 |
 
 > C7 (2026-11-02 킥오프, 2026-11-03 최신화): 범위는 `01-PRD.md` 4절 "C7". F07~F11은 머지 후 공통 문서에 반영했다(`decisions.md` B39~B83). DB 변경은 F08 하나뿐이었다(B34, 마이그레이션 0007·0008). F11 "리스트 탭"은 별도 탭이 아니라 매거진 "종이" 개편으로 진행했고(B77, B78), 유지 여부는 팀이 써 본 뒤 정한다(`open-questions.md`). F12는 보류다.
 
@@ -92,6 +96,8 @@ v1.0 이후 분담은 ① 시작 회의에서 정하고, haeans가 킥오프 PR�
 > C9 1단계 끝·F23 최신화 (2026-11-05, `haeans/sync-c9`): F26·F27·F25·F23·F28을 머지 후 공통 문서에 반영했다(`decisions.md` B151~B189). F27 담당은 작업 중 hyunw0000에서 haeans로 바뀌었다(이슈 #60). F23은 팀 결정으로 F21보다 먼저 했고(담당 haeans), 상단바·지도의 로고 교체도 F23에서 했다(B181, B182). 하루 일정 규칙 고침(매일 숙소로 시작·끝, 첫날 경유 버그)은 보류다(`open-questions.md`). 남은 작업: 2단계 F21(담당 미정). 테스트에서 나온 자잘한 고침은 다음 킥오프에서 한꺼번에 정한다.
 
 > C9 F21·F29 최신화 (2026-11-05, `haeans/sync-c9-f21`): F21(#71)·F29(#72)를 머지 후 공통 문서에 반영했다(`decisions.md` B190~B202). F21은 담당 미정이던 작업을 hyunw0000이 맡았다. F29는 hyunw0000이 일정 탭을 써 보다 찾은 문제를 킥오프 없이 먼저 고친 작업이라, 이슈 #73과 이 표의 줄을 최신화에서 만들었다(브랜치 이름 `fix-day-lodging`은 이미 머지되어 그대로 둔다). B151(하루 일정 규칙)·B184(미리보기)를 고쳤고, 이 최신화 PR 승인이 합의 기록이다. 이것으로 C9 작업이 모두 끝났다. 남은 질문과 테스트에서 나온 고침은 다음 킥오프에서 정한다.
+
+> C10 (2026-11-05 킥오프): 범위는 `01-PRD.md` 4절 "C10". C9 테스트 뒤 정리한 고침 11개(fix1~fix11)와 Claude API 추가를 작업 4개로 묶었다: fix3·fix5는 F30, fix8(준비물 DB)은 F31, 나머지는 F32 한 브랜치, Claude API는 F33. DB 변경은 F31 하나다(B34). 진행 순서와 겹치는 파일은 아래 "C10 진행 순서".
 
 ### C9 진행 순서
 
@@ -118,6 +124,20 @@ v1.0 이후 분담은 ① 시작 회의에서 정하고, haeans가 킥오프 PR�
 - F26은 F25·F28의 선행 작업이므로 묶음 B가 가장 먼저 끝낸다. 묶음 B에 작업이 몰려 있어(F26·F27·F28) 늦어지면 다시 나눈다.
 - F24 · F27: `src/app/actions/trips.ts`(F24 새 여행 필수 칸, F27 정산 인원 저장)
 - F26의 사진 대체 이미지는 킥오프에서 넣은 `public/brand/logo.png`를 쓴다(킥오프 머지 후 바로 쓸 수 있다).
+
+### C10 진행 순서
+
+| haeans | hyunw0000 | leedaekeon578 |
+|---|---|---|
+| F30 → F31 (같은 담당, 차례로. F31은 DB 변경) | F33 | F32 |
+
+**같은 파일을 고치지만 기다리지 않는 작업** (나중에 머지하는 쪽이 최신 `main`을 받아 맞춘다)
+
+- F30 · F32: `pin-popup.tsx`(F30 팝업 세부 수정, F32 주소·메모 순서)
+- F30 · F31: `ticket-strip.tsx`(F30 티켓·패스, F31 준비물 `Checklist`). 같은 담당이라 차례로 한다
+- F30 · F33: 추출 지시문(`src/lib/extract/prompt.ts`). F33은 지시문을 고치지 않는 것을 원칙으로 한다
+- F31: DB 변경은 이번 사이클에 F31 하나. 작업자는 `db:generate`까지, 반영은 haeans(B34, `integration.md` 7절)
+- F33: 키 `ANTHROPIC_API_KEY`는 서버 환경 변수에만 둔다. Vercel 등록과 팀원 보안 공유는 haeans(B30)
 
 > 상태: 킥오프 → 작업 중 → PR → 머지 → 반영 완료 (보류: 이번 사이클에서 진행하지 않음, 다음 킥오프에서 다시 정함)
 > 맡는 일이 정해진 사람: haeans — 외부 서비스·키 관리, PR 머지, DB 마이그레이션 반영, 공통 문서 반영 (B30, B31)
