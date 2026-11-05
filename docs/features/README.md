@@ -58,7 +58,7 @@ v1.0 이후 분담은 ① 시작 회의에서 정하고, haeans가 킥오프 PR�
 | F09 | 여행 목록 카드형 (우선순위 1, F08 이후) | [#21](https://github.com/haeans/stepmap/issues/21) | leedaekeon578 | `leedaekeon578/f09-trip-cards` | [작업 파일](../work/leedaekeon578-f09-trip-cards.md) | 없음 | 반영 완료 (PR #27) |
 | F10 | 매거진 탭 개편 (우선순위 1, F08 이후) | [#22](https://github.com/haeans/stepmap/issues/22) | hyunw0000 | `hyunw0000/f10-magazine` | [작업 파일](../work/hyunw0000-f10-magazine.md) | 없음 | 반영 완료 (PR #29) |
 | F11 | 리스트 탭 시험 (우선순위 2) | [#23](https://github.com/haeans/stepmap/issues/23) | hyunw0000 | `hyunw0000/f11-list-view` | [작업 파일](../work/hyunw0000-f11-list-view.md) | 없음 | 반영 완료 (PR #30) |
-| F12 | 지도 내 위치 → 핀 경로, 실시간 위치 | [#24](https://github.com/haeans/stepmap/issues/24) | — | — | | 없음 | 보류 |
+| F12 | 지도 내 위치 → 핀 경로, 실시간 위치 | [#24](https://github.com/haeans/stepmap/issues/24) | — | — | | 없음 | 진행 안 함 (2026-11-05, #24 닫음) |
 | F13 | 1화면 종이 형식 삭제 (1단계, F16보다 먼저) | [#33](https://github.com/haeans/stepmap/issues/33) | haeans | `haeans/f13-remove-paper` | [작업 파일](../work/haeans-f13-remove-paper.md) | 없음 | 반영 완료 (PR #43) |
 | F14 | 지도 탭 개편: 전체 화면 지도·패널·핀 세부·일차 강조·가까운 일정으로 이동 (1단계) | [#34](https://github.com/haeans/stepmap/issues/34) | leedaekeon578 | `leedaekeon578/f14-map-fullscreen` | [작업 파일](../work/leedaekeon578-f14-map-fullscreen.md) | 없음 | 반영 완료 (PR #48) |
 | F15 | 동선 규칙: 시작·끝은 교통 거점 또는 숙소, 이동 구간 점선 (1단계, F14 위에 쌓기) | [#35](https://github.com/haeans/stepmap/issues/35) | leedaekeon578 | `leedaekeon578/f15-route-rules` | [작업 파일](../work/leedaekeon578-f15-route-rules.md) | 없음 | 반영 완료 (PR #53) |
@@ -76,10 +76,10 @@ v1.0 이후 분담은 ① 시작 회의에서 정하고, haeans가 킥오프 PR�
 | F27 | BACK 정리: 준비물 붙여넣기 버그·쓴 돈 합계와 정산 버튼·쓴 돈 수정 버그 (C9 1단계) | [#60](https://github.com/haeans/stepmap/issues/60) | haeans (hyunw0000에서 바뀜) | `haeans/f27-back-fixes` | [작업 파일](../work/haeans-f27-back-fixes.md) | 없음 | 반영 완료 (PR #66) |
 | F28 | 추출 미리보기를 매거진 DAY BY DAY로, 사진 포함 (C9 1단계, F27 위에 쌓기) | [#61](https://github.com/haeans/stepmap/issues/61) | hyunw0000 | `hyunw0000/f28-magazine-preview` | [작업 파일](../work/hyunw0000-f28-magazine-preview.md) | 없음 | 반영 완료 (PR #69) |
 | F29 | 하루 일정 숙소 규칙 고침: 끝 숙소 시각 숨김·숙소를 옮기는 날·미리보기 자리 유지·기간 넘는 일차 (C9 1단계 뒤 고침, 킥오프 표 밖에서 먼저 한 작업) | [#73](https://github.com/haeans/stepmap/issues/73) | hyunw0000 | `hyunw0000/fix-day-lodging` | [작업 파일](../work/hyunw0000-fix-day-lodging.md) | 없음 | 반영 완료 (PR #72) |
-| F30 | GO 티켓·핀 팝업 세부 수정, 교통 패스/승차권 구분 고침 (C10) | [#75](https://github.com/haeans/stepmap/issues/75) | haeans | `haeans/f30-ticket-pass` | | 없음 | 킥오프 |
-| F31 | 준비물을 DB에 저장, 안내 문구 삭제 (C10) | [#76](https://github.com/haeans/stepmap/issues/76) | haeans | `haeans/f31-checklist-db` | | **있음** (새 테이블 + RLS) | 킥오프 |
-| F32 | C10 자잘한 고침 묶음: 지도 사이드바(주소 삭제·누르면 팝업·점선)·쓴 돈 서랍·문구 삭제·새 발자국 버튼·핀 팝업 순서·모바일 시트 절반 (C10) | [#77](https://github.com/haeans/stepmap/issues/77) | leedaekeon578 | `leedaekeon578/f32-c10-fixes` | | 없음 | 킥오프 |
-| F33 | AI 추출·대화 도우미에 Claude API 추가, Gemini 유지 (C10, 패키지 추가) | [#78](https://github.com/haeans/stepmap/issues/78) | hyunw0000 | `hyunw0000/f33-claude-api` | | 없음 | 킥오프 |
+| F30 | GO 티켓·핀 팝업 세부 수정, 교통 패스/승차권 구분 고침 (C10) | [#75](https://github.com/haeans/stepmap/issues/75) | haeans | `haeans/f30-ticket-pass` | [작업 파일](../work/haeans-f30-ticket-pass.md) | 없음 | 반영 완료 (PR #84) |
+| F31 | 준비물을 DB에 저장, 안내 문구 삭제 (C10) | [#76](https://github.com/haeans/stepmap/issues/76) | haeans | `haeans/f31-checklist-db` | [작업 파일](../work/haeans-f31-checklist-db.md) | **있음** (`trip_checks` 새 테이블 + RLS, 0012, 0013 반영됨) | 반영 완료 (PR #80) |
+| F32 | C10 자잘한 고침 묶음: 지도 사이드바(주소 삭제·누르면 팝업·점선)·쓴 돈 서랍·문구 삭제·새 발자국 버튼·핀 팝업 순서·모바일 시트 절반 (C10) | [#77](https://github.com/haeans/stepmap/issues/77) | leedaekeon578 | `leedaekeon578/f32-c10-fixes` | [작업 파일](../work/leedaekeon578-f32-c10-fixes.md) | 없음 | 반영 완료 (PR #81, #82) |
+| F33 | AI 추출·대화 도우미에 Claude API 추가, Gemini 유지 (C10, 패키지 추가) | [#78](https://github.com/haeans/stepmap/issues/78) | hyunw0000 | `hyunw0000/f33-claude-api` | [작업 파일](../work/hyunw0000-f33-claude-api.md) | 없음 | 반영 완료 (PR #83) |
 
 > C7 (2026-11-02 킥오프, 2026-11-03 최신화): 범위는 `01-PRD.md` 4절 "C7". F07~F11은 머지 후 공통 문서에 반영했다(`decisions.md` B39~B83). DB 변경은 F08 하나뿐이었다(B34, 마이그레이션 0007·0008). F11 "리스트 탭"은 별도 탭이 아니라 매거진 "종이" 개편으로 진행했고(B77, B78), 유지 여부는 팀이 써 본 뒤 정한다(`open-questions.md`). F12는 보류다.
 
@@ -98,6 +98,8 @@ v1.0 이후 분담은 ① 시작 회의에서 정하고, haeans가 킥오프 PR�
 > C9 F21·F29 최신화 (2026-11-05, `haeans/sync-c9-f21`): F21(#71)·F29(#72)를 머지 후 공통 문서에 반영했다(`decisions.md` B190~B202). F21은 담당 미정이던 작업을 hyunw0000이 맡았다. F29는 hyunw0000이 일정 탭을 써 보다 찾은 문제를 킥오프 없이 먼저 고친 작업이라, 이슈 #73과 이 표의 줄을 최신화에서 만들었다(브랜치 이름 `fix-day-lodging`은 이미 머지되어 그대로 둔다). B151(하루 일정 규칙)·B184(미리보기)를 고쳤고, 이 최신화 PR 승인이 합의 기록이다. 이것으로 C9 작업이 모두 끝났다. 남은 질문과 테스트에서 나온 고침은 다음 킥오프에서 정한다.
 
 > C10 (2026-11-05 킥오프): 범위는 `01-PRD.md` 4절 "C10". C9 테스트 뒤 정리한 고침 11개(fix1~fix11)와 Claude API 추가를 작업 4개로 묶었다: fix3·fix5는 F30, fix8(준비물 DB)은 F31, 나머지는 F32 한 브랜치, Claude API는 F33. DB 변경은 F31 하나다(B34). 진행 순서와 겹치는 파일은 아래 "C10 진행 순서".
+
+> C10 최신화 (2026-11-05, `haeans/sync-c10`): F31(#80)·F32(#81, #82)·F33(#83)·F30(#84)을 머지 후 공통 문서에 반영했다(`decisions.md` B203~B257). haeans는 킥오프 표의 F30 → F31과 달리 F31을 먼저 했다(같은 담당, `ticket-strip.tsx`가 겹쳐 F30은 F31 머지 뒤 최신 `main`에서 팜). DB 변경은 F31 하나였다(`trip_checks`, 마이그레이션 0012·0013, haeans 반영). 작업 중 더한 것(F31 공유받은 사람도 준비물 보기·여행당 30개, F30 매거진 제목 위 목적지 글씨 삭제, F33 붙여넣기 결과 모두 미리보기·대화 제안 매거진 미리보기·기간 맞추기·거점 한국어 이름·전체 반영)은 각 PR 승인으로 확인했고 `01-PRD.md` 4절 C10에 적었다. 지도 핀 팝업은 F32만 고쳤다(F30은 수정 없음). F12(#24)는 진행하지 않기로 하고 이슈를 닫았다. 이것으로 C10 작업이 모두 끝났다. 남은 질문은 `open-questions.md`.
 
 ### C9 진행 순서
 
@@ -129,7 +131,7 @@ v1.0 이후 분담은 ① 시작 회의에서 정하고, haeans가 킥오프 PR�
 
 | haeans | hyunw0000 | leedaekeon578 |
 |---|---|---|
-| F30 → F31 (같은 담당, 차례로. F31은 DB 변경) | F33 | F32 |
+| F30 → F31 (같은 담당, 차례로. F31은 DB 변경) → 실제로는 F31(#80) → F30(#84) 순서로 함 | F33 | F32 |
 
 **같은 파일을 고치지만 기다리지 않는 작업** (나중에 머지하는 쪽이 최신 `main`을 받아 맞춘다)
 
@@ -139,5 +141,5 @@ v1.0 이후 분담은 ① 시작 회의에서 정하고, haeans가 킥오프 PR�
 - F31: DB 변경은 이번 사이클에 F31 하나. 작업자는 `db:generate`까지, 반영은 haeans(B34, `integration.md` 7절)
 - F33: 키 `ANTHROPIC_API_KEY`는 서버 환경 변수에만 둔다. Vercel 등록과 팀원 보안 공유는 haeans(B30)
 
-> 상태: 킥오프 → 작업 중 → PR → 머지 → 반영 완료 (보류: 이번 사이클에서 진행하지 않음, 다음 킥오프에서 다시 정함)
+> 상태: 킥오프 → 작업 중 → PR → 머지 → 반영 완료 (보류: 이번 사이클에서 진행하지 않음, 다음 킥오프에서 다시 정함. 진행 안 함: 하지 않기로 하고 이슈를 닫음)
 > 맡는 일이 정해진 사람: haeans — 외부 서비스·키 관리, PR 머지, DB 마이그레이션 반영, 공통 문서 반영 (B30, B31)

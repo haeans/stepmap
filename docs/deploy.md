@@ -31,11 +31,12 @@
 | `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | Config | 경고 무시 (Websites 제한이 보호) |
 | `NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID` | Config | |
 | `GOOGLE_MAPS_SERVER_KEY` | Secret | |
+| `ANTHROPIC_API_KEY` | Secret | AI 추출·대화 도우미의 Claude(C10 F33, B219). 서버 전용, haeans가 관리하고 저장소에 올리지 않는다. 없으면 Gemini로만 동작한다. |
 | `GEMINI_API_KEY` | Secret | |
 | `UNSPLASH_ACCESS_KEY` | Secret | 대표 이미지 자동 넣기(C7). 없으면 자동 이미지만 건너뛴다. |
 
 - `NEXT_PUBLIC_` 값은 브라우저에 공개되는 값이라 Secret으로 넣을 수 없다. 빌드에 들어가므로 바꾸면 다시 배포한다.
-- 넣지 않는 값: `DEV_*`(개발용 로그인, B27), `DATABASE_URL`(마이그레이션 전용), `ANTHROPIC_API_KEY`(쓰지 않음).
+- 넣지 않는 값: `DEV_*`(개발용 로그인, B27), `DATABASE_URL`(마이그레이션 전용). (`ANTHROPIC_API_KEY`는 C9까지 넣지 않았고 C10 F33부터 넣는다.)
 - `.env` 붙여넣기로 한꺼번에 넣을 때 `.env.local`을 통째로 붙이지 않는다.
 
 ## 2. Supabase
@@ -80,9 +81,10 @@
 
 - Billing > Budgets & alerts에 예산 알림(50%·90%·100%)을 둔다. 알림은 결제를 막지 않고, 막는 것은 할당량이다.
 
-## 4. Gemini
+## 4. Gemini · Claude (C10)
 
 - 키는 `GEMINI_API_KEY` 하나다(무료 등급, B14). 서버에서만 쓴다.
+- C10 F33부터 `ANTHROPIC_API_KEY`(배포 받은 Claude 키)가 있으면 Claude를 먼저 부르고, 실패하면 Gemini로 넘어간다(B219). Claude 키도 서버 전용이고, Vercel Production에 Secret으로 넣는다. 팀원 로컬 개발용은 haeans가 보안 공유로 준다(B30).
 
 ## 5. Unsplash (C7)
 

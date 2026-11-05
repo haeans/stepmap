@@ -18,14 +18,20 @@ API 경로, 로그인·권한 확인, 외부 API(Claude·Gemini·구글맵·Unsp
 | `createItem(tripId)` | 서버 액션 | 항목 넣기. 좌표 찾기 후 저장. 폼이 `booking=1`을 보내면 예약 정보를 `item_secrets`에 따로 저장한다(B128) | v0.5, C8 |
 | `updateItem(itemId, tripId)` | 서버 액션 | 항목 고치기. 이름·주소·종류가 바뀌었을 때만 좌표를 다시 찾는다. `booking=1`이면 예약 정보도 저장·지운다(B128). | v0.5, C8 |
 | `deleteItem(itemId, tripId)` | 서버 액션 | 항목 지우기. 예약 정보는 cascade로 같이 지워진다 | v0.5 |
-| `extractItems(tripId, text)` | 서버 액션 | 원문에서 항목 추출. 저장하지 않고 미리보기 항목(추천 표시 포함), 준비물(`packing`), 못 정한 예약번호만 돌려준다. 항목이 없고 준비물만 있어도 성공(B157) | v0.6, C8, C9 |
+| `extractItems(tripId, text)` | 서버 액션 | 원문에서 항목 추출. 저장하지 않고 미리보기 항목(추천 표시 포함), 준비물(`packing`), 못 정한 예약번호만 돌려준다. 항목이 없고 준비물만 있어도 성공(B157). C10 F33부터 원문 기간이 여행과 다르면 맞출 기간(`period`)도 돌려준다(B224) | v0.6, C8, C9, C10 |
 | `saveExtractedItems(tripId, form)` | 서버 액션 | 미리보기 카드·추천 카드·대화 제안에서 고른 항목 저장(폼은 `src/lib/items/save-form.ts`, 예약 칸 포함). 좌표 찾기 후 `source = ai` | v0.6, C8, C9 (F28) |
 | `setCompanions(tripId, n)` | 서버 액션 | 정산 인원 저장(`trips.companions`, 1~99 정수, RLS로 소유자만, B159) | C9 (F27) |
+| `setTripPeriod(tripId, startDate, endDate)` | 서버 액션 | 기간 맞추기(B224): 여행 기간을 바꾸고 저장된 일정의 일차를 옮긴다(기간이 겹치면 날짜를 지키고, 안 겹치면 DAY 번호를 지킴, `shiftForPeriod`). 새 기간 밖으로 나가는 일정(메모 제외)이 있으면 바꾸지 않고 "DAY 5에 2개"처럼 돌려준다. 메모는 기간 안으로 당긴다. 일정 고치기와 기간 고치기는 트랜잭션이 아니고, 일정 고치기가 실패하면 기간은 바꾸지 않는다 | C10 (F33) |
+| `addChecks(tripId, labels)` | 서버 액션 | 준비물을 이름으로 더한다. 이미 있는 이름은 건너뛰고 여행당 30개까지(B205) | C10 (F31) |
+| `setCheckDone(tripId, checkId, value)` | 서버 액션 | 준비물 체크·해제 | C10 (F31) |
+| `removeCheck(tripId, checkId)` | 서버 액션 | 준비물 빼기 | C10 (F31) |
+| `importChecks(tripId, list)` | 서버 액션 | C9까지 브라우저에 있던 준비물을 한 번 옮긴다. DB 목록이 비어 있을 때만 넣는다(B206) | C10 (F31) |
 | `sendChat(tripId, request)` | 서버 액션 | 대화 도우미 한 턴. 답장·일정 제안·고치기·지우기 제안·추천 칩을 돌려준다. 저장하지 않는다(3절, B114) | C8 (F19) |
 | `applyChange(tripId, request)` | 서버 액션 | 대화의 고치기·지우기 카드에서 "반영"·"삭제"를 눌렀을 때만 그 일정을 고치거나 지운다(B120) | C8 (F19) |
 | `getOrCreateShareLink(tripId)` | 서버 액션 | 공유 링크가 있으면 돌려주고 없으면 만든다(소유자만, RLS). | v0.9 |
 | `GET /trips/{tripId}/photo/{itemId}` | 라우트 핸들러 | 매거진 장소 카드 사진(JSON). Wikimedia(저장된 값, 없으면 소유자일 때 찾아 저장) → Google Places(장소 ID, 없으면 소유자일 때 찾아 저장). 성공·없음은 `Cache-Control: private, max-age=1209600`(14일), 실패는 `no-store`. 볼 권한은 RLS(7-3절) | C8 (F22) |
 | `GET /trips/{tripId}/photo/preview?kind&name` | 라우트 핸들러 | 저장 전 미리보기 카드 사진(JSON). Text Search로 위치·장소 ID → 관광지는 Wikimedia 먼저, 그 밖은 Google Places. 소유자만, 아무것도 저장하지 않음, 교통·메모는 찾지 않음. 캐시는 위 경로와 같다(B187) | C9 (F28) |
+| `GET /trips/{tripId}/hub-name?q=` | 라우트 핸들러 | 로마자가 든 거점 이름("Kansai 공항")의 한국어 이름(JSON `name`). 여행을 볼 수 있는 사람(RLS)만, 아무것도 저장하지 않음(4-4절, B227) | C10 (F33) |
 | `GET /share/{token}` | 화면 | 로그인 후 `accept_share`로 등록하고 `/trips/{id}`로 보낸다. | v0.9 |
 
 - 데이터를 쓰는 서버 액션은 입력값만 검사한다. 누가 무엇을 고칠 수 있는지는 RLS가 정한다. RLS에 막히면 바뀐 행이 0개이므로 실패로 처리한다.
@@ -42,6 +48,7 @@ API 경로, 로그인·권한 확인, 외부 API(Claude·Gemini·구글맵·Unsp
 - 대표 이미지 올리기(C7, F08)는 브라우저의 로그인 사용자 클라이언트가 Storage에 직접 올리고, Storage RLS가 소유자만 허용한다(`04-DB.md` Storage 절). 서버는 기록만 한다(`setUploadedCover`).
 - 여행 목록(C7, F09)은 카드 미리보기용으로 목록의 여행 항목을 한 번에 읽는다(서버 컴포넌트, 같은 RLS). 실패하면 미리보기 없이 목록만 보여 준다.
 - 예약 정보(C8, F20): 여행 상세(`page.tsx`)는 소유자일 때만 `item_secrets`를 읽어 항목에 붙인다. 공유받은 사람에게는 읽지 않고 보내지도 않으며, RLS도 소유자만 허용한다(B121, B122). 표가 없으면(반영 전) 예약 정보 없이 보인다.
+- 준비물(C10, F31): `src/app/actions/checklist.ts`의 서버 액션 4개(`addChecks`·`setCheckDone`·`removeCheck`·`importChecks`)는 모두 로그인한 사용자 권한으로 `trip_checks`를 쓰고, 바뀐 뒤 그 여행의 목록 전체를 돌려준다. 체크마다 페이지를 다시 그리지 않는다(`revalidatePath` 없음, B207). 읽기는 `src/lib/trips/checks.ts`의 `readChecks`(위치·만든 순)이고 `page.tsx`가 소유자·공유받은 사람 모두에게 읽어 넘긴다. 쓰기는 RLS가 소유자만 허용하고, 30개 제한은 앱(`mergePacking`)과 DB 트리거(`trip_checks_limit`)가 함께 막는다(B203~B205, `04-DB.md`).
 - 저장 금지 검사(C8, F20): `parseItemForm`이 이름·주소·메모·링크·예약번호에서 저장 금지 정보(카드번호(Luhn)·주민번호·CVC·비밀번호 등)를 찾으면 저장하지 않는다(`src/lib/items/sensitive.ts`, B127).
 
 ## 3. AI 추출 호출 (R-04)
@@ -55,7 +62,7 @@ API 경로, 로그인·권한 확인, 외부 API(Claude·Gemini·구글맵·Unsp
 - **초과 방지**: 원문 길이 제한, 사용량 확인, 키는 서버 쪽에만 둔다.
 - **주의**: Gemini 무료 등급은 입력 내용이 서비스 개선에 쓰일 수 있다 [가정]. 예시 원문은 개인정보를 가린 것으로만 쓴다.
 - 구현(v0.6, `src/lib/extract/`)
-  - Claude API는 무료 플랜이 없어 Gemini로 한다(B14). `@google/genai`의 `interactions.create`로 부르고, zod 스키마를 JSON 스키마로 바꿔 `response_format`에 넘긴다. 받은 JSON은 같은 zod 스키마로 다시 검사한다.
+  - Claude API는 무료 플랜이 없어 Gemini로 한다(B14). → C10 F33부터 배포 받은 키로 Claude를 먼저 부른다(아래 "C10 AI 공급자"). `@google/genai`의 `interactions.create`로 부르고, zod 스키마를 JSON 스키마로 바꿔 `response_format`에 넘긴다. 받은 JSON은 같은 zod 스키마로 다시 검사한다.
   - 모델(B19): `gemini-3.5-flash-lite`를 먼저 부르고, 429·503으로 거절되면 `gemini-3.1-flash-lite`를 한 번 부른다. 한도는 모델마다 따로 센다.
   - 스키마에는 숫자 범위·배열 길이 제한을 넣지 않는다. Gemini가 "too many states"로 거절한다. 일차 범위(1~60)와 항목 수(30개)는 `normalize.ts`에서 맞춘다.
   - 호출 줄이기(B17): 같은 모델로 재시도하지 않는다(`maxRetries: 0`, 60초 제한). 출력 8,192토큰, `thinking_level: "low"`, `store: false`.
@@ -68,9 +75,16 @@ API 경로, 로그인·권한 확인, 외부 API(Claude·Gemini·구글맵·Unsp
   - 붙여넣기/대화 고르기는 화면에서 `routeMessage`(`route.ts`, 점수제)가 한다. 추출은 지금처럼 `extractItems`로 간다(B113).
   - `sendChat`: 입력 검사(zod, 말 1,000자, 대화 기록 최근 10턴, 직전 제안 30개) → `loadTripContext`(소유자만, 기존 일정 150개) → 이번 말·대화 기록·직전 제안·기존 일정 이름/주소를 `hideForAi` → `maskPersonal` → `chatWithGemini`(호출 한 번) → 자리표시 지우기(`stripPlaceholders`) → `normalizeProposal`(새 일정: 범위·중복·시간 겹침·최대 12개) · `normalizeChanges`(고치기·지우기: 번호 확인·쪽지 제외·최대 10건) → Places 확인. 저장하지 않는다(B114~B118).
   - 지시문(`prompt.ts`)은 고정이고, 여행·일차(날짜·요일·숙소)·기존 일정(`#번호`)·직전 제안·대화 기록·이번 말은 태그로 나눠 사용자 메시지로 넘긴다. 모델에게 DB id를 보내지 않고, 번호 → id 표는 서버가 요청마다 만든다(B120).
-  - 출력은 `{ reply, items, changes, quick_replies }` 하나다(B115). 출력 4,096토큰, 생각 수준 낮음, `store: false`, 429·503일 때만 다음 모델(B118). 공급자 호출은 `gemini.ts` 한 파일에 둔다(B14).
+  - 출력은 `{ reply, items, changes, quick_replies }` 하나다(B115). 출력 4,096토큰, 생각 수준 낮음, `store: false`, 429·503일 때만 다음 모델(B118). 공급자 호출은 `gemini.ts` 한 파일에 둔다(B14). → C10 F33부터 `chatWithGemini` 대신 `ai.ts`의 `chatWithAi`(Claude 먼저, B218).
   - `applyChange`: 카드의 "반영"·"삭제"를 눌렀을 때만 부른다. 일정을 다시 읽어 소유자를 확인하고 `parseItemForm` → `resolvePlace` → update/delete. `booking=1`을 보내지 않으므로 `item_secrets`는 그대로이고, 지우면 cascade로 같이 지워진다. 이미 없는 일정이면 "이미 없는 일정입니다"를 돌려준다(B120, B128).
-  - 키: `GEMINI_API_KEY`(서버 전용). 키가 없거나 호출이 실패하면 "추출하지 못했다"는 안내만 보여 준다.
+  - 키: `GEMINI_API_KEY`(서버 전용). 키가 없거나 호출이 실패하면 "추출하지 못했다"는 안내만 보여 준다. C10 F33부터 `ANTHROPIC_API_KEY`(서버 전용)도 쓴다.
+- C10 AI 공급자(F33 #83, B218~B221)
+  - 파일 셋: `src/lib/extract/ai.ts`(입구: 스키마 `ExtractSchema`·`ChatSchema`, `extractWithAi`·`chatWithAi`, 차례를 정하는 `callAi`), `claude.ts`(`callClaude`), `gemini.ts`(`callGemini`, 호출 내용은 전과 같음). 액션(`extract.ts`, `assistant.ts`)은 `ai.ts`만 부른다.
+  - 차례: `ANTHROPIC_API_KEY`가 있으면 Claude(`claude-sonnet-5-5`, `@anthropic-ai/sdk`)를 한 번 부르고, 실패하면 같은 요청을 Gemini 두 모델(B19)로 보낸다. 키가 없으면 Gemini로만. 둘 다 실패하면 지금처럼 실패 안내.
+  - Claude 호출: 구조화 출력(`zodOutputFormat`, 같은 zod 스키마), `effort: "low"`, `maxRetries: 0`, 60초 제한, `max_tokens`는 Gemini 출력 한도의 두 배(추출 16384, 대화 8192, 생각 토큰 포함). 실패는 API 오류, `stop_reason`이 `end_turn`이 아님(거절·길이 초과), 스키마 검사 실패. 서버 쪽 `fallbacks`는 쓰지 않는다.
+  - 지시문·입력(`userMessage`, `chatMessage`)·가리기(`hideForAi` → `maskPersonal`)·정리(`normalizeItems`, `normalizeProposal`, `normalizeChanges`)는 두 공급자가 같이 쓴다. 로그는 모델 이름, 오류 이름·HTTP 상태, `stop_reason`만(B15).
+- C10 기간 맞추기(F33 #83, B224): `src/lib/extract/period.ts`(테스트 `period.test.ts`)가 원문의 "N박 M일"(`lengthFromText`)과 날짜(`datesFromText`: "11/20", "11월 21일", "2026년 11월 21일", "2026-11-20")를 AI 결과의 `date`·`day`와 함께 보고 맞출 기간을 정한다(`detectPeriod`). 화면 선택지는 `periodChoices`, 저장된 일정 일차 옮기기는 `shiftForPeriod`. `extractItems`가 결과에 `period`를 붙이고, 고르면 `setTripPeriod`(1절). 지시문은 고치지 않았다.
+- C10 추출 정리(F30 #84, B231~B236, `normalize.ts`, 모델과 상관없음): 개인 교통(택시·렌터카·리무진·우버·픽업·지하철/시내버스 1회)은 항목으로 만들지 않고 버린다. 교통 항목으로 온 교통카드(ICOCA 등)는 메모 항목으로 바꾼다(비용 유지). 교통 패스는 추천 없이 원문 일차(없으면 DAY 1), 시각 없이 미리보기로. 추출 지시문(`prompt.ts`)에는 교통 패스 예시(72시간권, 1일 승차권), 패스의 기간·타는 수단은 이름에, 교통카드 구매·충전은 memo, 입장권·투어 티켓은 sight, 개인 교통은 항목으로 만들지 않음을 더했다. 교통 나누기 규칙은 `src/lib/trips/go-info.ts`의 `transportKind`(B230).
 
 ## 4. 구글맵 호출 (R-04, R-05, R-06)
 
@@ -81,7 +95,7 @@ API 경로, 로그인·권한 확인, 외부 API(Claude·Gemini·구글맵·Unsp
 - 구현(v0.5, `src/lib/items/geocode.ts`)
   - Places API (New) Text Search(`places:searchText`) 한 번으로 찾는다. 검색어는 "주소(없으면 이름) + 여행 목적지", 언어는 한국어, 결과 1개.
   - 받는 값은 좌표와 주소(`formattedAddress`)만 요청한다(`X-Goog-FieldMask`). C8 F22부터 장소 ID(`places.id`)도 받아 `items.place_id`에 저장한다(같은 Pro 단계, 호출 수 그대로, B138). 좌표를 다시 찾으면 사진 칸을 비운다(B143).
-  - 실패를 예외로 받는 `searchPlace`를 따로 내보낸다(교통 거점 찾기와 사진 경로가 쓴다). `geocodePlace`는 실패를 null로 바꾼다.
+  - 실패를 예외로 받는 `searchPlace`를 따로 내보낸다(교통 거점 찾기와 사진 경로가 쓴다). C10 F33부터 `displayName`도 받는다(거점 한국어 이름, 같은 Text Search Pro 요금 단계, B227). `geocodePlace`는 실패를 null로 바꾼다.
   - 대상 종류: 숙소, 관광지, 식당. 교통(출발·도착 두 곳)과 메모는 찾지 않는다.
   - 주소를 비워 두었으면 찾은 주소로 채운다. 사용자가 맞는 장소인지 화면에서 확인할 수 있다.
   - 이름·주소·종류가 그대로이고 좌표가 이미 있으면 다시 호출하지 않는다.
@@ -112,6 +126,12 @@ API 경로, 로그인·권한 확인, 외부 API(Claude·Gemini·구글맵·Unsp
 - API별 일일 할당량을 낮게 제한한다.
 - 예산 알림을 설정한다.
 - 키를 배포 도메인에서만 쓰도록 제한한다.
+
+### 4-4. 거점 한국어 이름 (C10 F33, B227)
+
+- 경로: `src/app/trips/[tripId]/hub-name/route.ts`(`GET ?q=`). 로그인 사용자 권한으로 여행을 읽어(RLS) 볼 수 있는 사람만 부른다. 아무것도 저장하지 않는다.
+- 거점 카드 이름에 로마자가 있을 때만 화면이 부른다("Kansai 공항" → "간사이 국제공항"). 이미 한국어인 이름은 부르지 않고, 못 찾으면 원래 이름을 쓴다. 공항 목록을 코드에 늘리지 않는다.
+- `searchPlace`(Text Search, languageCode ko)의 `displayName`을 쓴다. 서버 `unstable_cache` 30일, 브라우저 14일 캐시, 실패는 캐시하지 않는다(`no-store`).
 
 ## 5. 공유 링크 처리 (R-08)
 
