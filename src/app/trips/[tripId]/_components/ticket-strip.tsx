@@ -1,20 +1,24 @@
 "use client";
 
 // 매거진 맨 위(제목 아래)의 GO 패널 (F10, C8 F16). 카드를 누르면 레퍼런스("GO 패널을 누르면 뜨는 창") 모양의 창이 뜬다.
-// - 항공권(비행기 교통 항목), 승차권(기차·버스·배 교통 항목), 숙소 예약(숙소 항목), 교통 패스(이름에 패스·1일권 등이 든 교통 항목):
+// - 항공권(비행기 교통 항목), 승차권(기차·버스·배 교통 항목), 숙소 예약(숙소 항목), 교통 패스(패스·N일권·N시간권 등이 든 교통 항목):
+//   예약·구매한 표만 들어간다. 택시·렌터카·리무진 같은 개인 교통과 교통카드는 넣지 않는다(go-info.ts transportKind, C10 F30).
 //   종류마다 카드 하나로 묶고(F16), 카드 아래 좌우 화살표로 예약을 하나씩 넘겨 본다. 닫기·수정·삭제는 아이콘 버튼(웹은 카드 오른쪽 세로). 카드와 넘기는 순서는 날짜순.
 // - 날씨(WeatherBadge): 여행 제목 오른쪽의 투명 패널. 누르면 날씨 창(F16).
 // - 준비물(Checklist): 매거진 BACK에 둔다. DB(trip_checks)에 저장한다(C10 F31). 공유받은 사람은 보기만 한다.
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition, type ReactNode, type RefObject } from "react";
 import { deleteItem, updateItem } from "@/app/actions/items";
 import { compareItems } from "@/lib/items/group";
 import { formatCost, formatTime, type Item } from "@/lib/items/types";
 import type { TripDay } from "@/lib/trips/days";
 import { CHECKLIST_MAX, PACKING_LABEL_MAX, type Check } from "@/lib/trips/packing";
-import { isFlight, isPass, isTicket, parseFlight, parseRide, passLines, returnFlight, stayRange } from "@/lib/trips/go-info";
+import { isFlight, isPass, isTicket, parseFlight, parseRide, passLines, stayRange } from "@/lib/trips/go-info";
 import { clothingTip, isRainy, weatherKind, weatherLabel, type TripWeather, type WeatherKind } from "@/lib/weather/codes";
-import { BookingInfo } from "./booking-info";
+import { maskCode } from "@/lib/items/sensitive";
+import { BookingInfo, BookingLinkButton } from "./booking-info";
+import { PhotoInfo } from "./place-card";
+import { photoVersion, usePlacePhoto } from "./use-place-photo";
 import { addCheck, deleteCheck, moveBrowserChecklist, toggleCheck, useChecklist } from "./checklist-store";
 import { EDIT_PANEL, EditHeader } from "./edit-sheet";
 import { ItemForm } from "./item-form";
@@ -25,6 +29,7 @@ type Props = {
   readOnly: boolean;
   coverImage: string;
   companions: number;
+  photos?: Record<string, string>; // 항목 id → 직접 넣은 사진 (숙소 창, C10 F30)
 };
 
 const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
@@ -121,7 +126,7 @@ const ZOOM_UNDO = "[@media(width>=48rem)_and_(height>=38rem)]:[zoom:0.8] [@media
 const MAX_H = "max-h-[calc(100dvh-2rem)] [@media(width>=48rem)_and_(height>=38rem)]:max-h-[calc((100dvh-2rem)/1.25)] [@media(width>=64rem)_and_(height>=44rem)]:max-h-[calc((100dvh-2rem)/1.4)]";
 
 // beforeClose: 바깥 누르기·Esc로 닫기 전에 묻는다. false면 닫지 않는다(수정 중 고친 내용이 있을 때).
-function GoDialog({ dialogRef, label, children, onClose, beforeClose }: { dialogRef: RefObject<HTMLDialogElement | null>; label: string; children: ReactNode; onClose?: () => void; beforeClose?: () => boolean }) {
+function GoDialog({ dialogRef, label, children, onClose, beforeClose, wide = false }: { dialogRef: RefObject<HTMLDialogElement | null>; label: string; children: ReactNode; onClose?: () => void; beforeClose?: () => boolean; wide?: boolean }) {
   return (
     <dialog
       ref={dialogRef}
@@ -134,8 +139,8 @@ function GoDialog({ dialogRef, label, children, onClose, beforeClose }: { dialog
         // 바깥(어두운 곳)을 누르면 닫는다
         if (e.target === e.currentTarget && (!beforeClose || beforeClose())) e.currentTarget.close();
       }}
-      // 폭: 카드(23rem) + 웹에서는 오른쪽 아이콘 버튼 줄
-      className={`m-auto w-[min(23rem,calc(100vw-2rem))] overflow-y-auto overscroll-contain bg-transparent p-0 text-zinc-900 backdrop:bg-black/55 backdrop:backdrop-blur-sm md:w-[min(26rem,calc(100vw-2rem))] ${MAX_H} ${ZOOM_UP}`}
+      // 폭: 카드(23rem) + 웹에서는 오른쪽 아이콘 버튼 줄. wide(항공권 가로 표)는 웹에서 넓게
+      className={`m-auto w-[min(23rem,calc(100vw-2rem))] overflow-y-auto overscroll-contain bg-transparent p-0 text-zinc-900 backdrop:bg-black/55 backdrop:backdrop-blur-sm ${wide ? "md:w-[min(50rem,calc(100vw-2rem))]" : "md:w-[min(26rem,calc(100vw-2rem))]"} ${MAX_H} ${ZOOM_UP}`}
     >
       <div className="transition duration-300 ease-out starting:translate-y-4 starting:scale-95 starting:opacity-0">{children}</div>
     </dialog>
@@ -306,82 +311,114 @@ function ItemDialogBody({ item, days, readOnly, close, guardRef, children }: { i
 
 // ───────── 1. 항공권 ─────────
 
-// 편명으로 정하는 바코드 무늬(꾸밈)
-function Barcode({ seed }: { seed: string }) {
-  const bars = useMemo(() => {
-    const widths: number[] = [];
-    let h = 7;
-    for (let i = 0; i < 34; i++) {
-      h = (h * 31 + seed.charCodeAt(i % Math.max(1, seed.length)) + i) % 97;
-      widths.push(1 + (h % 3));
-    }
-    return widths;
-  }, [seed]);
+// 공항 코드(ICN)는 크게, 코드를 모르는 공항 이름(오사카)은 한 줄에 들어가게 작게 (C9 F26 결정 3)
+const airportClass = (v: string) => `leading-none font-black tracking-tight ${/^[A-Z]{3}$/.test(v) ? "text-5xl" : "text-2xl break-keep"}`;
+
+// 떼는 쪽의 바코드 (꾸밈, 웹 항공권 창). 편명으로 무늬를 정하고 옆으로 눕힌다(가로 줄을 세로로 쌓음).
+function SideBarcode({ seed }: { seed: string }) {
+  const bars: number[] = [];
+  let h = 7;
+  for (let i = 0; i < 40; i++) {
+    h = (h * 31 + seed.charCodeAt(i % Math.max(1, seed.length)) + i) % 97;
+    bars.push(1 + (h % 3));
+  }
   return (
-    <div aria-hidden className="flex h-11 items-stretch gap-[2px]">
+    <div aria-hidden className="flex h-full w-14 flex-col justify-center gap-[3px]">
       {bars.map((w, i) => (
-        <span key={i} className="bg-zinc-900" style={{ width: w }} />
+        <span key={i} className="w-full bg-zinc-900" style={{ height: w }} />
       ))}
     </div>
   );
 }
 
-// 공항 코드(ICN)는 크게, 코드를 모르는 공항 이름(오사카)은 한 줄에 들어가게 작게 (C9 F26 결정 3)
-const airportClass = (v: string) => `leading-none font-black tracking-tight ${/^[A-Z]{3}$/.test(v) ? "text-5xl" : "text-2xl break-keep"}`;
+// 예약번호 (항공권 TO 아래, 승차권 떼는 쪽). 가려서 보이고 "보기"로 원래 값. 소유자만 secret이 온다(F20).
+function TicketBookingNo({ code, align = "right", className = "mt-2", labelClass = "text-zinc-500" }: { code: string; align?: "left" | "right"; className?: string; labelClass?: string }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className={`flex flex-col gap-1 ${align === "right" ? "items-end" : "items-start"} ${className}`}>
+      <span className={`text-[11px] tracking-wide ${labelClass}`}>예약번호</span>
+      <span className="flex items-center gap-1.5">
+        <span className="font-mono text-sm font-bold tracking-wide">{show ? code : maskCode(code)}</span>
+        <button type="button" onClick={() => setShow((v) => !v)} aria-pressed={show} className="rounded-full border border-zinc-300 px-2 py-0.5 text-[11px] transition hover:bg-zinc-100 active:scale-95">
+          {show ? "가리기" : "보기"}
+        </button>
+      </span>
+    </div>
+  );
+}
 
-function BoardingPass({ item, transports, days }: { item: Item; transports: Item[]; days: TripDay[] }) {
+// 항공권 창 (C10 F30, 레퍼런스 탑승권 모양). 색은 지금 그대로(검정 머리띠·호박색 글씨·종이색 바탕).
+// - FROM 아래: 날짜·출발 시각. TO 아래: 예약번호(있을 때). 도착 시각은 저장 칸이 없다.
+// - 그 아래 편명·날짜·출발·일차, 맨 아래 메모와 "예약 링크 열기"
+// - 좁은 화면은 세로 카드. 웹(md 이상)은 가로 표이고, 점선 오른쪽 떼는 쪽은 내용 없이 누운 바코드(꾸밈)만
+// 돌아오는 편은 따로 항공권 카드로 넘겨 본다.
+function BoardingPass({ item, days }: { item: Item; days: TripDay[] }) {
   const f = parseFlight(item)!;
-  const back = returnFlight(item, transports);
+  const date = md(dateOfDay(days, item.day));
+  const time = formatTime(item.time);
+  const bookingNo = item.secret?.booking_no ?? "";
   const cell = (label: string, value: string) => (
     <div className="min-w-0">
-      <p className="text-[11px] text-zinc-500">{label}</p>
-      <p className="truncate text-lg font-bold tabular-nums">{value || "—"}</p>
+      <p className="text-[11px] tracking-wide text-zinc-500">{label}</p>
+      <p className="truncate text-lg font-bold tabular-nums md:text-xl">{value || "—"}</p>
     </div>
   );
   return (
-    <div className="overflow-hidden rounded-3xl bg-[#f5f1ea] shadow-2xl">
-      <div className="flex items-center justify-between bg-zinc-900 px-5 py-3.5">
-        <span className="text-xs font-bold tracking-[0.3em] text-amber-400">BOARDING PASS</span>
-        <span className="font-bold text-white">{f.flightNo ?? ""}</span>
-      </div>
-      <div className="flex flex-col gap-5 px-5 pt-6 pb-4">
-        <div className="flex items-end justify-between gap-2">
-          <div>
-            <p className={airportClass(f.from)}>{f.from || "—"}</p>
-            <p className="mt-1 text-xs text-zinc-500">{f.fromName}</p>
-          </div>
-          <div aria-hidden className="mb-6 flex flex-1 items-center gap-1 text-zinc-500">
-            <span className="flex-1 border-t-2 border-dashed border-zinc-300" />
-            <PlaneIcon className="size-4 rotate-45" />
-            <span className="flex-1 border-t-2 border-dashed border-zinc-300" />
-          </div>
-          <div className="text-right">
-            <p className={airportClass(f.to)}>{f.to || "—"}</p>
-            <p className="mt-1 text-xs text-zinc-500">{f.toName}</p>
-          </div>
+    <div className="overflow-hidden rounded-3xl bg-[#f5f1ea] shadow-2xl md:flex">
+      {/* 본문 */}
+      <div className="min-w-0 md:flex-1">
+        <div className="flex items-center justify-between gap-3 bg-zinc-900 px-5 py-3.5 md:h-14 md:px-7 md:py-0">
+          <span className="flex items-center gap-2 text-xs font-bold tracking-[0.3em] text-amber-400 md:text-sm">
+            <PlaneIcon className="size-4" />
+            BOARDING PASS
+          </span>
+          <span className="font-bold text-white">{f.flightNo ?? ""}</span>
         </div>
-        <div className="grid grid-cols-3 gap-3">
-          {cell("날짜", md(dateOfDay(days, item.day)))}
-          {cell("출발", formatTime(item.time))}
-          {cell("일차", `DAY ${item.day}`)}
-        </div>
-        {item.memo && <p className="rounded-xl bg-black/5 px-3 py-2 text-sm whitespace-pre-wrap">{item.memo}</p>}
-        <BookingInfo secret={item.secret} />
-      </div>
-      <div className="relative mx-5 border-t-2 border-dashed border-zinc-300">
-        <span className="absolute -top-3 -left-8 size-6 rounded-full bg-black/55" />
-        <span className="absolute -top-3 -right-8 size-6 rounded-full bg-black/55" />
-      </div>
-      <div className="flex items-end justify-between gap-3 px-5 pt-4 pb-5">
-        <Barcode seed={f.flightNo ?? item.id} />
-        {back && (
-          <div className="text-right">
-            <p className="text-[11px] text-zinc-500">돌아오는 편</p>
-            <p className="text-sm font-bold">
-              {back.flight.flightNo ?? back.item.name} · {md(dateOfDay(days, back.item.day)).slice(0, 5)} {formatTime(back.item.time)}
-            </p>
+        <div className="relative flex flex-col gap-5 px-5 pt-6 pb-5 md:px-7 md:pt-7">
+          {/* 뒤에 흐린 비행기 */}
+          <PlaneIcon className="pointer-events-none absolute top-6 left-1/2 size-24 -translate-x-1/2 text-zinc-900/[0.06] md:size-32" />
+          <div className="relative flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold tracking-[0.2em] text-zinc-500">FROM</p>
+              <p className={`mt-1 ${airportClass(f.from)} md:text-6xl`}>{f.from || "—"}</p>
+              <p className="mt-1 truncate text-sm font-semibold text-amber-700">{f.fromName}</p>
+              {(date || time) && <p className="mt-2 text-sm text-zinc-700 tabular-nums">{[date, time].filter(Boolean).join(" · ")}</p>}
+            </div>
+            <div aria-hidden className="mt-12 flex flex-1 items-center text-amber-600 md:mt-14">
+              <span className="flex-1 border-t-2 border-dashed border-zinc-300" />
+              <svg viewBox="0 0 24 24" className="size-4 shrink-0" fill="currentColor">
+                <path d="M8 5l9 7-9 7z" />
+              </svg>
+            </div>
+            <div className="min-w-0 text-right">
+              <p className="text-[11px] font-semibold tracking-[0.2em] text-zinc-500">TO</p>
+              <p className={`mt-1 ${airportClass(f.to)} md:text-6xl`}>{f.to || "—"}</p>
+              <p className="mt-1 truncate text-sm font-semibold text-amber-700">{f.toName}</p>
+              {bookingNo && <TicketBookingNo code={bookingNo} />}
+            </div>
           </div>
-        )}
+          <div className="relative grid grid-cols-2 gap-3 border-t border-zinc-300 pt-4 sm:grid-cols-4">
+            {cell("편명", f.flightNo ?? "")}
+            {cell("날짜", date)}
+            {cell("출발", time)}
+            {cell("일차", `DAY ${item.day}`)}
+          </div>
+          {(item.memo || item.secret?.booking_link) && (
+            <div className="relative flex flex-col gap-2">
+              {item.memo && <p className="rounded-xl bg-black/5 px-3 py-2 text-sm whitespace-pre-wrap">{item.memo}</p>}
+              <BookingLinkButton secret={item.secret} className="self-start" />
+            </div>
+          )}
+        </div>
+      </div>
+      {/* 웹: 점선 오른쪽 떼는 쪽(꾸밈) */}
+      <div className="relative hidden w-36 shrink-0 flex-col border-l-2 border-dashed border-zinc-300 md:flex">
+        <span aria-hidden className="absolute -top-3 -left-3 size-6 rounded-full bg-black/55" />
+        <span aria-hidden className="absolute -bottom-3 -left-3 size-6 rounded-full bg-black/55" />
+        <div aria-hidden className="h-14 bg-zinc-900" />
+        <div className="flex flex-1 items-center justify-center py-6">
+          <SideBarcode seed={f.flightNo ?? item.id} />
+        </div>
       </div>
     </div>
   );
@@ -389,8 +426,11 @@ function BoardingPass({ item, transports, days }: { item: Item; transports: Item
 
 // ───────── 2. 숙소 예약 ─────────
 
-function StayCard({ item, lodgings, days, coverImage, companions }: { item: Item; lodgings: Item[]; days: TripDay[]; coverImage: string; companions: number }) {
+// 위쪽 사진은 숙소 사진 (C10 F30): 직접 넣은 사진 → 장소 사진(Google Places, 매거진 장소 카드와 같은 주소라 캐시를 같이 씀) → 없으면 대표 이미지.
+function StayCard({ item, lodgings, days, coverImage, companions, photoUrl }: { item: Item; lodgings: Item[]; days: TripDay[]; coverImage: string; companions: number; photoUrl: string | null }) {
   const stay = stayRange(item, lodgings, days);
+  const { ref: photoRef, photo: placePhoto, onError: onPhotoError } = usePlacePhoto(item.trip_id, item.id, photoVersion(item.kind, item.name, item.address), !photoUrl && item.lat !== null);
+  const photo = photoUrl ?? placePhoto?.url ?? null;
   // 여행 기간 막대: 이 숙소에 묵는 밤은 주황, 나머지는 회색
   const nights = days.slice(0, -1);
   const mine = (d: number) => {
@@ -399,8 +439,13 @@ function StayCard({ item, lodgings, days, coverImage, companions }: { item: Item
   };
   return (
     <div className="overflow-hidden rounded-3xl bg-white shadow-2xl">
-      <div className="relative h-36 bg-cover bg-center" style={{ backgroundImage: `url("${coverImage}")` }}>
+      <div ref={photoRef as RefObject<HTMLDivElement>} className="relative h-36 bg-cover bg-center" style={photo ? undefined : { backgroundImage: `url("${coverImage}")` }}>
+        {photo && (
+          // eslint-disable-next-line @next/next/no-img-element -- 외부 사진 주소를 그대로 쓴다(이미지 최적화를 쓰지 않음, B49)
+          <img src={photo} alt={`${item.name} 사진`} referrerPolicy="no-referrer" onError={photoUrl ? undefined : onPhotoError} className="absolute inset-0 size-full object-cover" />
+        )}
         <span className="absolute top-3 left-3 rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white shadow">✓ 숙소</span>
+        {!photoUrl && placePhoto && <PhotoInfo photo={placePhoto} name={item.name} />}
       </div>
       <div className="flex flex-col gap-4 p-5">
         <div>
@@ -493,52 +538,123 @@ function WeatherCard({ weather }: { weather: TripWeather }) {
 
 // ───────── 3-1. 승차권 (기차·버스·배) ─────────
 
+// 떼는 쪽 도착지 글씨 크기: 짧으면 크게("부산"), 길면 한 줄에 들어가게("신오사카")
+const destClass = (v: string) => (v.length <= 3 ? "text-5xl md:text-6xl" : v.length <= 5 ? "text-4xl md:text-[2.75rem]" : "text-3xl");
+
+// 승차권 표의 잘린 모양 (C10 F30). 덧댄 도형이 아니라 실제로 잘라 내서 뒤 배경이 보인다.
+// 본문과 떼는 쪽이 각자 귀퉁이를 잘라(clip-path) 점선 위아래가 삼각형으로 파이고, 바깥 옆면은 반원으로 판다(mask).
+// - 웹(md): 가로로 붙음. 본문 왼쪽 가운데, 떼는 쪽 오른쪽 가운데에 반원
+// - 모바일: 위아래로 붙음. 점선 양 끝(본문 아래 두 귀, 떼는 쪽 위 두 귀)에 반원을 반씩
+const RIDE_MAIN_SHAPE = [
+  "[clip-path:polygon(16px_0,calc(100%_-_16px)_0,100%_16px,100%_100%,0_100%,0_16px)]",
+  "[mask-image:radial-gradient(circle_at_0_100%,transparent_16px,#000_16.5px),radial-gradient(circle_at_100%_100%,transparent_16px,#000_16.5px)] [mask-composite:intersect]",
+  "md:[clip-path:polygon(16px_0,calc(100%_-_16px)_0,100%_16px,100%_calc(100%_-_16px),calc(100%_-_16px)_100%,16px_100%,0_calc(100%_-_16px),0_16px)]",
+  "md:[mask-image:radial-gradient(circle_at_0_50%,transparent_16px,#000_16.5px)]",
+].join(" ");
+const RIDE_STUB_SHAPE = [
+  "[clip-path:polygon(0_0,100%_0,100%_calc(100%_-_16px),calc(100%_-_16px)_100%,16px_100%,0_calc(100%_-_16px))]",
+  "[mask-image:radial-gradient(circle_at_0_0,transparent_16px,#000_16.5px),radial-gradient(circle_at_100%_0,transparent_16px,#000_16.5px)] [mask-composite:intersect]",
+  "md:[clip-path:polygon(16px_0,calc(100%_-_16px)_0,100%_16px,100%_calc(100%_-_16px),calc(100%_-_16px)_100%,16px_100%,0_calc(100%_-_16px),0_16px)]",
+  "md:[mask-image:radial-gradient(circle_at_100%_50%,transparent_16px,#000_16.5px)]",
+].join(" ");
+
+// 승차권 창 (C10 F30, 레퍼런스 기차표 모양). 색은 지금 그대로(남색 #1e3a5f·하늘색·연회색 종이).
+// 한 값은 한 곳에만 둔다. 값이 없는 칸은 "—" 대신 칸을 숨긴다.
+// - 본문: 왼쪽 남색 띠와 빗금 → 기차/버스 그림·TICKET·열차 이름 → 출발 → 도착(고정폭 글씨)
+//   → 상자(날짜 | 출발 시각, 타는 곳은 있을 때 아래 줄) → 요금(있을 때) → 메모 띠(있을 때)
+// - 머리 줄 오른쪽 아래: 예약번호(있을 때, 배경 없이)
+// - 떼는 쪽(웹은 오른쪽, 모바일은 아래, 점선으로 나눔): 도착지를 크게, 일차 도장(날짜를 알 때)
+// 날짜를 모르면(출발일 없는 여행) 날짜 칸에 일차를 쓴다.
 function RideTicket({ item, days }: { item: Item; days: TripDay[] }) {
   const ride = parseRide(item.name);
   const cost = formatCost(item.cost_amount, item.cost_currency);
   const Icon = ride?.bus ? BusIcon : TrainIcon;
-  const cell = (label: string, value: string) => (
-    <div className="min-w-0">
-      <p className="text-[11px] text-zinc-500">{label}</p>
-      <p className="truncate text-lg font-bold tabular-nums">{value || "—"}</p>
+  const date = md(dateOfDay(days, item.day));
+  const time = formatTime(item.time);
+  const bookingNo = item.secret?.booking_no ?? "";
+  const navy = "text-[#1e3a5f]";
+  const line = "border-[#1e3a5f]";
+  const label = "text-[11px] tracking-wide text-zinc-500";
+  const box = (name: string, value: string, big = false) => (
+    <div className="min-w-0 px-3 py-2.5">
+      <p className={label}>{name}</p>
+      <p className={`mt-0.5 truncate font-bold tabular-nums ${big ? "text-2xl" : "text-lg"}`}>{value}</p>
     </div>
   );
   return (
-    <div className="overflow-hidden rounded-3xl bg-[#eef2f7] shadow-2xl">
-      <div className="flex items-center justify-between gap-3 bg-[#1e3a5f] px-5 py-3.5">
-        <span className="text-xs font-bold tracking-[0.3em] text-sky-300">TICKET</span>
-        <span className="truncate font-bold text-white">{ride ? ride.carrier : ""}</span>
-      </div>
-      <div className="flex flex-col gap-5 px-5 pt-6 pb-5">
-        {ride ? (
-          <div className="flex items-end justify-between gap-2">
-            <p className="min-w-0 text-3xl leading-tight font-black tracking-tight break-keep">{ride.from}</p>
-            <div aria-hidden className="mb-2 flex min-w-10 flex-1 items-center gap-1 text-zinc-500">
-              <span className="flex-1 border-t-2 border-dashed border-zinc-300" />
-              <Icon className="size-4" />
-              <span className="flex-1 border-t-2 border-dashed border-zinc-300" />
-            </div>
-            <p className="min-w-0 text-right text-3xl leading-tight font-black tracking-tight break-keep">{ride.to}</p>
+    <div className="drop-shadow-2xl">
+      <div className="md:flex">
+        {/* 본문 */}
+        <div className={`flex min-w-0 bg-[#eef2f7] md:flex-1 ${RIDE_MAIN_SHAPE}`}>
+          <div aria-hidden className="flex shrink-0">
+            <span className="w-4 bg-[#1e3a5f] md:w-6" />
+            <span className="w-3 md:w-4" style={{ backgroundImage: "repeating-linear-gradient(135deg, #7dd3fc 0 3px, transparent 3px 8px)" }} />
           </div>
-        ) : (
-          <p className="text-2xl leading-tight font-black tracking-tight break-keep">{item.name}</p>
-        )}
-        <div className="grid grid-cols-2 gap-3">
-          {cell("날짜", md(dateOfDay(days, item.day)))}
-          {cell("출발", formatTime(item.time))}
+          <div className="flex min-w-0 flex-1 flex-col gap-4 py-6 pr-6 pl-5 md:pl-7">
+            <div className="flex items-center gap-4 border-b-2 border-sky-300 pb-3">
+              <Icon className="size-12 shrink-0 text-sky-400 md:size-14" />
+              <div className="min-w-0 flex-1">
+                <p className={`text-xs font-bold tracking-[0.2em] whitespace-nowrap italic ${navy}`}>{ride?.bus ? "BUS TICKET" : "TRAIN TICKET"}</p>
+                <p className={`truncate text-lg font-black tracking-wide md:text-xl ${navy}`}>{ride?.carrier || item.name}</p>
+              </div>
+              {/* 예약번호: 머리 줄 오른쪽 아래, 배경 없이 표 글씨 그대로 */}
+              {bookingNo && <TicketBookingNo code={bookingNo} className={`shrink-0 self-end ${navy}`} labelClass="text-[#1e3a5f]/60" />}
+            </div>
+            {ride && <p className="font-mono text-base font-bold tracking-[0.15em] break-keep text-sky-700 md:text-lg">{`${ride.from} → ${ride.to}`}</p>}
+            <div className={`border-2 ${line} ${navy}`}>
+              <div className={`grid grid-cols-2 divide-x-2 ${line.replace("border", "divide")}`}>
+                {box(date ? "날짜" : "일차", date || `DAY ${item.day}`)}
+                {box("출발", time || "시각 미정", !!time)}
+              </div>
+              {item.address && (
+                <div className={`border-t-2 ${line}`}>
+                  <div className="px-3 py-2.5">
+                    <p className={label}>타는 곳</p>
+                    <p className="mt-0.5 font-semibold break-words">{item.address}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+            {cost && (
+              <p className="flex items-baseline gap-2">
+                <span className={label}>요금</span>
+                <span className="font-mono text-lg font-bold text-sky-700 tabular-nums">{cost}</span>
+              </p>
+            )}
+            {item.memo && (
+              <div className="flex items-stretch gap-3 bg-sky-300 p-1.5">
+                <span className={`flex shrink-0 items-center gap-1.5 pl-2 text-xs font-bold tracking-widest ${navy}`}>
+                  <Icon className="size-4" />
+                  MEMO
+                </span>
+                <p className={`min-w-0 flex-1 px-1 py-1.5 text-sm font-medium whitespace-pre-wrap ${navy}`}>{item.memo}</p>
+              </div>
+            )}
+            {item.secret?.booking_link && <BookingLinkButton secret={item.secret} className="self-start" />}
+            {!ride && <p className="text-xs text-zinc-400">이름을 “KTX 101 서울→부산”처럼 쓰면 출발·도착이 크게 나와요.</p>}
+          </div>
         </div>
-        {(item.address || cost) && (
-          <div className="flex items-end justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[11px] text-zinc-500">타는 곳</p>
-              <p className="font-semibold break-words">{item.address || "—"}</p>
-            </div>
-            {cost && <p className="shrink-0 text-lg font-bold tabular-nums">{cost}</p>}
+
+        {/* 떼는 쪽 */}
+        <div className={`flex flex-col justify-between gap-5 border-t-2 border-dashed border-zinc-400 bg-[#eef2f7] px-6 py-6 md:w-56 md:shrink-0 md:border-t-0 md:border-l-2 ${RIDE_STUB_SHAPE}`}>
+          <div className="min-w-0">
+            <p className={label}>{ride ? "도착" : "승차권"}</p>
+            {ride ? (
+              <p className={`mt-1 leading-none font-black tracking-tight break-keep ${destClass(ride.to)} ${navy}`}>{ride.to}</p>
+            ) : (
+              <Icon className="mt-2 size-14 text-sky-400" />
+            )}
           </div>
-        )}
-        {item.memo && <p className="rounded-xl bg-black/5 px-3 py-2 text-sm whitespace-pre-wrap">{item.memo}</p>}
-        <BookingInfo secret={item.secret} />
-        {!ride &&<p className="text-xs text-zinc-400">이름을 “KTX 101 서울→부산”처럼 쓰면 출발·도착이 크게 나와요.</p>}
+          <div className="flex items-end justify-between gap-3">
+            <p className="text-[11px] leading-snug tracking-wide text-zinc-500">
+              도착할 때까지
+              <br />
+              표를 챙겨 주세요
+            </p>
+            {/* 일차 도장: 날짜 칸에 이미 일차가 있으면(출발일 없음) 넣지 않는다 */}
+            {date && <span className="shrink-0 border-2 border-sky-400 px-2.5 py-1 font-mono text-lg font-bold text-sky-600">DAY {item.day}</span>}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -812,20 +928,18 @@ function dayLabel(days: TripDay[], item: Item): string {
 }
 
 // 카드 아래 줄: 하나면 "날짜 · 시각(또는 박 수·비용)", 여럿이면 "첫 날짜 – 마지막 날짜"
+// 카드 아래 줄 (C10 F30). 비용은 넣지 않고, 값이 없는 칸은 건너뛴다.
+// - 예약 하나: 날짜(요일) · 시각. 숙소만 뒤에 N박.
+// - 여럿을 묶은 카드: 시각 없이 첫 날짜 – 마지막 날짜(같은 날이면 날짜 하나).
 function groupFoot(kind: GoKind, group: Item[], lodgings: Item[], days: TripDay[]): string {
   const first = group[0];
   if (group.length > 1) {
-    const last = group[group.length - 1];
     const a = dayLabel(days, first);
-    const b = dayLabel(days, last);
+    const b = dayLabel(days, group[group.length - 1]);
     return a === b ? a : `${a} – ${b}`;
   }
-  if (kind === "lodging") {
-    const stay = stayRange(first, lodgings, days);
-    return [stay.nights ? `${stay.nights}박` : null, dayLabel(days, first)].filter(Boolean).join(" · ");
-  }
-  if (kind === "flight" || kind === "ticket") return [dayLabel(days, first), formatTime(first.time)].filter(Boolean).join(" · ");
-  return [dayLabel(days, first), formatCost(first.cost_amount, first.cost_currency)].filter(Boolean).join(" · ");
+  const nights = kind === "lodging" ? stayRange(first, lodgings, days).nights : null;
+  return [dayLabel(days, first), formatTime(first.time), nights ? `${nights}박` : null].filter(Boolean).join(" · ");
 }
 
 function groupTitle(kind: GoKind, group: Item[]): string {
@@ -835,7 +949,7 @@ function groupTitle(kind: GoKind, group: Item[]): string {
   return group.length > 1 ? `${base} 외 ${group.length - 1}${KIND_UNIT[kind]}` : base;
 }
 
-function GroupTile({ kind, group, items, days, readOnly, coverImage, companions }: { kind: GoKind; group: Item[]; items: Item[]; days: TripDay[]; readOnly: boolean; coverImage: string; companions: number }) {
+function GroupTile({ kind, group, items, days, readOnly, coverImage, companions, photos }: { kind: GoKind; group: Item[]; items: Item[]; days: TripDay[]; readOnly: boolean; coverImage: string; companions: number; photos: Record<string, string> }) {
   const d = useDialog();
   const [picked, setPicked] = useState(0);
   const guardRef = useRef<(() => boolean) | null>(null);
@@ -853,20 +967,16 @@ function GroupTile({ kind, group, items, days, readOnly, coverImage, companions 
     : kind === "ticket" ? (group.every((g) => parseRide(g.name)?.bus) ? <BusIcon className="size-4" /> : <TrainIcon className="size-4" />)
     : kind === "lodging" ? <BedIcon className="size-4" />
     : <PassIcon className="size-4" />;
-  const corner =
-    group.length > 1 ? `${group.length}건`
-    : kind === "flight" ? (parseFlight(item)?.flightNo ?? undefined)
-    : kind === "ticket" ? parseRide(item.name)?.carrier || undefined
-    : kind === "lodging" ? item.address
-    : undefined;
+  // 카드 오른쪽 위는 개수만: 숙소는 "N곳", 나머지는 "N건". 하나면 비운다 (C10 F30)
+  const corner = group.length > 1 ? `${group.length}${kind === "lodging" ? "곳" : "건"}` : undefined;
 
   const body =
     kind === "flight" ? (
-      <BoardingPass item={item} transports={items.filter((i) => i.kind === "transport")} days={days} />
+      <BoardingPass item={item} days={days} />
     ) : kind === "ticket" ? (
       <RideTicket item={item} days={days} />
     ) : kind === "lodging" ? (
-      <StayCard item={item} lodgings={lodgings} days={days} coverImage={coverImage} companions={companions} />
+      <StayCard key={item.id} item={item} lodgings={lodgings} days={days} coverImage={coverImage} companions={companions} photoUrl={photos[item.id] ?? null} />
     ) : (
       <PassCard item={item} days={days} />
     );
@@ -874,7 +984,7 @@ function GroupTile({ kind, group, items, days, readOnly, coverImage, companions 
   return (
     <>
       <Tile icon={icon} kind={KIND_LABEL[kind]} corner={corner} title={groupTitle(kind, group)} foot={groupFoot(kind, group, lodgings, days)} onOpen={open} />
-      <GoDialog dialogRef={d.ref} label={`${KIND_LABEL[kind]} 자세히`} beforeClose={() => guardRef.current?.() ?? true}>
+      <GoDialog dialogRef={d.ref} label={`${KIND_LABEL[kind]} 자세히`} beforeClose={() => guardRef.current?.() ?? true} wide={kind === "flight" || kind === "ticket"}>
         <ItemDialogBody key={`${item.id}:${item.updated_at}:${opened}`} item={item} days={days} readOnly={readOnly} close={d.close} guardRef={guardRef}>
           <Pager index={index} labels={labels} onPick={setPicked}>
             {body}
@@ -918,7 +1028,73 @@ export function WeatherBadge({ weather }: { weather: TripWeather }) {
   );
 }
 
-export function TicketStrip({ items, days, readOnly, coverImage, companions }: Props) {
+// GO 줄을 마우스로 끌어 옆으로 옮긴다 (C10 F30). 터치·펜은 브라우저 스크롤을 그대로 쓴다.
+// 5px 넘게 끌었으면 놓을 때의 클릭을 막아 카드 창이 열리지 않게 한다. 끄는 동안은 스냅을 끈다.
+function useDragScroll(ref: RefObject<HTMLUListElement | null>) {
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let start: { x: number; left: number } | null = null;
+    let dragged = false;
+    const down = (e: PointerEvent) => {
+      dragged = false;
+      // 카드 위에서 누를 때만. 카드 창(dialog)은 줄 안에 그려져서 창 안·배경을 끌어도 이벤트가 올라오므로 뺀다.
+      const target = e.target instanceof Element ? e.target : null;
+      const onCard = target !== null && target.closest("li") !== null && target.closest("dialog") === null;
+      if (e.pointerType !== "mouse" || e.button !== 0 || !onCard || el.scrollWidth <= el.clientWidth) return;
+      start = { x: e.clientX, left: el.scrollLeft };
+    };
+    const move = (e: PointerEvent) => {
+      if (!start) return;
+      const dx = e.clientX - start.x;
+      if (!dragged && Math.abs(dx) < 5) return;
+      if (!dragged) {
+        dragged = true;
+        try {
+          el.setPointerCapture(e.pointerId); // 줄 밖으로 끌어도 계속 따라오게
+        } catch {
+          // 이미 끝난 포인터면 붙잡지 않고 그대로 옮긴다
+        }
+        el.style.scrollSnapType = "none";
+        el.style.cursor = "grabbing";
+        el.style.userSelect = "none";
+      }
+      el.scrollLeft = start.left - dx;
+    };
+    const up = () => {
+      if (!start) return;
+      start = null;
+      el.style.cursor = "";
+      el.style.userSelect = "";
+      // 스냅을 다시 켜면 가까운 카드에 맞춰 멈춘다
+      requestAnimationFrame(() => (el.style.scrollSnapType = ""));
+      // 클릭은 pointerup 바로 뒤에 온다. 줄 밖에서 놓아 클릭이 오지 않아도 다음 클릭을 막지 않게 지운다.
+      setTimeout(() => (dragged = false), 0);
+    };
+    const click = (e: MouseEvent) => {
+      if (!dragged) return;
+      dragged = false;
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    el.addEventListener("pointerdown", down);
+    el.addEventListener("pointermove", move);
+    el.addEventListener("pointerup", up);
+    el.addEventListener("pointercancel", up);
+    el.addEventListener("click", click, true);
+    return () => {
+      el.removeEventListener("pointerdown", down);
+      el.removeEventListener("pointermove", move);
+      el.removeEventListener("pointerup", up);
+      el.removeEventListener("pointercancel", up);
+      el.removeEventListener("click", click, true);
+    };
+  }, [ref]);
+}
+
+export function TicketStrip({ items, days, readOnly, coverImage, companions, photos = {} }: Props) {
+  const stripRef = useRef<HTMLUListElement>(null);
+  useDragScroll(stripRef);
   // 종류별로 묶고(각 묶음 안은 날짜순, groupItems가 이미 정렬함), 묶음은 가장 이른 예약 날짜순
   const groups = (
     [
@@ -933,9 +1109,9 @@ export function TicketStrip({ items, days, readOnly, coverImage, companions }: P
     .sort((a, b) => compareItems(a[1][0], b[1][0]));
 
   return (
-    <ul aria-label="GO: 교통·숙소" className="-mx-1 flex snap-x gap-3 overflow-x-auto px-1 pt-2 pb-4">
+    <ul ref={stripRef} aria-label="GO: 교통·숙소" className="-mx-1 flex snap-x gap-3 overflow-x-auto px-1 pt-2 pb-4">
       {groups.map(([kind, group]) => (
-        <GroupTile key={kind} kind={kind} group={group} items={items} days={days} readOnly={readOnly} coverImage={coverImage} companions={companions} />
+        <GroupTile key={kind} kind={kind} group={group} items={items} days={days} readOnly={readOnly} coverImage={coverImage} companions={companions} photos={photos} />
       ))}
       {groups.length === 0 && <li className="self-center px-2 text-sm text-white/70">비행기 표·기차표·숙소를 넣으면 여기에 카드로 나와요.</li>}
     </ul>

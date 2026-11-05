@@ -80,18 +80,6 @@ export function isFlight(item: Pick<Item, "kind" | "name" | "address" | "memo">)
   return item.kind === "transport" && parseFlight(item) !== null;
 }
 
-// 돌아오는 편: 출발·도착이 뒤집힌 다른 비행기
-export function returnFlight(item: Item, transports: Item[]): { item: Item; flight: Flight } | null {
-  const f = parseFlight(item);
-  if (!f) return null;
-  for (const other of transports) {
-    if (other.id === item.id) continue;
-    const g = parseFlight(other);
-    if (g && g.from === f.to && g.to === f.from) return { item: other, flight: g };
-  }
-  return null;
-}
-
 export type Stay = { checkIn: string | null; checkOut: string | null; nights: number | null; next: Item | null };
 
 // 숙소의 체크인은 그 항목의 일차, 체크아웃은 다음 숙소의 일차(없으면 여행 마지막 날)로 본다.
@@ -104,17 +92,52 @@ export function stayRange(item: Item, lodgings: Item[], days: TripDay[]): Stay {
   return { checkIn: dateOf(item.day), checkOut: dateOf(outDay), nights: outDay > item.day ? outDay - item.day : null, next };
 }
 
-// 비행기가 아닌 교통은 둘로 나눈다(F16).
-// - 교통 패스: 기간 안에 자유롭게 타는 표. 이름에 패스·1일권·프리 같은 말이 있다. 메모의 쉼표·줄바꿈 목록을 탈 수 있는 노선으로 본다.
-// - 승차권: 그 밖의 교통. 정해진 구간·시각이 있는 기차·버스·배 표.
-const PASS_WORDS = /패스|pass|\d+\s*일권|일일권|자유이용|프리|free|무제한|정기권|티머니|T-?money|교통카드|IC\s?카드/i;
+// 교통 항목 나누기 (F16, C10 F30). GO 줄에는 예약·구매한(할) 표만 들어간다: 항공권·승차권·교통 패스.
+// 이름으로 아래 순서대로 본다.
+// ① 항공권: isFlight (B153)
+// ② 교통카드(card): ICOCA·Suica·티머니 같은 충전식 카드. 표가 아니라 결제 수단이라 GO에 없고 이동도 아니다.
+// ③ 교통 패스(pass): 정해진 구간 없이 기간·횟수 안에 타는 표(패스·N일권·N시간권·1일 승차권·자유이용·무제한·정기권).
+//    이름에 없으면 메모의 기간권 낱말(72시간권 등)도 본다.
+//    화살표(출발→도착)가 있으면 그 패스로 탄 하루 이동이라 패스가 아니다("JR 패스 도쿄→교토"는 승차권).
+//    "프리" 한 낱말은 보지 않는다("프리미엄 고속버스"). 프리패스는 "패스"로 잡힌다.
+// ④ 개인 교통(personal): 택시·렌터카·리무진·우버·픽업, 지하철·시내버스 1회 탑승. 예약하는 표가 아니라 GO에 없다. 일정에서는 이동이다.
+// ⑤ 승차권(ticket): 그 밖의 교통. 정해진 구간·시각이 있는 기차·버스·배 표(화살표가 없어도 승차권, "신칸센 노조미 23호").
+// 교통 패스는 메모의 쉼표·줄바꿈 목록을 탈 수 있는 노선으로 본다.
+const CARD_WORDS =
+  /교통\s?카드|IC\s?카드|티머니|T-?money|캐시비|cashbee|ICOCA|이코카|Suica|스이카|PASMO|파스모|Kitaca|manaca|TOICA|SUGOCA|nimoca|Octopus|옥토퍼스|EZ-?Link|이지링크|Oyster|오이스터|EasyCard|이지카드|悠遊卡/i;
+const PASS_WORDS =
+  /패스|pass|\d+\s*(?:일|시간)\s*(?:권|승차권|이용권)|일일\s?(?:권|승차권)|\d+\s*-?\s*(?:day|hour)s?\b|\b\d+\s?h\b|자유\s?이용|무제한|unlimited|정기권/i;
+// 이름에 기간이 없고 메모에만 있을 때("도쿄 서브웨이 티켓" + 메모 "72시간권, …") 보는 기간권 낱말.
+// "패스"는 메모에서 보지 않는다("JR 패스로 탑승"처럼 패스로 탄 승차권 메모가 있어서).
+const PERIOD_WORDS =
+  /\d+\s*(?:일|시간)\s*(?:권|승차권|이용권)|일일\s?(?:권|승차권)|\d+\s*-?\s*(?:day|hour)s?\s*(?:pass|ticket)|자유\s?이용|무제한|unlimited/i;
+const PERSONAL_WORDS =
+  /택시|taxi|렌터카|렌트카|rent-?a-?car|car\s?rental|rental\s?car|리무진|limousine|우버|uber|그랩|grab|픽업|pick-?up|샌딩|지하철|subway|metro|메트로|시내\s?버스|city\s?bus|도보|걸어서/i;
+
+export type TransportKind = "flight" | "card" | "pass" | "personal" | "ticket";
+
+export function transportKind(item: Pick<Item, "kind" | "name" | "address" | "memo">): TransportKind | null {
+  if (item.kind !== "transport") return null;
+  if (isFlight(item)) return "flight";
+  if (CARD_WORDS.test(item.name)) return "card";
+  const routed = parseRide(item.name) !== null;
+  if (!routed && (PASS_WORDS.test(item.name) || PERIOD_WORDS.test(item.memo))) return "pass";
+  if (PERSONAL_WORDS.test(item.name)) return "personal";
+  return "ticket";
+}
 
 export function isPass(item: Item): boolean {
-  return item.kind === "transport" && !isFlight(item) && PASS_WORDS.test(item.name);
+  return transportKind(item) === "pass";
 }
 
 export function isTicket(item: Item): boolean {
-  return item.kind === "transport" && !isFlight(item) && !PASS_WORDS.test(item.name);
+  return transportKind(item) === "ticket";
+}
+
+// 하루 일정·지도 거점에서 이동으로 치는 교통: 항공권·승차권·개인 교통 (패스·교통카드는 아님)
+export function isMoveTransport(item: Item): boolean {
+  const kind = transportKind(item);
+  return kind === "flight" || kind === "ticket" || kind === "personal";
 }
 
 export type Ride = { carrier: string; from: string; to: string; bus: boolean };

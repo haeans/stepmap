@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Item } from "@/lib/items/types";
-import { isFlight, isPass, isTicket, parseFlight, parseRide, passLines, returnFlight, stayRange } from "./go-info";
+import { isFlight, isMoveTransport, isPass, isTicket, parseFlight, parseRide, passLines, stayRange, transportKind } from "./go-info";
 
 function item(over: Partial<Item>): Item {
   return {
@@ -51,15 +51,6 @@ describe("isFlight", () => {
   });
 });
 
-describe("returnFlight", () => {
-  it("출발·도착이 뒤집힌 편을 찾는다", () => {
-    const go = item({ id: "a", name: "ICN → KIX" });
-    const back = item({ id: "b", name: "KIX → ICN", day: 4 });
-    expect(returnFlight(go, [go, back])?.item.id).toBe("b");
-    expect(returnFlight(go, [go])).toBeNull();
-  });
-});
-
 describe("stayRange", () => {
   it("체크아웃은 다음 숙소의 일차, 없으면 여행 마지막 날", () => {
     const a = item({ id: "a", kind: "lodging", day: 1 });
@@ -77,6 +68,52 @@ describe("교통 패스", () => {
     expect(isPass(item({ name: "ICN → KIX" }))).toBe(false);
     expect(isPass(item({ kind: "lodging", name: "호텔" }))).toBe(false);
     expect(passLines("JR 교토선, 한큐 교토선\n오사카 메트로")).toEqual(["JR 교토선", "한큐 교토선", "오사카 메트로"]);
+  });
+});
+
+describe("교통 나누기 (C10 F30)", () => {
+  const kind = (name: string) => transportKind(item({ name }));
+  it("기간권·1일 승차권은 패스 (도쿄 테스트)", () => {
+    expect(kind("도쿄 서브웨이 티켓 72시간권")).toBe("pass");
+    expect(kind("Tokyo Subway Ticket 72-hour")).toBe("pass");
+    expect(kind("교토 버스 1일 승차권")).toBe("pass");
+    expect(kind("지하철 1일권")).toBe("pass");
+    expect(kind("간사이 레일패스 2일권")).toBe("pass");
+    expect(kind("JR 패스 7일권")).toBe("pass");
+  });
+  it("이름에 기간이 없으면 메모의 기간권 낱말을 본다", () => {
+    expect(transportKind(item({ name: "도쿄 서브웨이 티켓", memo: "72시간권, 메트로와 도에이선 이용 가능" }))).toBe("pass");
+    expect(transportKind(item({ name: "신칸센 노조미 23호", memo: "JR 패스로 탑승" }))).toBe("ticket");
+    expect(transportKind(item({ name: "KTX 101 서울→부산", memo: "자유이용 아님" }))).toBe("ticket");
+  });
+  it("교통카드는 패스도 승차권도 아니다", () => {
+    expect(kind("ICOCA")).toBe("card");
+    expect(kind("ICOCA 충전")).toBe("card");
+    expect(kind("스이카 충전")).toBe("card");
+    expect(kind("티머니 교통카드")).toBe("card");
+  });
+  it("화살표가 있으면 패스 낱말이 있어도 이동", () => {
+    expect(kind("JR 패스 도쿄→교토")).toBe("ticket");
+    expect(kind("프리미엄 고속버스 서울→부산")).toBe("ticket");
+  });
+  it("택시·렌터카·리무진·지하철 1회는 개인 교통", () => {
+    expect(kind("택시")).toBe("personal");
+    expect(kind("택시 호텔→하네다공항")).toBe("personal");
+    expect(kind("렌터카")).toBe("personal");
+    expect(kind("공항 리무진버스")).toBe("personal");
+    expect(kind("지하철 신주쿠→시부야")).toBe("personal");
+  });
+  it("화살표 없는 열차 이름도 승차권, 비행기는 항공권", () => {
+    expect(kind("신칸센 노조미 23호")).toBe("ticket");
+    expect(kind("나리타 익스프레스 나리타공항→도쿄")).toBe("ticket");
+    expect(kind("KE723 ICN→NRT")).toBe("flight");
+    expect(transportKind(item({ kind: "lodging", name: "호텔" }))).toBeNull();
+  });
+  it("하루 일정의 이동: 항공권·승차권·개인 교통만", () => {
+    expect(isMoveTransport(item({ name: "택시 호텔→하네다공항" }))).toBe(true);
+    expect(isMoveTransport(item({ name: "KTX 101 서울→부산" }))).toBe(true);
+    expect(isMoveTransport(item({ name: "도쿄 서브웨이 티켓 72시간권" }))).toBe(false);
+    expect(isMoveTransport(item({ name: "ICOCA 충전" }))).toBe(false);
   });
 });
 

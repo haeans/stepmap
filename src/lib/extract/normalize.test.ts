@@ -56,6 +56,28 @@ describe("normalizeItems", () => {
     expect(items.map((i) => i.name)).toEqual(["빅토리아 피크"]);
   });
 
+  it("개인 교통은 버리고, 교통카드는 메모로, 교통 패스는 추천 없이 DAY 1 (C10 F30)", () => {
+    const transport = { ...base, kind: "transport", suggested_day: 2, suggested_time: "10:00" };
+    const items = normalizeItems(
+      [
+        { ...transport, name: "택시 우에노→신주쿠 그레이스리 호텔" },
+        { ...transport, name: "지하철 신주쿠→시부야" },
+        { ...transport, name: "ICOCA 충전", cost_amount: 3000, cost_currency: "JPY" },
+        { ...transport, name: "도쿄 서브웨이 티켓 72시간권" },
+        { ...transport, name: "스카이라이너 나리타공항→우에노" },
+      ],
+      ctx,
+    );
+    expect(items.map((i) => [i.name, i.kind])).toEqual([
+      ["ICOCA 충전", "memo"],
+      ["도쿄 서브웨이 티켓 72시간권", "transport"],
+      ["스카이라이너 나리타공항→우에노", "transport"],
+    ]);
+    expect(items[0].costAmount).toBe(3000);
+    expect(items[1]).toMatchObject({ day: 1, time: null, suggest: null });
+    expect(items[2].suggest).not.toBeNull(); // 승차권은 지금처럼 추천
+  });
+
   it("지원하는 통화는 금액 칸에 넣는다", () => {
     const [item] = normalizeItems([{ ...base, cost_amount: 120.456, cost_currency: "hkd" }], ctx);
     expect(item.costAmount).toBe(120.46);

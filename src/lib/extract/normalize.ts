@@ -2,11 +2,14 @@
 // 저장할 때는 미리보기에서 고친 값으로 validation.ts 검사를 다시 거친다.
 // F18: 원문에 일차·시각이 없으면 AI 추천값을 쓰고 "추천"으로 표시한다. 추천도 없으면 일정이 가장 적은 날을 추천한다.
 // (B16의 "모르면 DAY 1"은 없앤다. [hyunw0000-f18-ai-suggest] 결정 1)
+// C10 F30: 택시·지하철 같은 개인 교통은 GO에도 일정에도 쓰지 않아 버린다. 교통카드(ICOCA 충전 등)는 메모 항목으로 바꾼다.
+// 교통 패스는 "언제 타는지"가 없는 표라 추천 없이 원문 일차(없으면 DAY 1), 시각 없이 넣는다. 모델(Gemini·Claude)과 상관없이 여기서 정한다.
 
 import { MAX_DAYS } from "@/lib/trips/days";
 import { CURRENCIES, ITEM_KINDS, type ItemKind } from "@/lib/items/types";
 import { BOOKING_LINK_KINDS, BOOKING_NO_KINDS } from "@/lib/items/types";
 import type { ItemInput } from "@/lib/items/validation";
+import { transportKind } from "@/lib/trips/go-info";
 import { revealOne, stripPlaceholders, type Vault } from "./vault";
 
 export const MAX_TEXT_LENGTH = 5000;
@@ -109,18 +112,21 @@ export function normalizeItems(raw: RawItem[], ctx: SuggestContext): ExtractedIt
     // F20: 이름에 자리표시가 들어오면 지운다(공개 칸에 예약번호·링크가 들어가지 않게).
     const name = clip(ctx.vault ? stripPlaceholders(r.name ?? "").text : (r.name ?? ""), 200);
     if (!name || !(ITEM_KINDS as readonly string[]).includes(r.kind)) continue;
-    const kind = r.kind as ItemKind;
+    const transport = r.kind === "transport" ? transportKind({ kind: "transport", name, address: r.address ?? "", memo: r.memo ?? "" }) : null;
+    if (transport === "personal") continue;
+    const kind: ItemKind = transport === "card" ? "memo" : (r.kind as ItemKind);
+    const pass = transport === "pass";
     const cost = toCost(r.cost_amount, r.cost_currency);
 
     const textDay = toDay(r, ctx.startDate);
     const aiDay = typeof r.suggested_day === "number" && Number.isFinite(r.suggested_day) ? clampDay(r.suggested_day, dayCount) : null;
-    const day = textDay ?? aiDay ?? leastBusyDay(busy, dayCount);
+    const day = textDay ?? (pass ? 1 : (aiDay ?? leastBusyDay(busy, dayCount)));
     const textTime = toTime(r.time);
     // 메모는 장소가 아니라 시각을 추천하지 않는다.
-    const aiTime = textTime === null && kind !== "memo" ? toTime(r.suggested_time) : null;
+    const aiTime = textTime === null && kind !== "memo" && !pass ? toTime(r.suggested_time) : null;
     busy[day] = (busy[day] ?? 0) + 1;
 
-    const dayGuessed = textDay === null;
+    const dayGuessed = textDay === null && !pass;
     const timeGuessed = aiTime !== null;
     // 메모는 일차별로 보이지 않으므로(쪽지) 추천으로 띄우지 않고 바로 넣는다.
     const reason = clip(r.reason ?? "", 200) || (dayGuessed && aiDay === null ? FALLBACK_REASON : "");
