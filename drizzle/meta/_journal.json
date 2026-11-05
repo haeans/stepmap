@@ -85,6 +85,20 @@
       "when": 1793759550439,
       "tag": "0011_items_place_photo",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793855392443,
+      "tag": "0012_trip_checks",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1793855395154,
+      "tag": "0013_trip_checks_grants",
+      "breakpoints": true
     }
   ]
 }

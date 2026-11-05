@@ -14,7 +14,6 @@ import { ViewSwitch } from "./view-switch";
 type Props = {
   places: MapPlace[];
   days: number[];
-  missing: number;
   initialId: string | null;
   trip: { id: string; startDate: string | null; endDate: string | null };
   email: string;
@@ -25,12 +24,12 @@ const GAP = 24; // 패널과 핀 사이 여유(px)
 const SWIPE = 40; // 모바일 손잡이를 이만큼(px) 넘게 밀면 펼치거나 접는다 (결정 11)
 
 // 2화면(지도). 머리글 없이 화면 전체가 지도이고, 일정과 버튼은 패널에 둔다: PC는 왼쪽, 모바일은 아래 시트 (F14)
-export function MapView({ places, days, missing, initialId, trip, email, readOnly }: Props) {
+export function MapView({ places, days, initialId, trip, email, readOnly }: Props) {
   // ?item=은 일정 항목 id다. 같은 숙소 핀이 둘이면 앞 일차 핀을 고른다 (F25)
   const initial = places.find((p) => p.itemId === initialId) ?? null;
   const [day, setDay] = useState<number | "all">(initial?.day ?? "all");
   const [selectedId, setSelectedId] = useState<string | null>(initial?.id ?? null);
-  // 핀 위 팝업 (F25). 핀을 누르거나 ?item= 링크로 들어오면 연다. 목록 줄·자동 고르기로는 열지 않는다.
+  // 핀 위 팝업 (F25, F32). 핀·목록 줄을 누르거나 ?item= 링크로 들어오면 연다. 일차 바꾸기·자동 고르기로는 열지 않는다.
   const [popupOpen, setPopupOpen] = useState(initial !== null);
   const [expanded, setExpanded] = useState(false); // 모바일 시트에서 목록을 펼쳤는가
   const [collapsed, setCollapsed] = useState(false); // PC 패널을 접었는가 (결정 10)
@@ -99,11 +98,11 @@ export function MapView({ places, days, missing, initialId, trip, email, readOnl
     setPopupOpen(false);
   }
 
-  // 목록에서 고르기: 모바일 시트는 펼친 채로 두고 지도만 옮긴다 (결정 11).
-  // 팝업은 열지 않는다. 모바일에서 시트를 펼친 채 열면 위에 남은 좁은 지도에서 팝업이 잘린다 (F25)
+  // 목록에서 고르기: 모바일 시트는 펼친 채로 두고 지도를 옮기며 핀 위 팝업을 연다 (F32, F25 결정 5를 고침).
+  // 시트를 펼친 채 열면 위에 남은 지도에서 팝업이 잘릴 수 있어 모바일 시트 높이(F32 ⑨)로 푼다.
   function choosePlace(id: string) {
     setSelectedId(id);
-    setPopupOpen(false);
+    setPopupOpen(true);
   }
 
   // 지도에서 핀 고르기: 핀 위 팝업을 연다. 모바일 시트와 PC 패널은 그대로 둔다 (F25).
@@ -161,10 +160,11 @@ export function MapView({ places, days, missing, initialId, trip, email, readOnl
         </button>
       )}
 
+      {/* 모바일 시트는 화면 절반까지만(max-h-[50%], F32 ⑨): 목록 줄을 눌러 연 팝업이 시트에 가리지 않게 한다. PC 패널은 높이 제한 없음 */}
       <div
         ref={panelRef}
         inert={collapsed}
-        className={`absolute inset-x-0 bottom-0 z-10 flex max-h-[75%] flex-col rounded-t-3xl border-t border-zinc-200 bg-white/90 shadow-2xl shadow-black/20 backdrop-blur-xl transition-transform duration-300 md:inset-y-4 md:right-auto md:left-4 md:max-h-none md:w-[22rem] md:rounded-3xl md:border dark:border-zinc-800 dark:bg-zinc-950/90 ${collapsed ? "md:-translate-x-[calc(100%+2rem)]" : ""}`}
+        className={`absolute inset-x-0 bottom-0 z-10 flex max-h-[50%] flex-col rounded-t-3xl border-t border-zinc-200 bg-white/90 shadow-2xl shadow-black/20 backdrop-blur-xl transition-transform duration-300 md:inset-y-4 md:right-auto md:left-4 md:max-h-none md:w-[22rem] md:rounded-3xl md:border dark:border-zinc-800 dark:bg-zinc-950/90 ${collapsed ? "md:-translate-x-[calc(100%+2rem)]" : ""}`}
       >
         {/* PC 여닫이 탭: 패널 오른쪽 가장자리 세로 가운데 (결정 10) */}
         <button
@@ -228,10 +228,18 @@ export function MapView({ places, days, missing, initialId, trip, email, readOnl
                   <span className="text-xs text-zinc-500">장소 {dayPlaces.length}곳</span>
                 </div>
                 {dayPlaces.length === 0 && <p className="px-1 text-xs text-zinc-500">지도에 올릴 장소가 없습니다.</p>}
-                {dayPlaces.map((p) => {
+                {dayPlaces.map((p, i) => {
                   const active = p.id === selectedId;
                   return (
-                    <div key={p.id} data-place={p.id} className="flex flex-col gap-1.5">
+                    <div key={p.id} data-place={p.id} className="relative flex flex-col gap-1.5">
+                      {/* 같은 일차 안에서 번호 원 가운데끼리 잇는 세로 점선 (F32). 마지막 줄에는 없다. 원이 위에 올라 선 끝을 가린다. */}
+                      {i < dayPlaces.length - 1 && (
+                        <span
+                          aria-hidden
+                          className="pointer-events-none absolute top-1/2 left-[22px] h-[calc(100%+0.375rem)] -translate-x-1/2 border-l-2 border-dotted opacity-60"
+                          style={{ borderColor: dayColor(p.day) }}
+                        />
+                      )}
                       <button
                         type="button"
                         onClick={() => choosePlace(p.id)}
@@ -240,7 +248,7 @@ export function MapView({ places, days, missing, initialId, trip, email, readOnl
                         style={active ? ({ "--tw-ring-color": dayColor(p.day) } as CSSProperties) : undefined}
                       >
                         <span
-                          className="flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white shadow-md transition group-hover:scale-110"
+                          className="relative z-10 flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white shadow-md transition group-hover:scale-110"
                           style={{ background: dayColor(p.day) }}
                         >
                           {p.order}
@@ -248,7 +256,7 @@ export function MapView({ places, days, missing, initialId, trip, email, readOnl
                         <span className="min-w-0">
                           <span className="block font-semibold break-words">{p.name}</span>
                           <span className="block truncate text-xs text-zinc-500">
-                            {[p.hub ? hubLabel(p.hub) : ITEM_KIND_LABELS[p.kind], formatTime(p.time), p.address].filter(Boolean).join(" · ")}
+                            {[p.hub ? hubLabel(p.hub) : ITEM_KIND_LABELS[p.kind], formatTime(p.time)].filter(Boolean).join(" · ")}
                           </span>
                         </span>
                       </button>
@@ -258,7 +266,6 @@ export function MapView({ places, days, missing, initialId, trip, email, readOnl
               </li>
             );
           })}
-          {missing > 0 && <li className="rounded-2xl bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-950 dark:text-amber-300">위치를 찾지 못한 장소 {missing}개는 지도에 없습니다.</li>}
         </ol>
       </div>
     </section>

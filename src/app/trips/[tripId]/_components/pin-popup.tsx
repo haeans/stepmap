@@ -5,7 +5,8 @@ import { useEffect } from "react";
 import { formatTime } from "@/lib/items/types";
 import { hubLabel, type MapPlace } from "@/lib/map/places";
 
-// 핀 위 팝업 (C9 F25, R-06 b안): 이름과 시간·주소·메모 표(값이 없으면 줄을 숨김), 오른쪽 아래 구글맵 아이콘.
+// 핀 위 팝업 (C9 F25, R-06 b안): 이름과 시간·메모·주소 표(값이 없으면 줄을 숨김), 구글맵 아이콘.
+// 구글맵 아이콘은 표의 마지막 줄(주소가 있으면 주소 줄) 오른쪽에 두고, 표가 없는 핀(거점)이면 제목 줄 X 옆에 둔다 (F32 ⑧).
 // 예약번호·예약 링크는 넣지 않는다. 공항·역·터미널 거점은 주소·메모가 없어 이름, "공항 · 도착", 시간만 보인다.
 // 마지막 날 아침 숙소의 시각은 핀 목록(schedulePins)에서 이미 비어 온다.
 // 닫기: 작은 X 버튼·Esc는 여기서, 지도 빈 곳 누르기는 route-map.tsx가 처리한다.
@@ -68,9 +69,10 @@ export function PinPopup({ place, anchor, onClose }: Props) {
 
   const rows = [
     { label: "시간", value: formatTime(place.time) },
-    { label: "주소", value: place.address },
     { label: "메모", value: place.memo },
+    { label: "주소", value: place.address },
   ].filter((r) => r.value);
+  const mapsLink = <MapsLink place={place} />;
 
   return (
     // 구글 X 버튼은 크기를 바꿀 수 없어 머리글을 끄고 제목·X를 직접 그린다
@@ -82,6 +84,8 @@ export function PinPopup({ place, anchor, onClose }: Props) {
             <p className="text-base leading-snug font-bold break-words">{place.name}</p>
             {place.hub && <p className="text-sm text-zinc-600">{hubLabel(place.hub)}</p>}
           </div>
+          {/* 표가 없는 핀(거점)은 구글맵 아이콘을 X 옆에 둔다 */}
+          {rows.length === 0 && mapsLink}
           <button
             type="button"
             onClick={onClose}
@@ -98,29 +102,34 @@ export function PinPopup({ place, anchor, onClose }: Props) {
         {/* 표: 위쪽 가는 선, 줄 사이 가는 선. 값이 없는 줄은 그리지 않아 선도 함께 사라진다 */}
         {rows.length > 0 && (
           <dl className="divide-y divide-zinc-200 border-t border-zinc-200 leading-snug">
-            {rows.map((r) => (
-              <div key={r.label} className="flex gap-3 py-1.5">
-                <dt className="w-8 shrink-0 text-sm text-zinc-600">{r.label}</dt>
+            {rows.map((r, i) => (
+              <div key={r.label} className="flex items-center gap-3 py-1.5">
+                <dt className="w-8 shrink-0 self-start text-sm text-zinc-600">{r.label}</dt>
                 <dd className="min-w-0 flex-1 text-sm break-words whitespace-pre-line text-zinc-900">{r.value}</dd>
+                {/* 마지막 줄(주소가 있으면 주소 줄) 오른쪽에 구글맵 아이콘. shrink-0이라 좁은 화면에서도 줄바꿈·잘림이 없다 */}
+                {i === rows.length - 1 && mapsLink}
               </div>
             ))}
           </dl>
         )}
-
-        <div className="flex justify-end">
-          <a
-            href={googleMapsUrl(place)}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="구글맵에서 보기"
-            title="구글맵에서 보기"
-            className="flex size-9 items-center justify-center rounded-full bg-zinc-100 text-zinc-800 transition hover:bg-zinc-200 hover:text-zinc-950 active:scale-95"
-          >
-            <GlobeArrowIcon />
-          </a>
-        </div>
       </div>
     </InfoWindow>
+  );
+}
+
+// 구글맵 아이콘 링크. 줄어들지 않는 크기(shrink-0)로 둔다.
+function MapsLink({ place }: { place: MapPlace }) {
+  return (
+    <a
+      href={googleMapsUrl(place)}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="구글맵에서 보기"
+      title="구글맵에서 보기"
+      className="flex size-8 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-800 transition hover:bg-zinc-200 hover:text-zinc-950 active:scale-95"
+    >
+      <GlobeArrowIcon />
+    </a>
   );
 }
 

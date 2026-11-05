@@ -4,17 +4,18 @@
 // - 항공권(비행기 교통 항목), 승차권(기차·버스·배 교통 항목), 숙소 예약(숙소 항목), 교통 패스(이름에 패스·1일권 등이 든 교통 항목):
 //   종류마다 카드 하나로 묶고(F16), 카드 아래 좌우 화살표로 예약을 하나씩 넘겨 본다. 닫기·수정·삭제는 아이콘 버튼(웹은 카드 오른쪽 세로). 카드와 넘기는 순서는 날짜순.
 // - 날씨(WeatherBadge): 여행 제목 오른쪽의 투명 패널. 누르면 날씨 창(F16).
-// - 준비물(Checklist): 매거진 BACK에 둔다. DB 칸이 없어 이 브라우저에만 저장한다(localStorage).
+// - 준비물(Checklist): 매거진 BACK에 둔다. DB(trip_checks)에 저장한다(C10 F31). 공유받은 사람은 보기만 한다.
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode, type RefObject } from "react";
 import { deleteItem, updateItem } from "@/app/actions/items";
 import { compareItems } from "@/lib/items/group";
 import { formatCost, formatTime, type Item } from "@/lib/items/types";
 import type { TripDay } from "@/lib/trips/days";
+import { CHECKLIST_MAX, PACKING_LABEL_MAX, type Check } from "@/lib/trips/packing";
 import { isFlight, isPass, isTicket, parseFlight, parseRide, passLines, returnFlight, stayRange } from "@/lib/trips/go-info";
 import { clothingTip, isRainy, weatherKind, weatherLabel, type TripWeather, type WeatherKind } from "@/lib/weather/codes";
 import { BookingInfo } from "./booking-info";
-import { useChecklist } from "./checklist-store";
+import { addCheck, deleteCheck, moveBrowserChecklist, toggleCheck, useChecklist } from "./checklist-store";
 import { EDIT_PANEL, EditHeader } from "./edit-sheet";
 import { ItemForm } from "./item-form";
 
@@ -591,9 +592,9 @@ function PassCard({ item, days }: { item: Item; days: TripDay[] }) {
   );
 }
 
-// ───────── 5. 준비물 (이 브라우저에만 저장) ─────────
+// ───────── 5. 준비물 ─────────
 
-// 저장은 checklist-store.ts (C9 F27에서 꺼냄)
+// 저장은 checklist-store.ts → DB trip_checks (C10 F31)
 
 function dDay(start: string | null): string | null {
   if (!start) return null;
@@ -604,11 +605,29 @@ function dDay(start: string | null): string | null {
   return n > 0 ? `출발까지 D-${n}` : n === 0 ? "오늘 출발" : "여행 중이거나 다녀온 여행";
 }
 
-// 매거진 BACK의 준비물 (F16). 공유받은 사람에게는 보이지 않는다(B76, 매거진에서 readOnly면 넣지 않음).
+// 매거진 BACK의 준비물 (F16). 같이 챙기는 목록이라 공유받은 사람도 본다(C10 F31). 더하기·체크·빼기는 소유자만(readOnly면 숨김, 실제로 막는 것은 RLS).
 // - 처음에는 비어 있고 제목 옆 "＋ 준비물 추가"로 하나씩 더한다. 하나라도 있으면 반투명 패널(BACK의 다른 칸과 같은 모양)이 생긴다.
 // - 패널은 서랍처럼 접힌다. 접으면 진행률 원과 개수만 보인다.
-export function Checklist({ tripId, startDate, weather, title, panelClassName }: { tripId: string; startDate: string | null; weather: TripWeather | null; title: ReactNode; panelClassName: string }) {
-  const [checks, save] = useChecklist(tripId);
+// - 여행 하나에 30개까지(CHECKLIST_MAX). 다 차면 입력 칸 대신 안내를 보인다.
+export function Checklist({
+  tripId,
+  initialChecks,
+  readOnly,
+  startDate,
+  weather,
+  title,
+  panelClassName,
+}: {
+  tripId: string;
+  initialChecks: Check[];
+  readOnly: boolean;
+  startDate: string | null;
+  weather: TripWeather | null;
+  title: ReactNode;
+  panelClassName: string;
+}) {
+  const checks = useChecklist(tripId, initialChecks);
+  const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [open, setOpen] = useState(true);
   const [text, setText] = useState("");
@@ -617,22 +636,36 @@ export function Checklist({ tripId, startDate, weather, title, panelClassName }:
   const rainy = weather?.days.find(isRainy);
   const r = 22;
   const circ = 2 * Math.PI * r;
+  const isFull = checks.length >= CHECKLIST_MAX;
 
-  const form = (
+  // C9까지 이 브라우저에 저장했던 준비물을 DB로 한 번 옮긴다 (소유자만)
+  useEffect(() => {
+    if (!readOnly) void moveBrowserChecklist(tripId);
+  }, [tripId, readOnly]);
+
+  async function apply(task: Promise<{ ok: boolean; error?: string }>) {
+    setError(null);
+    const result = await task;
+    if (!result.ok) setError(result.error ?? null);
+  }
+
+  const form = isFull ? (
+    <p className="text-xs text-white/60">준비물은 {CHECKLIST_MAX}개까지 넣을 수 있어요.</p>
+  ) : (
     <form
       onSubmit={(e) => {
         e.preventDefault();
         const label = text.trim();
         if (!label) return;
-        save([...checks, { id: `u${Date.now()}`, label, done: false }]);
         setText("");
+        void apply(addCheck(tripId, checks, label));
       }}
       className="flex gap-2"
     >
       <input
         value={text}
         onChange={(e) => setText(e.target.value)}
-        maxLength={40}
+        maxLength={PACKING_LABEL_MAX}
         autoFocus
         placeholder="예: 여권, 보조배터리"
         aria-label="준비물 더하기"
@@ -644,10 +677,14 @@ export function Checklist({ tripId, startDate, weather, title, panelClassName }:
     </form>
   );
 
+  // 공유받은 사람: 빈 목록이면 칸을 보이지 않는다
+  if (readOnly && checks.length === 0) return null;
+
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
         {title}
+        {!readOnly && (
         <button
           type="button"
           onClick={() => {
@@ -658,10 +695,11 @@ export function Checklist({ tripId, startDate, weather, title, panelClassName }:
         >
           {adding ? "다 넣었어요" : "＋ 준비물 추가"}
         </button>
+        )}
       </div>
 
       {checks.length === 0 ? (
-        adding && <div className={`${panelClassName} p-4`}>{form}</div>
+        !readOnly && adding && <div className={`${panelClassName} p-4`}>{form}</div>
       ) : (
         <div className={`${panelClassName} p-4`}>
           {/* 머리: 진행률 원 + 개수. 누르면 서랍이 접히고 펼쳐진다. */}
@@ -695,34 +733,38 @@ export function Checklist({ tripId, startDate, weather, title, panelClassName }:
                 <ul className="max-h-72 divide-y divide-white/10 overflow-y-auto">
                   {checks.map((c) => (
                     <li key={c.id} className="group flex items-center gap-3 py-2.5">
-                      <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
+                      <label className={`flex min-w-0 flex-1 items-center gap-3 ${readOnly ? "" : "cursor-pointer"}`}>
                         <input
                           type="checkbox"
                           checked={c.done}
-                          onChange={() => save(checks.map((x) => (x.id === c.id ? { ...x, done: !x.done } : x)))}
-                          className="size-5 shrink-0 cursor-pointer accent-amber-400"
+                          disabled={readOnly}
+                          onChange={() => void apply(toggleCheck(tripId, checks, c))}
+                          className="size-5 shrink-0 cursor-pointer accent-amber-400 disabled:cursor-default"
                         />
                         <span className={`truncate ${c.done ? "text-white/40 line-through" : ""}`}>{c.label}</span>
                       </label>
                       {rainy && c.label.includes("우산") && <span className="shrink-0 text-xs font-semibold text-sky-300">{md(rainy.date).slice(0, 5)} 비 {weather?.source === "forecast" ? "예보" : "(작년)"}</span>}
+                      {!readOnly && (
                       <button
                         type="button"
-                        onClick={() => save(checks.filter((x) => x.id !== c.id))}
+                        onClick={() => void apply(deleteCheck(tripId, checks, c))}
                         aria-label={`${c.label} 빼기`}
                         className="shrink-0 rounded-full px-1.5 text-white/30 opacity-0 transition group-hover:opacity-100 hover:text-white focus:opacity-100"
                       >
                         ✕
                       </button>
+                      )}
                     </li>
                   ))}
                 </ul>
-                {adding && form}
-                <p className="text-[11px] text-white/45">준비물은 이 브라우저에만 저장돼요.</p>
+                {!readOnly && adding && form}
+                {readOnly && <p className="text-[11px] text-white/45">체크는 여행을 만든 사람이 해요.</p>}
               </div>
             </div>
           </div>
         </div>
       )}
+      {error && <p className="text-xs text-rose-200">{error}</p>}
     </div>
   );
 }

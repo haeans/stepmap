@@ -16,6 +16,7 @@ import { mergeByTime, type Merged } from "@/lib/items/merge-by-time";
 import type { Item } from "@/lib/items/types";
 import { dayColor } from "@/lib/map/places";
 import type { TripDay } from "@/lib/trips/days";
+import type { Check } from "@/lib/trips/packing";
 import { dayAreas } from "@/lib/trips/areas";
 import { averageColor, hueBackground, hueFromText, placeholderCover, toneBackground } from "@/lib/trips/tone";
 import type { Trip } from "@/lib/trips/types";
@@ -41,6 +42,7 @@ type Props = {
   count: number;
   dayOptions: TripDay[];
   readOnly: boolean;
+  checks: Check[]; // 준비물 (C10 F31, 서버에서 읽음)
   coverUrl?: string | null; // F08 머지 후 여행의 대표 이미지 주소를 넘긴다
   weather?: TripWeather | null; // GO 패널 날씨 (서버에서 구함)
   photos?: Record<string, string>; // 항목 id → 직접 넣은 사진 주소. 없으면 일차 색 그라데이션
@@ -355,7 +357,7 @@ function DayBlock({
   );
 }
 
-export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = null, photos = {}, weather = null }: Props) {
+export function MagazineView({ trip, grouped, dayOptions, readOnly, checks, coverUrl = null, photos = {}, weather = null }: Props) {
   const hue = hueFromText(trip.destination || trip.title);
   const photoTone = usePhotoTone(coverUrl);
   const background = photoTone ?? hueBackground(hue);
@@ -444,7 +446,7 @@ export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = n
         </ol>
       </section>
 
-      {/* BACK: 쓴 돈, 쪽지, 준비물(F16, 소유자만) */}
+      {/* BACK: 쓴 돈, 쪽지, 준비물(F16. C10 F31부터 공유받은 사람도 보기만) */}
       <section aria-labelledby="m-back" className="flex flex-col gap-6">
         <Heading id="m-back">BACK</Heading>
         <div className="grid gap-6 sm:grid-cols-2">
@@ -468,9 +470,17 @@ export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = n
               <Cards items={grouped.memos} empty="메모가 없습니다." days={dayOptions} readOnly={readOnly} />
             </NoteComposer>
           )}
-          {!readOnly && (
+          {(!readOnly || checks.length > 0) && (
             <Reveal>
-              <Checklist tripId={trip.id} startDate={trip.start_date} weather={weather} title={<p className="font-medium text-white/80">준비물</p>} panelClassName={PANEL} />
+              <Checklist
+                tripId={trip.id}
+                initialChecks={checks}
+                readOnly={readOnly}
+                startDate={trip.start_date}
+                weather={weather}
+                title={<p className="font-medium text-white/80">준비물</p>}
+                panelClassName={PANEL}
+              />
             </Reveal>
           )}
         </div>

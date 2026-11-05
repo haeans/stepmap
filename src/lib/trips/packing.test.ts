@@ -45,4 +45,12 @@ describe("mergePacking", () => {
     expect(added).toBe(1);
     expect(next).toEqual([checks[0], { id: "n0", label: "우산", done: false }]);
   });
+
+  it("목록은 30개까지만 채우고 못 더한 개수를 알려 준다 (C10 F31)", () => {
+    const checks = Array.from({ length: 28 }, (_, i) => ({ id: `c${i}`, label: `물건${i}`, done: false }));
+    const { next, added, full } = mergePacking(checks, ["여권", "우산", "선크림"], (i) => `n${i}`);
+    expect(next).toHaveLength(30);
+    expect(added).toBe(2);
+    expect(full).toBe(1);
+  });
 });
