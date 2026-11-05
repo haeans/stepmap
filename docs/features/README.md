@@ -67,7 +67,7 @@ v1.0 이후 분담은 ① 시작 회의에서 정하고, haeans가 킥오프 PR�
 | F18 | AI 일정 도우미 1: 일차·시각 없는 일정 추천 (1단계, F17 위에 쌓기) | [#38](https://github.com/haeans/stepmap/issues/38) | hyunw0000 | `hyunw0000/f18-ai-suggest` | [작업 파일](../work/hyunw0000-f18-ai-suggest.md) | 없음 | 반영 완료 (PR #46) |
 | F19 | AI 일정 도우미 2: 대화로 새 일정 짜기·저장된 일정 고치기·지우기 → 허락하면 반영 (1단계) | [#39](https://github.com/haeans/stepmap/issues/39) | hyunw0000 | `hyunw0000/f19-ai-planner` | [작업 파일](../work/hyunw0000-f19-ai-planner.md) | 없음 | 반영 완료 (PR #51) |
 | F20 | 예약 정보 보호: 예약번호·링크 마스킹 (1단계) | [#40](https://github.com/haeans/stepmap/issues/40) | haeans | `haeans/f20-booking-mask` | [작업 파일](../work/haeans-f20-booking-mask.md) | **있음** (0009, 0010 반영됨) | 반영 완료 (PR #50) |
-| F21 | 디자인 마무리: 첫 화면·목록 배경·매거진 배경·새 여행 버튼·파비콘 (C9 2단계, C9 킥오프에서 범위 고침. 상단바·지도 로고 교체는 F23에서 함, B182) | [#41](https://github.com/haeans/stepmap/issues/41) | 미정 (디자인 담당) | `<담당>/f21-design-finish` | | 없음 | 킥오프 |
+| F21 | 디자인 마무리: 첫 화면·목록 배경·매거진 배경·새 여행 버튼·파비콘 (C9 2단계, C9 킥오프에서 범위 고침. 상단바·지도 로고 교체는 F23에서 함, B182) | [#41](https://github.com/haeans/stepmap/issues/41) | hyunw0000 (담당 미정이던 작업을 맡음) | `hyunw0000/f21-design-finish` | [작업 파일](../work/hyunw0000-f21-design-finish.md) | 없음 | 반영 완료 (PR #71) |
 | F22 | 매거진 장소 사진: 관광지는 Wikimedia, 그 밖은 Google Places 사진·출처 표시 (1단계, F15·F16 머지 후) | [#47](https://github.com/haeans/stepmap/issues/47) | haeans | `haeans/f22-place-photos` | [작업 파일](../work/haeans-f22-place-photos.md) | **있음** (0011 반영됨) | 반영 완료 (PR #54) |
 | F23 | 상단바·프로필 버튼 통일, 로고 교체, 일정/지도 버튼 (C9 2단계, 팀 결정으로 F21보다 먼저, B182) | [#56](https://github.com/haeans/stepmap/issues/56) | haeans | `haeans/f23-top-bar` | [작업 파일](../work/haeans-f23-top-bar.md) | 없음 | 반영 완료 (PR #68) |
 | F24 | 여행 목록 정리: 미리보기 첫 일정·⋯ 메뉴·"발자국"·새 여행 필수 칸 (C9 1단계) | [#57](https://github.com/haeans/stepmap/issues/57) | haeans | `haeans/f24-trip-list` | [작업 파일](../work/haeans-f24-trip-list.md) | 없음 | 반영 완료 (PR #63) |
@@ -75,6 +75,7 @@ v1.0 이후 분담은 ① 시작 회의에서 정하고, haeans가 킥오프 PR�
 | F26 | 하루 일정 규칙·사진 대체(로고)·항공권/승차권 기준·예약 링크 열기 버튼 (C9 1단계, **가장 먼저**) | [#59](https://github.com/haeans/stepmap/issues/59) | hyunw0000 | `hyunw0000/f26-day-rules` | [작업 파일](../work/hyunw0000-f26-day-rules.md) | 없음 | 반영 완료 (PR #65) |
 | F27 | BACK 정리: 준비물 붙여넣기 버그·쓴 돈 합계와 정산 버튼·쓴 돈 수정 버그 (C9 1단계) | [#60](https://github.com/haeans/stepmap/issues/60) | haeans (hyunw0000에서 바뀜) | `haeans/f27-back-fixes` | [작업 파일](../work/haeans-f27-back-fixes.md) | 없음 | 반영 완료 (PR #66) |
 | F28 | 추출 미리보기를 매거진 DAY BY DAY로, 사진 포함 (C9 1단계, F27 위에 쌓기) | [#61](https://github.com/haeans/stepmap/issues/61) | hyunw0000 | `hyunw0000/f28-magazine-preview` | [작업 파일](../work/hyunw0000-f28-magazine-preview.md) | 없음 | 반영 완료 (PR #69) |
+| F29 | 하루 일정 숙소 규칙 고침: 끝 숙소 시각 숨김·숙소를 옮기는 날·미리보기 자리 유지·기간 넘는 일차 (C9 1단계 뒤 고침, 킥오프 표 밖에서 먼저 한 작업) | [#73](https://github.com/haeans/stepmap/issues/73) | hyunw0000 | `hyunw0000/fix-day-lodging` | [작업 파일](../work/hyunw0000-fix-day-lodging.md) | 없음 | 반영 완료 (PR #72) |
 
 > C7 (2026-11-02 킥오프, 2026-11-03 최신화): 범위는 `01-PRD.md` 4절 "C7". F07~F11은 머지 후 공통 문서에 반영했다(`decisions.md` B39~B83). DB 변경은 F08 하나뿐이었다(B34, 마이그레이션 0007·0008). F11 "리스트 탭"은 별도 탭이 아니라 매거진 "종이" 개편으로 진행했고(B77, B78), 유지 여부는 팀이 써 본 뒤 정한다(`open-questions.md`). F12는 보류다.
 
@@ -90,13 +91,16 @@ v1.0 이후 분담은 ① 시작 회의에서 정하고, haeans가 킥오프 PR�
 
 > C9 1단계 끝·F23 최신화 (2026-11-05, `haeans/sync-c9`): F26·F27·F25·F23·F28을 머지 후 공통 문서에 반영했다(`decisions.md` B151~B189). F27 담당은 작업 중 hyunw0000에서 haeans로 바뀌었다(이슈 #60). F23은 팀 결정으로 F21보다 먼저 했고(담당 haeans), 상단바·지도의 로고 교체도 F23에서 했다(B181, B182). 하루 일정 규칙 고침(매일 숙소로 시작·끝, 첫날 경유 버그)은 보류다(`open-questions.md`). 남은 작업: 2단계 F21(담당 미정). 테스트에서 나온 자잘한 고침은 다음 킥오프에서 한꺼번에 정한다.
 
+> C9 F21·F29 최신화 (2026-11-05, `haeans/sync-c9-f21`): F21(#71)·F29(#72)를 머지 후 공통 문서에 반영했다(`decisions.md` B190~B202). F21은 담당 미정이던 작업을 hyunw0000이 맡았다. F29는 hyunw0000이 일정 탭을 써 보다 찾은 문제를 킥오프 없이 먼저 고친 작업이라, 이슈 #73과 이 표의 줄을 최신화에서 만들었다(브랜치 이름 `fix-day-lodging`은 이미 머지되어 그대로 둔다). B151(하루 일정 규칙)·B184(미리보기)를 고쳤고, 이 최신화 PR 승인이 합의 기록이다. 이것으로 C9 작업이 모두 끝났다. 남은 질문과 테스트에서 나온 고침은 다음 킥오프에서 정한다.
+
 ### C9 진행 순서
 
 | 단계 | 묶음 A (haeans) | 묶음 B (hyunw0000) | 묶음 C (leedaekeon578) |
 |---|---|---|---|
 | 1단계 (킥오프 머지 후 동시에 시작) | ① F24 | ① F26 (가장 먼저) → ② F27 → ③ F28 (F27 위에 쌓기) | ① F25 (삭제 작업부터) |
 | 2단계 (1단계 모두 배포 후) | 검수 | 검수 | — |
-| 2단계 디자인 | F23 (haeans, 먼저 함, B182) → F21 (담당 미정) | | |
+| 2단계 디자인 | F23 (haeans, 먼저 함, B182) → F21 (hyunw0000) | | |
+| 1단계 뒤 고침 | | F29 (하루 일정 숙소 규칙, #72) | |
 
 **먼저 끝나야 시작(또는 마무리)할 수 있는 작업**
 
