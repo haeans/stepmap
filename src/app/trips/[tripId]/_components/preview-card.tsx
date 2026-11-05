@@ -21,6 +21,45 @@ import { removePreviews, updatePreview, type PendingPreview } from "./previews";
 
 type Props = { tripId: string; preview: PendingPreview; color: string; days: TripDay[] };
 
+// AI가 채운 일차·시각 표시(추천 카드와 같은 모양, C10 F33)
+const MARK = <span className="text-amber-200"> (추천)</span>;
+
+// 미리보기 거점 카드(첫날 도착 공항·마지막 날 출발 공항)의 [빼기][넣기]. 넣으면 교통 항목이 저장되어 GO와 저장된 거점 카드가 된다. (C10 F33)
+export function PreviewActions({ tripId, preview }: { tripId: string; preview: PendingPreview }) {
+  const [saving, startSave] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  function onAccept() {
+    startSave(async () => {
+      const result = await saveExtractedItems(tripId, { error: null, saved: null }, itemsForm([preview.item]));
+      if (result.error) setError(result.error);
+      else removePreviews(tripId, [preview.id]);
+    });
+  }
+  return (
+    <>
+      {error && <span className="max-w-40 truncate rounded-full bg-rose-500/80 px-2.5 py-1 text-white">{error}</span>}
+      <button
+        type="button"
+        onClick={() => removePreviews(tripId, [preview.id])}
+        disabled={saving}
+        aria-label={`${preview.item.name} 미리보기 빼기`}
+        className="rounded-full bg-black/55 px-3 py-1.5 font-semibold text-rose-200 backdrop-blur-md transition hover:bg-rose-500/70 hover:text-white active:scale-95 disabled:opacity-50"
+      >
+        빼기
+      </button>
+      <button
+        type="button"
+        onClick={onAccept}
+        disabled={saving}
+        aria-label={`${preview.item.name} 일정에 넣기`}
+        className="rounded-full bg-white px-3 py-1.5 font-semibold text-zinc-900 shadow transition hover:bg-white/85 active:scale-95 disabled:opacity-50"
+      >
+        {saving ? "넣는 중…" : "넣기"}
+      </button>
+    </>
+  );
+}
+
 // none: 사진을 찾지 않는 종류(교통·메모), loading: 찾는 중, done: 응답, error: 부르지 못함
 type PhotoState = { status: "none" } | { status: "loading" } | { status: "done"; result: PreviewPhotoResponse } | { status: "error" };
 
@@ -91,7 +130,7 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 }
 
 export function PreviewCard({ tripId, preview, color, days }: Props) {
-  const { item } = preview;
+  const { item, suggest } = preview;
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, startSave] = useTransition();
@@ -218,10 +257,13 @@ export function PreviewCard({ tripId, preview, color, days }: Props) {
             <dl className="divide-y divide-white/10">
               <Row label="시간">
                 {`DAY ${item.day}`}
+                {suggest?.day && MARK}
                 {date && ` · ${date}`}
                 {" · "}
                 {item.time || "시각 미정"}
+                {suggest?.time && item.time && MARK}
               </Row>
+              {suggest?.reason && <Row label="추천 이유">{suggest.reason}</Row>}
               {cost && <Row label="비용">{cost}</Row>}
               {item.address && <Row label="주소">{item.address}</Row>}
               {item.booking?.no && <Row label="예약번호">저장하면 나만 볼 수 있게 저장돼요</Row>}

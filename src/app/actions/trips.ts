@@ -6,7 +6,9 @@ import { requireUser } from "@/lib/auth/user";
 import { COVER_BUCKET, coverObjectPath } from "@/lib/cover/cover";
 import { findDestinationArea } from "@/lib/cover/destination";
 import { notifyDownload, searchCover } from "@/lib/cover/unsplash";
+import { periodLength, shiftForPeriod } from "@/lib/extract/period";
 import { createClient } from "@/lib/supabase/server";
+import { MAX_DAYS } from "@/lib/trips/days";
 import { parseTitle, parseTripForm } from "@/lib/trips/validation";
 
 export type ActionState = { error: string | null };
@@ -87,6 +89,50 @@ export async function setUploadedCover(tripId: string): Promise<ActionState> {
   revalidatePath("/");
   revalidatePath(`/trips/${tripId}`);
   return { error: null };
+}
+
+// C10 F33: 붙여넣은 원문에 맞춰 여행 기간을 바꾼다(사용자가 "맞추기"를 눌렀을 때만). ([hyunw0000-f33-claude-api] 결정 7)
+// 저장된 일정은 날짜를 지킨다: 시작일이 옮겨지면 일차 번호를 그만큼 옮긴다(11/21 일정은 계속 11/21).
+// 새 기간 밖으로 나가는 일정이 있으면 바꾸지 않고 알린다(모르는 사이에 일정이 기간 밖으로 밀리지 않게). 메모는 일차별로 보이지 않아 기간 안으로 당긴다.
+// shift: 일차를 옮긴 수. 화면이 저장 전 미리보기 카드도 같은 만큼 옮긴다.
+export type PeriodState = { error: string | null; shift?: number };
+
+export async function setTripPeriod(tripId: string, startDate: string, endDate: string): Promise<PeriodState> {
+  await requireUser();
+  const DATE = /^\d{4}-\d{2}-\d{2}$/;
+  if (!DATE.test(startDate) || !DATE.test(endDate) || endDate < startDate) return { error: "날짜가 올바르지 않습니다." };
+  const dayCount = periodLength({ startDate, endDate });
+  if (dayCount > MAX_DAYS) return { error: `여행은 ${MAX_DAYS}일까지 정할 수 있습니다.` };
+
+  const supabase = await createClient();
+  const { data: trip } = await supabase.from("trips").select("start_date").eq("id", tripId).maybeSingle();
+  if (!trip) return { error: "여행을 찾을 수 없습니다." };
+  const { data: items, error: itemsError } = await supabase.from("items").select("id, day, kind").eq("trip_id", tripId);
+  if (itemsError) return { error: "일정을 불러오지 못했습니다." };
+
+  const shift = shiftForPeriod(trip.start_date, startDate);
+  const moves = (items ?? []).map((i) => ({ ...i, next: i.day + shift }));
+  const outside = moves.filter((m) => m.kind !== "memo" && (m.next < 1 || m.next > dayCount));
+  if (outside.length) {
+    const byDay = new Map<number, number>();
+    for (const m of outside) byDay.set(m.day, (byDay.get(m.day) ?? 0) + 1);
+    const list = [...byDay].sort((a, b) => a[0] - b[0]).map(([day, n]) => `DAY ${day}에 ${n}개`).join(", ");
+    return { error: `새 기간 밖으로 나가는 일정이 있어요(${list}). 옮기거나 지운 뒤 다시 맞춰 주세요.` };
+  }
+
+  // 일차가 바뀌는 일정만 고친다. 메모는 기간 안으로 당긴다. 소유자 확인은 RLS가 한다.
+  const changed = moves
+    .map((m) => ({ id: m.id, day: m.day, next: Math.min(Math.max(m.next, 1), dayCount) }))
+    .filter((m) => m.next !== m.day);
+  const results = await Promise.all(changed.map((m) => supabase.from("items").update({ day: m.next }).eq("id", m.id).select("id")));
+  if (results.some((r) => r.error || !r.data?.length)) return { error: "일정의 일차를 옮기지 못했습니다. 새로 고침 뒤 다시 시도해 주세요." };
+
+  const { data, error } = await supabase.from("trips").update({ start_date: startDate, end_date: endDate }).eq("id", tripId).select("id");
+  if (error || !data?.length) return { error: "여행 기간을 바꾸지 못했습니다." };
+
+  revalidatePath("/");
+  revalidatePath(`/trips/${tripId}`);
+  return { error: null, shift };
 }
 
 export async function deleteTrip(tripId: string): Promise<ActionState> {

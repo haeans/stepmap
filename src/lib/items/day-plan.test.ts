@@ -97,3 +97,31 @@ describe("dayHub", () => {
     expect(dayHub(item({ kind: "lodging", name: "호텔" }), "to")).toBeNull();
   });
 });
+
+describe("daySchedule: 비행기 공항을 먼저 (C10 F33)", () => {
+  it("첫날 비행기 시각이 비어 있어도 공항으로 시작하고, 마지막 날은 화살표 없는 출발 공항으로 끝난다", () => {
+    const items = [
+      item({ day: 1, time: null, kind: "transport", name: "MM702 →KIX" }),
+      item({ day: 1, time: "11:30:00", kind: "transport", name: "난카이 라피트 간사이공항→난바" }),
+      item({ day: 1, time: "18:00:00", name: "도톤보리" }),
+      item({ day: 2, time: "12:00:00", name: "린쿠 아울렛" }),
+      item({ day: 2, time: "18:40:00", kind: "transport", name: "KIX 간사이공항 출발" }),
+    ];
+    expect(show(daySchedule(1, items))).toEqual(["start:MM702 →KIX(to)", "place:도톤보리"]);
+    expect(show(daySchedule(2, items))).toEqual(["place:린쿠 아울렛", "end:KIX 간사이공항 출발(from)"]);
+    expect(dayHub(items[0], "to")).toEqual({ kind: "airport", name: "간사이 공항" });
+    expect(dayHub(items[4], "from")).toEqual({ kind: "airport", name: "간사이 공항" });
+  });
+  it("공항 목록에 없는 공항도 같은 규칙: 리스본 여행", () => {
+    const items = [
+      item({ day: 1, time: null, kind: "transport", name: "TP1234 →LIS" }),
+      item({ day: 1, time: "14:00:00", kind: "transport", name: "메트로 공항역→바이샤" }),
+      item({ day: 1, time: "16:00:00", name: "벨렝탑" }),
+      item({ day: 3, time: "10:00:00", name: "호카곶" }),
+      item({ day: 3, time: "19:00:00", kind: "transport", name: "LIS 리스본공항 출발" }),
+    ];
+    expect(show(daySchedule(1, items))).toEqual(["start:TP1234 →LIS(to)", "place:벨렝탑"]);
+    expect(show(daySchedule(3, items))).toEqual(["place:호카곶", "end:LIS 리스본공항 출발(from)"]);
+    expect(dayHub(items[4], "from")?.kind).toBe("airport");
+  });
+});

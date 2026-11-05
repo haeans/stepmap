@@ -7,7 +7,7 @@ import { chatMessage } from "@/lib/assistant/prompt";
 import { MAX_CHAT_LENGTH } from "@/lib/assistant/route";
 import { normalizeChanges, normalizeProposal, type ChangeFields, type ProposalChange, type ProposalItem } from "@/lib/assistant/proposal";
 import { requireUser } from "@/lib/auth/user";
-import { chatWithGemini } from "@/lib/extract/gemini";
+import { chatWithAi } from "@/lib/extract/ai";
 import { maskPersonal } from "@/lib/extract/mask";
 import { hideForAi, stripPlaceholders } from "@/lib/extract/vault";
 import { geocodePlace, geocodeQuery } from "@/lib/items/geocode";
@@ -61,7 +61,7 @@ export async function sendChat(tripId: string, request: ChatRequest): Promise<Ch
     history.map((t) => ({ role: t.role, text: safe(t.text) })),
     safe(message),
   );
-  const result = await chatWithGemini(input);
+  const result = await chatWithAi(input);
   if (!result.ok) return { ok: false, error: "답하지 못했습니다. 잠시 뒤 다시 보내 주세요." };
 
   // 모델이 자리표시("[링크1]")를 그대로 옮겨 쓰면 지운다(F20). 대화에서는 원래 값으로 되돌리지 않는다.

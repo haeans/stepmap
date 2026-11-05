@@ -25,8 +25,11 @@ import { ItemCard } from "./item-card";
 import { NoteComposer } from "./note-composer";
 import { PlaceCard } from "./place-card";
 import { PreviewBar } from "./preview-bar";
-import { PreviewCard } from "./preview-card";
-import { usePreviews, type PendingPreview } from "./previews";
+import { PreviewActions, PreviewCard } from "./preview-card";
+import { previewAsItem, usePreviews, type PendingPreview } from "./previews";
+
+// 저장 전 교통 미리보기가 그날의 시작·끝 거점이 될 때(C10 F33). item은 하루 일정 규칙에 넣은 모양.
+type PreviewHub = { preview: PendingPreview; item: Item; side: "from" | "to" };
 import { SuggestionCard } from "./suggestion-card";
 import { useSuggestions, type PendingSuggestion } from "./suggestions";
 import { CostSection } from "./cost-section";
@@ -222,10 +225,12 @@ function DayBlock({
   tripId,
   suggestions,
   previews,
+  hubs,
 }: {
   day: TripDay;
   places: Item[]; // 그날의 관광지·식당 (지역 이름과 개수)
   entries: DayEntry[]; // 하루 일정: 시작 + 장소 + 끝
+  hubs: { start?: PreviewHub; end?: PreviewHub }; // C10 F33: 저장 전 교통이 그날의 시작·끝 거점이면(첫날 도착 공항 등)
   destination: string;
   contentLeft: boolean;
   photos: Record<string, string>;
@@ -237,7 +242,7 @@ function DayBlock({
 }) {
   const [open, setOpen] = useState(false);
   // F18·F28: 추천·미리보기가 새로 들어오면 서랍을 연다(렌더 중에 이전 개수와 비교).
-  const pendingCount = suggestions.length + previews.length;
+  const pendingCount = suggestions.length + previews.length + (hubs.start ? 1 : 0) + (hubs.end ? 1 : 0);
   const [seen, setSeen] = useState(pendingCount);
   if (seen !== pendingCount) {
     setSeen(pendingCount);
@@ -264,7 +269,7 @@ function DayBlock({
   ];
   const card = (e: DayEntry) =>
     e.role !== "place" && e.side ? (
-      <HubCard item={e.item} side={e.side} />
+      <HubCard item={e.item} side={e.side} tripId={tripId} />
     ) : (
       <PlaceCard key={e.item.updated_at} item={e.item} photoUrl={photos[e.item.id]} color={color} days={dayOptions} readOnly={readOnly} role={e.role === "place" ? undefined : e.role} />
     );
@@ -304,6 +309,11 @@ function DayBlock({
                   {/* 시작(전날 숙소·도착 거점)은 맨 위. 그 아래 저장된 장소와 F28 미리보기를 시각순으로 섞는다.
                       그래서 미리보기를 "넣기"로 저장해도 카드가 그 자리에 남는다(fix-day-lodging). 미리보기는 저장 전이라
                       하루 일정 규칙(F26)을 적용하지 않지만, 숙소 미리보기는 저장 후처럼 그날 끝(출발 거점·숙소) 바로 앞에 둔다. */}
+                  {hubs.start && (
+                    <li key={`hub-start:${hubs.start.preview.id}`}>
+                      <HubCard item={hubs.start.item} side={hubs.start.side} preview tripId={tripId} actions={<PreviewActions tripId={tripId} preview={hubs.start.preview} />} />
+                    </li>
+                  )}
                   {rows.map((r, i) =>
                     r.kind === "saved" ? (
                       <Reveal as="li" key={`${r.value.role}:${r.value.item.id}`} delay={i * 80}>
@@ -330,6 +340,11 @@ function DayBlock({
                       {card(end)}
                     </Reveal>
                   )}
+                  {hubs.end && (
+                    <li key={`hub-end:${hubs.end.preview.id}`}>
+                      <HubCard item={hubs.end.item} side={hubs.end.side} preview tripId={tripId} actions={<PreviewActions tripId={tripId} preview={hubs.end.preview} />} />
+                    </li>
+                  )}
                 </ul>
               </div>
             </div>
@@ -353,6 +368,11 @@ export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = n
   // C9 F28: 붙여넣기 미리보기(이 브라우저에만 있음). 공유받은 사람에게는 보이지 않는다.
   const storedPreviews = usePreviews(trip.id);
   const previews = readOnly ? [] : storedPreviews;
+  // C10 F33: 미리보기에도 하루 일정 규칙(F26)을 쓴다. 교통 미리보기는 DAY 카드로 넣지 않고,
+  // 첫날 도착 거점·마지막 날 출발 거점이 되는 교통만 거점 카드(미리보기)로 보인다. 나머지 교통은 미리보기 줄에 이름만 보인다(GO에 들어감).
+  const previewItems = previews.map((p) => previewAsItem(p, trip.id));
+  const previewById = new Map(previews.map((p) => [p.id, p]));
+  const hubPreviews = new Map<number, { start?: PreviewHub; end?: PreviewHub }>();
   // 추천·미리보기가 여행 기간 뒤 일차에 있으면 그 일차까지 늘려 보인다.
   const days = [...grouped.days];
   // 하루 일정 규칙(C9 F26)은 다른 날의 숙소(전날 밤)와 교통도 봐야 해서 전체 항목으로 계산한다. 메모는 쓰지 않는다.
@@ -361,6 +381,19 @@ export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = n
   const previewDays = [...new Set(previews.map((p) => p.item.day))];
   const lastSuggested = Math.max(0, ...suggestions.map((s) => s.item.day), ...previews.map((p) => p.item.day));
   for (let d = days.length + 1; d <= lastSuggested; d++) days.push({ day: { day: d, date: null }, places: [] });
+  const schedules = new Map(days.map(({ day }) => [day.day, daySchedule(day.day, allItems, previewDays)]));
+  for (const { day } of days) {
+    const saved = schedules.get(day.day) ?? [];
+    const withPreviews = daySchedule(day.day, [...allItems, ...previewItems]);
+    const pick = (e: DayEntry | undefined, role: "start" | "end"): PreviewHub | undefined => {
+      const p = e && e.role === role && e.side ? previewById.get(e.item.id) : undefined;
+      return p && e?.side && !saved.some((s) => s.role === role) ? { preview: p, item: e.item, side: e.side } : undefined;
+    };
+    const start = pick(withPreviews[0], "start");
+    const end = pick(withPreviews.at(-1), "end");
+    if (start || end) hubPreviews.set(day.day, { start, end });
+  }
+  const hubIds = new Set([...hubPreviews.values()].flatMap((h) => [h.start?.preview.id, h.end?.preview.id]).filter((id): id is string => !!id));
 
   return (
     <div className="flex flex-col gap-20 pb-16 text-white">
@@ -388,7 +421,7 @@ export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = n
       {/* DAY 1~N: 기준선 */}
       <section aria-labelledby="m-days" className="flex flex-col gap-10">
         <Heading id="m-days">DAY BY DAY</Heading>
-        <PreviewBar tripId={trip.id} previews={previews} />
+        <PreviewBar tripId={trip.id} previews={previews} goOnly={previews.filter((p) => p.item.kind === "transport" && !hubIds.has(p.id))} />
         <ol className="relative">
           <span aria-hidden className="absolute top-2 bottom-0 left-3 w-px bg-gradient-to-b from-white/50 via-white/25 to-transparent md:left-1/2" />
           {days.map(({ day, places: dayPlaces }, index) => (
@@ -396,7 +429,8 @@ export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = n
               key={day.day}
               day={day}
               places={dayPlaces}
-              entries={daySchedule(day.day, allItems, previewDays)}
+              entries={schedules.get(day.day) ?? []}
+              hubs={hubPreviews.get(day.day) ?? {}}
               destination={trip.destination}
               contentLeft={index % 2 === 0}
               photos={photos}
@@ -404,7 +438,7 @@ export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = n
               readOnly={readOnly}
               tripId={trip.id}
               suggestions={suggestions.filter((s) => s.item.day === day.day)}
-              previews={previews.filter((p) => p.item.day === day.day)}
+              previews={previews.filter((p) => p.item.day === day.day && p.item.kind !== "transport")}
             />
           ))}
         </ol>
