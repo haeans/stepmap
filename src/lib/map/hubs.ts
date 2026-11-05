@@ -4,7 +4,7 @@
 import { compareItems } from "@/lib/items/group";
 import { splitRoute } from "@/lib/items/route-name";
 import type { Item } from "@/lib/items/types";
-import { isFlight, isPass, parseRide } from "@/lib/trips/go-info";
+import { isFlight, isMoveTransport, parseRide } from "@/lib/trips/go-info";
 import type { TravelMode } from "./route-plan";
 
 export type HubKind = "airport" | "station" | "terminal";
@@ -34,11 +34,11 @@ export function hubKind(item: Item): HubKind {
   return isFlight(item) ? "airport" : parseRide(item.name)?.bus ? "terminal" : "station";
 }
 
-// 비행기는 공항, 버스는 터미널, 그 밖은 역. 교통 패스와 화살표 없는 이름은 거점이 없다.
+// 비행기는 공항, 버스는 터미널, 그 밖은 역. 교통 패스·교통카드와 화살표 없는 이름은 거점이 없다(C10 F30).
 // 도착지 뒤에 교통 이름이 붙어도("동서울 -> 속초 고속버스") splitRoute 결과("속초 고속버스")를 그대로 쓴다.
 // 글자가 많을수록 그 터미널·역을 더 잘 찾기 때문이다. (결정 3)
 export function hubQueries(item: Item): HubQueries | null {
-  if (item.kind !== "transport" || isPass(item)) return null;
+  if (!isMoveTransport(item)) return null;
   const { from, to } = splitRoute(item.name);
   if (!from && !to) return null;
   const kind = hubKind(item);

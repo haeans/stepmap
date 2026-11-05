@@ -409,19 +409,20 @@ export function MagazineView({ trip, grouped, dayOptions, readOnly, checks, cove
       >
         {/* 제목 오른쪽에 날씨 투명 패널(F16). 좁은 화면에서는 제목 오른쪽 위에 작게 붙는다. */}
         <Reveal className="flex items-start justify-between gap-3 md:items-end md:gap-6">
+          {/* 제목 위의 작은 목적지 글씨는 빼기로 했다 (C10 F30, 합의) */}
           <div className="flex min-w-0 flex-col gap-3">
-            {trip.destination && <p className="text-sm tracking-[0.3em] text-white/80 uppercase">{trip.destination}</p>}
             <h2 className="text-5xl font-bold tracking-tight break-keep text-white/95 drop-shadow-[0_4px_24px_rgba(0,0,0,0.45)] md:text-8xl">{trip.title}</h2>
           </div>
           {weather && <WeatherBadge weather={weather} />}
         </Reveal>
         <Reveal delay={150}>
-          <TicketStrip items={[...grouped.transport, ...grouped.lodging]} days={dayOptions} readOnly={readOnly} coverImage={image} companions={trip.companions} />
+          <TicketStrip items={[...grouped.transport, ...grouped.lodging]} days={dayOptions} readOnly={readOnly} coverImage={image} companions={trip.companions} photos={photos} />
         </Reveal>
       </section>
 
       {/* DAY 1~N: 기준선 */}
-      <section aria-labelledby="m-days" className="flex flex-col gap-10">
+      {/* GO 카드와 DAY BY DAY 제목 사이는 40px로 다른 칸 사이보다 좁게 (C10 F30) */}
+      <section aria-labelledby="m-days" className="-mt-18 flex flex-col gap-10">
         <Heading id="m-days">DAY BY DAY</Heading>
         <PreviewBar tripId={trip.id} previews={previews} goOnly={previews.filter((p) => p.item.kind === "transport" && !hubIds.has(p.id))} />
         <ol className="relative">

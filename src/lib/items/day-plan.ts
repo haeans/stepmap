@@ -10,7 +10,7 @@
 // 좌표는 보지 않는다. 거점 좌표가 필요한 곳(지도)은 entry의 교통 항목과 side로 찾는다(map/hub-lookup.ts).
 
 import { hubKind, hubQuery, type HubKind } from "@/lib/map/hubs";
-import { isPass, parseFlight } from "@/lib/trips/go-info";
+import { isMoveTransport, parseFlight } from "@/lib/trips/go-info";
 import { compareItems } from "./group";
 import { splitRoute } from "./route-name";
 import type { Item } from "./types";
@@ -23,7 +23,8 @@ export type DayEntry = { role: DayRole; item: Item; side: "from" | "to" | null }
 export type DayHub = { kind: HubKind; name: string };
 
 const isPlace = (i: Item) => i.kind === "sight" || i.kind === "food";
-const isMove = (i: Item) => i.kind === "transport" && !isPass(i);
+// 교통 패스·교통카드는 이동이 아니다 (C10 F30)
+const isMove = (i: Item) => isMoveTransport(i);
 
 // 교통 항목의 한쪽 거점 이름. 그쪽 이름이 없으면 null (거점으로 쓸 수 없다).
 export function dayHub(item: Item, side: "from" | "to"): DayHub | null {
