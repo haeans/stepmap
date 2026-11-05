@@ -86,5 +86,5 @@ PRD 4절 C9 F21 (안건 1, 2, 7). 1단계(F24~F28)가 모두 `main`에 머지된
 ## 8. 자체검수 (2026-11-05)
 
 - `npm run lint`, `npm test`(35개 파일 268개) 통과. `npm run typecheck`는 저장소 코드 오류 없음(작업자 로컬의 git 무시 파일 `src/app/preview/`, `src/lib/local-mock.ts`만 오류).
-- `npm run build`: 아직 안 함.
-- 화면 확인: 아직 안 함.
+- `npm run build`: 저장소 내용만 꺼낸 깨끗한 사본에서 통과.
+- 화면 확인: 작업자가 개발 서버에서 목록·상단바를 보며 고침(상단바 띠 없애기). PC·모바일·다크 모드 전체 확인은 PR 검수 때.
