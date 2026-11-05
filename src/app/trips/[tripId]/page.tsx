@@ -98,6 +98,6 @@ type TripMapProps = {
 
 async function TripMap({ items, days, itemId, trip, email, readOnly }: TripMapProps) {
   // 핀은 하루 일정 규칙(F26 daySchedule)대로. 거점 좌표는 시작·끝 교통만 찾는다 (F25)
-  const { places, missing } = schedulePins(days, items, await findHubs(scheduleHubItems(days, items)));
-  return <MapView places={places} days={days} missing={missing} initialId={itemId} trip={trip} email={email} readOnly={readOnly} />;
+  const { places } = schedulePins(days, items, await findHubs(scheduleHubItems(days, items)));
+  return <MapView places={places} days={days} initialId={itemId} trip={trip} email={email} readOnly={readOnly} />;
 }
