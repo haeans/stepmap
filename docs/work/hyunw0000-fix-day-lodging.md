@@ -82,5 +82,5 @@
 ## 8. 자체검수 (2026-11-05)
 
 - `npm run lint`, `npm test`(36개 파일 273개, 새 `merge-by-time.test.ts` 포함) 통과. `npm run typecheck`는 저장소 코드 오류 없음(작업자 로컬의 git 무시 파일만 오류).
-- `npm run build`: 아직 안 함.
+- `npm run build`: 저장소 내용만 꺼낸 깨끗한 사본에서 통과.
 - 화면 확인: 작업자(hyunw0000)가 로컬에서 실제 Gemini로 여행 B 예시를 붙여넣어 확인했다(2026-11-05).
