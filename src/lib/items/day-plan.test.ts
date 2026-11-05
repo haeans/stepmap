@@ -37,11 +37,23 @@ describe("daySchedule", () => {
   it("가운데 날: 관광지·식당만. 숙소·교통 패스는 넣지 않는다", () => {
     expect(show(daySchedule(2, trip))).toEqual(["place:USJ"]);
   });
-  it("도시를 옮기는 가운데 날도 신칸센·새 숙소 없이 장소만", () => {
-    expect(show(daySchedule(3, trip))).toEqual(["place:기요미즈데라"]);
+  it("숙소를 옮기는 가운데 날: 신칸센은 빠지고 새 숙소로 끝난다", () => {
+    expect(show(daySchedule(3, trip))).toEqual(["place:기요미즈데라", "end:교토 료칸"]);
   });
-  it("마지막 날: 전날 숙소에서 시작해 출발 공항으로 끝난다. 메모는 빠진다", () => {
-    expect(show(daySchedule(4, trip))).toEqual(["start:교토 료칸", "place:후시미 이나리", "end:KE724 간사이 → 인천(from)"]);
+  it("마지막 날: 가운데 날에 숙소를 옮겼으면 숙소 없이 시작해 출발 공항으로 끝난다. 메모는 빠진다", () => {
+    expect(show(daySchedule(4, trip))).toEqual(["place:후시미 이나리", "end:KE724 간사이 → 인천(from)"]);
+  });
+  it("일부만 저장: 미리보기만 있는 마지막 날도 저장된 숙소로 시작하고, 가운데 날에는 숙소가 없다", () => {
+    const saved = trip.filter((i) => i.day === 1);
+    // 2~4일차는 아직 미리보기
+    expect(show(daySchedule(4, saved, [2, 3, 4]))).toEqual(["start:오사카 호텔"]);
+    expect(show(daySchedule(3, saved, [2, 3, 4]))).toEqual([]);
+    expect(show(daySchedule(1, saved, [2, 3, 4]))).toEqual(["start:KE723 인천 → 간사이(to)", "place:오사카성", "place:도톤보리 라멘", "end:오사카 호텔"]);
+  });
+  it("마지막 날: 숙소가 첫날 하나뿐이면 그 숙소에서 시작한다", () => {
+    const oneHotel = trip.filter((i) => i.name !== "교토 료칸");
+    expect(show(daySchedule(3, oneHotel))).toEqual(["place:기요미즈데라"]);
+    expect(show(daySchedule(4, oneHotel))).toEqual(["start:오사카 호텔", "place:후시미 이나리", "end:KE724 간사이 → 인천(from)"]);
   });
   it("그날 일정이 없으면 빈 목록", () => {
     expect(daySchedule(5, trip)).toEqual([]);

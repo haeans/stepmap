@@ -12,6 +12,7 @@ import { useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNod
 import { createPortal } from "react-dom";
 import type { GroupedItems } from "@/lib/items/group";
 import { daySchedule, type DayEntry } from "@/lib/items/day-plan";
+import { mergeByTime, type Merged } from "@/lib/items/merge-by-time";
 import type { Item } from "@/lib/items/types";
 import { dayColor } from "@/lib/map/places";
 import type { TripDay } from "@/lib/trips/days";
@@ -249,6 +250,18 @@ function DayBlock({
   const empty = entries.length === 0 && pendingCount === 0;
   const end = entries.at(-1)?.role === "end" ? entries.at(-1) : undefined;
   const body = end ? entries.slice(0, -1) : entries;
+  const startEntry = body[0]?.role === "start" ? body[0] : undefined;
+  const placeEntries = startEntry ? body.slice(1) : body;
+  const lodgingPreviews = previews.filter((p) => p.item.kind === "lodging");
+  const rows: Merged<DayEntry, PendingPreview>[] = [
+    ...(startEntry ? [{ kind: "saved" as const, value: startEntry }] : []),
+    ...mergeByTime(
+      placeEntries,
+      previews.filter((p) => p.item.kind !== "lodging"),
+      (e) => e.item.time,
+      (p) => p.item.time,
+    ),
+  ];
   const card = (e: DayEntry) =>
     e.role !== "place" && e.side ? (
       <HubCard item={e.item} side={e.side} />
@@ -288,13 +301,21 @@ function DayBlock({
             >
               <div className="min-h-0 overflow-hidden" inert={!open}>
                 <ul className="flex flex-col gap-3">
-                  {body.map((e, i) => (
-                    <Reveal as="li" key={`${e.role}:${e.item.id}`} delay={i * 80}>
-                      {card(e)}
-                    </Reveal>
-                  ))}
-                  {/* F28 미리보기와 F18 추천은 그날 끝(숙소·출발 거점) 앞에 둔다. 미리보기는 저장 전이라 하루 일정 규칙(F26)을 적용하지 않는다. */}
-                  {previews.map((p) => (
+                  {/* 시작(전날 숙소·도착 거점)은 맨 위. 그 아래 저장된 장소와 F28 미리보기를 시각순으로 섞는다.
+                      그래서 미리보기를 "넣기"로 저장해도 카드가 그 자리에 남는다(fix-day-lodging). 미리보기는 저장 전이라
+                      하루 일정 규칙(F26)을 적용하지 않지만, 숙소 미리보기는 저장 후처럼 그날 끝(출발 거점·숙소) 바로 앞에 둔다. */}
+                  {rows.map((r, i) =>
+                    r.kind === "saved" ? (
+                      <Reveal as="li" key={`${r.value.role}:${r.value.item.id}`} delay={i * 80}>
+                        {card(r.value)}
+                      </Reveal>
+                    ) : (
+                      <li key={r.value.id}>
+                        <PreviewCard tripId={tripId} preview={r.value} color={color} days={dayOptions} />
+                      </li>
+                    ),
+                  )}
+                  {lodgingPreviews.map((p) => (
                     <li key={p.id}>
                       <PreviewCard tripId={tripId} preview={p} color={color} days={dayOptions} />
                     </li>
@@ -336,6 +357,8 @@ export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = n
   const days = [...grouped.days];
   // 하루 일정 규칙(C9 F26)은 다른 날의 숙소(전날 밤)와 교통도 봐야 해서 전체 항목으로 계산한다. 메모는 쓰지 않는다.
   const allItems = [...grouped.transport, ...grouped.lodging, ...grouped.days.flatMap((d) => d.places)];
+  // 미리보기가 있는 일차도 첫날·마지막 날 계산에 넣는다(일부만 저장했을 때 마지막 날 숙소가 사라지지 않게, fix-day-lodging)
+  const previewDays = [...new Set(previews.map((p) => p.item.day))];
   const lastSuggested = Math.max(0, ...suggestions.map((s) => s.item.day), ...previews.map((p) => p.item.day));
   for (let d = days.length + 1; d <= lastSuggested; d++) days.push({ day: { day: d, date: null }, places: [] });
 
@@ -373,7 +396,7 @@ export function MagazineView({ trip, grouped, dayOptions, readOnly, coverUrl = n
               key={day.day}
               day={day}
               places={dayPlaces}
-              entries={daySchedule(day.day, allItems)}
+              entries={daySchedule(day.day, allItems, previewDays)}
               destination={trip.destination}
               contentLeft={index % 2 === 0}
               photos={photos}

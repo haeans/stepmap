@@ -104,6 +104,8 @@ export function PreviewCard({ tripId, preview, color, days }: Props) {
   const notFound = state.status === "done" && !state.result.found;
   const cost = formatCost(item.costAmount, item.costCurrency);
   const date = days.find((d) => d.day === item.day)?.date;
+  // 숙소는 그날 맨 끝에 놓이므로 체크인 시각을 앞면에 보이지 않는다(서랍의 "시간" 줄에는 보임, fix-day-lodging).
+  const cornerTime = item.kind === "lodging" ? null : item.time;
 
   function onAccept() {
     startSave(async () => {
@@ -147,8 +149,8 @@ export function PreviewCard({ tripId, preview, color, days }: Props) {
               />
             )}
             <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" />
-            {item.time && <span className="absolute top-3 left-3 rounded-full bg-black/45 px-2.5 py-1 font-mono text-xs backdrop-blur-md">{item.time}</span>}
-            <span className={`absolute left-3 rounded-full bg-sky-200/90 px-2.5 py-1 text-xs font-semibold text-zinc-900 ${item.time ? "top-11" : "top-3"}`}>미리보기</span>
+            {cornerTime && <span className="absolute top-3 left-3 rounded-full bg-black/45 px-2.5 py-1 font-mono text-xs backdrop-blur-md">{cornerTime}</span>}
+            <span className={`absolute left-3 rounded-full bg-sky-200/90 px-2.5 py-1 text-xs font-semibold text-zinc-900 ${cornerTime ? "top-11" : "top-3"}`}>미리보기</span>
             {note && (
               <span
                 className={`absolute right-3 bottom-[3.25rem] max-w-[70%] truncate rounded-full px-2.5 py-1 text-xs backdrop-blur-md ${
