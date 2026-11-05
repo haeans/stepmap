@@ -2,10 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/user";
-import { extractWithGemini } from "@/lib/extract/gemini";
+import { extractWithAi } from "@/lib/extract/ai";
 import { maskPersonal } from "@/lib/extract/mask";
 import { hideForAi } from "@/lib/extract/vault";
 import { MAX_ITEMS, MAX_TEXT_LENGTH, normalizeItems, type ExtractedItem } from "@/lib/extract/normalize";
+import { detectPeriod, type Period } from "@/lib/extract/period";
 import { loadTripContext } from "@/lib/assistant/context";
 import { nextPosition, resolvePlace, saveSecret, toRow } from "@/lib/items/store";
 import { parseItemForm, toSecretRow, type ItemInput } from "@/lib/items/validation";
@@ -18,7 +19,14 @@ import { cleanPackingLabels } from "@/lib/trips/packing";
 
 // unassigned: AI가 어느 항목에도 붙이지 않은 예약번호(F20). 미리보기에서 사용자가 직접 넣는다.
 // packing: 준비물(C9 F27). 저장하지 않고 화면이 브라우저 체크리스트에 더한다.
-export type ExtractState = { error: string | null; items: ExtractedItem[] | null; unassigned?: string[]; packing?: string[] };
+// period: 원문 기간이 여행과 달라 맞추자고 물을 기간(C10 F33). current는 지금 여행 기간.
+export type ExtractState = {
+  error: string | null;
+  items: ExtractedItem[] | null;
+  unassigned?: string[];
+  packing?: string[];
+  period?: { to: Period; current: { startDate: string | null; endDate: string | null } };
+};
 export type SaveExtractedState = { error: string | null; saved: number | null };
 
 export async function extractItems(tripId: string, _prev: ExtractState, form: FormData): Promise<ExtractState> {
@@ -36,7 +44,7 @@ export async function extractItems(tripId: string, _prev: ExtractState, form: Fo
   const { dayCount, busy } = trip;
 
   const hidden = hideForAi(text);
-  const result = await extractWithGemini(
+  const result = await extractWithAi(
     { destination: trip.destination, startDate: trip.startDate, endDate: trip.endDate, dayCount },
     maskPersonal(hidden.text),
     trip.existing.map((i) => ({ ...i, name: maskPersonal(i.name), address: maskPersonal(i.address) })),
@@ -48,7 +56,10 @@ export async function extractItems(tripId: string, _prev: ExtractState, form: Fo
   if (!items.length && !packing.length) return { error: "찾은 항목이 없습니다.", items: null };
   const used = new Set(items.map((i) => i.booking?.no).filter(Boolean));
   const unassigned = [...new Set(hidden.vault.bookings)].filter((b) => !used.has(b));
-  return { error: null, items, unassigned, packing };
+  // C10 F33: 원문의 "3박 4일"·날짜·일차가 여행 기간과 다르면 맞추자고 묻는다(바꾸는 건 사용자가 누를 때).
+  const current = { startDate: trip.startDate, endDate: trip.endDate };
+  const to = detectPeriod(text, current, result.items.map((r) => ({ date: r.date ?? null, day: r.day ?? null })));
+  return { error: null, items, unassigned, packing, ...(to ? { period: { to, current } } : {}) };
 }
 
 export async function saveExtractedItems(

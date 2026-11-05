@@ -8,7 +8,8 @@ import { saveExtractedItems } from "@/app/actions/extract";
 import { itemsForm } from "@/lib/items/save-form";
 import { PREVIEWS_ANCHOR, removePreviews, SHOW_PREVIEWS_EVENT, type PendingPreview } from "./previews";
 
-export function PreviewBar({ tripId, previews }: { tripId: string; previews: PendingPreview[] }) {
+// goOnly: DAY 카드로 보이지 않는 교통 미리보기(첫날·마지막 날 거점이 아닌 비행기·기차 등). 저장하면 GO에 들어간다. (C10 F33)
+export function PreviewBar({ tripId, previews, goOnly = [] }: { tripId: string; previews: PendingPreview[]; goOnly?: PendingPreview[] }) {
   const ref = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, startSave] = useTransition();
@@ -51,6 +52,24 @@ export function PreviewBar({ tripId, previews }: { tripId: string; previews: Pen
         <p className="mt-1 text-xs leading-relaxed text-white/65">
           아직 저장 전이에요. 사진과 &ldquo;지도에서 찾지 못함&rdquo; 표시를 보고 고치거나 빼 주세요. 카드마다 넣거나 한꺼번에 저장할 수 있어요.
         </p>
+        {goOnly.length > 0 && (
+          <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+            <span className="text-white/65">GO에 들어갈 교통:</span>
+            {goOnly.map((p) => (
+              <span key={p.id} className="inline-flex items-center gap-1 rounded-full bg-white/10 py-0.5 pr-1 pl-2.5">
+                DAY {p.item.day} · {p.item.name}
+                <button
+                  type="button"
+                  onClick={() => removePreviews(tripId, [p.id])}
+                  aria-label={`${p.item.name} 미리보기 빼기`}
+                  className="rounded-full px-1.5 text-rose-200 transition hover:bg-rose-500/60 hover:text-white"
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
         {error && <p className="mt-2 text-xs text-rose-300">{error}</p>}
       </div>
       <div className="flex shrink-0 items-center gap-1 text-sm">

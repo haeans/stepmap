@@ -35,7 +35,8 @@ function routeSides(name: string): { carrier: string; from: string; to: string }
   const m = name.match(ARROW);
   if (!m || m.index === undefined) return { carrier: name.trim(), from: "", to: "" };
   const words = name.slice(0, m.index).trim().split(/\s+/).filter(Boolean);
-  const from = words.pop() ?? "";
+  // "MM702 →KIX"처럼 출발지 없이 편명만 있으면 편명은 출발지가 아니다(C10 F33).
+  const from = words.length && !FLIGHT_NO.test(words.at(-1)!) ? (words.pop() ?? "") : "";
   // 도착 쪽은 첫 낱말(공항 이름)만. 뒤에 붙은 터미널(T1) 같은 말은 버린다.
   const to = name.slice(m.index + m[0].length).trim().split(/\s+/)[0] ?? "";
   return { carrier: words.join(" "), from, to };
@@ -56,6 +57,33 @@ function flightSide(place: string): { code: string; name: string } {
   return { code: bare, name: bare };
 }
 
+// 화살표가 없고, 아는 공항(코드나 "○○공항") 하나와 출발·도착 말이 있으면 그쪽 공항만 있는 비행기로 본다.
+// 기차·버스 말이 있으면(공항철도·공항버스) 보지 않는다.
+const DEPART_WORDS = /출발|departure|depart/i;
+const ARRIVE_WORDS = /도착|arrival|arrive/i;
+
+// 공항 목록(AIRPORTS)에 없는 공항도 글 모양으로 알아본다: 3글자 대문자 코드, "○○공항"·"○○ 국제공항"·"○○ Airport".
+// 목록은 한국어 이름으로 바꿔 보이는 데만 쓰고, 없으면 원문의 이름·코드를 그대로 쓴다.
+const NAMED_AIRPORT = /([^\s()[\]·,]+?)\s*(?:국제\s*)?공항|([A-Za-z][A-Za-z .'-]*?)\s+(?:International\s+)?Airport\b/i;
+
+function singleAirport(name: string): Omit<Flight, "flightNo"> | null {
+  if (ARROW.test(name) || GROUND_WORDS.test(name)) return null;
+  const depart = DEPART_WORDS.test(name);
+  const arrive = ARRIVE_WORDS.test(name);
+  if (depart === arrive) return null;
+  const code = name.match(/\b[A-Z]{3}\b/)?.[0];
+  const named = name.match(NAMED_AIRPORT);
+  const label = named ? (named[1] ?? named[2]).trim() : null;
+  if (!code && !label) return null;
+  // 코드가 있으면 코드(목록에 있으면 한국어 이름), 없으면 적힌 이름(목록에 있으면 그 코드)
+  const side = code
+    ? { code, name: AIRPORTS[code] ?? label ?? code }
+    : { code: airportCode(label!) ?? label!, name: AIRPORTS[airportCode(label!) ?? ""] ?? label! };
+  const none = { code: "", name: "" };
+  const [a, b] = depart ? [side, none] : [none, side];
+  return { from: a.code, to: b.code, fromName: a.name, toName: b.name };
+}
+
 export function parseFlight(item: Pick<Item, "name" | "address" | "memo">): Flight | null {
   const no = `${item.address} ${item.name} ${item.memo}`.match(/\b([A-Z]{2}|[A-Z]\d|\d[A-Z])\s?(\d{2,4})\b/);
   const flightNo = no ? `${no[1]}${no[2]}` : null;
@@ -65,6 +93,10 @@ export function parseFlight(item: Pick<Item, "name" | "address" | "memo">): Flig
     const [, from, to] = coded;
     return { from, to, fromName: AIRPORTS[from] ?? from, toName: AIRPORTS[to] ?? to, flightNo };
   }
+
+  // ④ 화살표 없이 공항 하나와 출발·도착 말: "KIX 간사이공항 출발", "간사이공항 도착" (C10 F33)
+  const single = singleAirport(item.name);
+  if (single) return { ...single, flightNo };
 
   const { carrier, from, to } = routeSides(item.name);
   const flightWord = !GROUND_WORDS.test(item.name) && (carrier.split(/\s+/).some((w) => FLIGHT_NO.test(w)) || FLIGHT_WORDS.test(item.name));

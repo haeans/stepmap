@@ -15,18 +15,14 @@ export function NewTripForm() {
 
   if (!open) {
     return (
-      // 새 여행 만들기 버튼: 로고 그림(발자국·핀) + "+" + "새 발자국" (C9 F21). 하늘 배경 위에 밝은 알약으로 둔다.
+      // 새 여행 만들기 버튼: 빨간 원 안의 "+" + "새 발자국" (C9 F21, F32에서 로고 그림을 뺌). 하늘 배경 위에 밝은 반투명 알약으로 둔다(F32).
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="group flex items-center gap-2.5 self-start rounded-full border border-white/70 bg-surface/90 py-2 pr-5 pl-3 font-medium text-[#603820] shadow-md backdrop-blur-md transition hover:-translate-y-0.5 hover:shadow-lg active:scale-95 motion-reduce:transition-none motion-reduce:hover:translate-y-0 dark:border-line dark:text-foreground"
+        className="group flex items-center gap-2.5 self-start rounded-full border border-white/70 bg-surface/10 py-2 pr-5 pl-2.5 font-medium text-[#603820] shadow-md backdrop-blur-md transition hover:-translate-y-0.5 hover:shadow-lg active:scale-95 motion-reduce:transition-none motion-reduce:hover:translate-y-0 dark:border-line dark:text-foreground"
       >
-        <span aria-hidden className="relative flex">
-          {/* eslint-disable-next-line @next/next/no-img-element -- 브랜드 이미지는 <img>로 쓴다(B49) */}
-          <img src="/brand/logo-mark.png" alt="" width={67} height={60} className="h-8 w-auto dark:brightness-0 dark:invert" />
-          <span className="absolute -right-1.5 -bottom-1 flex size-4 items-center justify-center rounded-full bg-accent text-xs leading-none font-bold text-white ring-2 ring-surface">
-            +
-          </span>
+        <span aria-hidden className="flex size-6 shrink-0 items-center justify-center rounded-full bg-accent text-base leading-none font-bold text-white">
+          +
         </span>
         새 발자국
       </button>

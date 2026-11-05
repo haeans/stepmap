@@ -123,8 +123,9 @@ function Settle({ tripId, items, companions, readOnly }: { tripId: string; items
           ))}
         </tbody>
       </table>
-      <p className="text-xs opacity-60" aria-live="polite">
-        {error ?? (readOnly ? "공유받은 여행이라 인원은 저장되지 않아요." : saving ? "인원 저장 중…" : "인원은 이 여행에 저장돼요.")}
+      {/* 평소에는 비어 있어 숨는다(F32). 저장 중·오류·공유받은 여행 안내만 보인다 */}
+      <p className="text-xs opacity-60 empty:hidden" aria-live="polite">
+        {error ?? (readOnly ? "공유받은 여행이라 인원은 저장되지 않아요." : saving ? "인원 저장 중…" : null)}
       </p>
     </div>
   );
